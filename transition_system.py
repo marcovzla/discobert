@@ -5,8 +5,9 @@ class Node:
 
 class TransitionSystem:
 
-    def __init__(self):
+    def __init__(self, edus=None):
         self.reset()
+        self.buffer.extend(edus)
 
     def reset(self):
         self.buffer = []
