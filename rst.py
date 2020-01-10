@@ -25,4 +25,4 @@ def load_dis(name):
 
 def load_edus(name):
     with open(name) as f:
-        return f.readlines()
+        return [line.strip() for line in f]
