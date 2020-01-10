@@ -33,7 +33,7 @@ class TransitionSystem:
     def all_actions(self):
         return ['shift', 'reduce']
 
-    def valid_actions(self):
+    def legal_actions(self):
         actions = []
         if self.can_shift():
             actions.append('shift')
