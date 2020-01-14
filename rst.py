@@ -27,7 +27,6 @@ def load_edus(name):
     with open(name) as f:
         return [line.strip() for line in f]
 
-
 class Node:
 
     def __init__(self, kind):
@@ -37,10 +36,12 @@ class Node:
     def is_leaf(self):
         return len(self.children) == 0
 
+    @property
     def lhs(self):
         if len(self.children) == 2:
             return self.children[0]
 
+    @property
     def rhs(self):
         if len(self.children) == 2:
             return self.children[1]
@@ -67,27 +68,34 @@ def parse_node(tokens, position):
     t = tokens[i]
     kind = t.lastgroup
     value = t.group()
-    if value == 'leaf':
-        n = int(tokens[i+1].group()) - 1 # zero-based
-        assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
-        return ('leaf', n, i+3)
-    elif value == 'span':
-        n = int(tokens[i+1].group()) - 1 # zero-based
-        m = int(tokens[i+2].group()) # exclusive on the end
-        assert tokens[i+3].lastgroup == 'CLOSE_PARENS'
-        return ('span', [n,m], i+4)
-    elif value == 'rel2par':
-        label = tokens[i+1].group()
-        assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
-        return ('rel2par', label, i+3)
-    elif value == 'text':
-        text = tokens[i+1].group()[2:-2]
-        assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
-        return ('text', text, i+3)
-    elif kind == 'OPEN_PARENS':
+    if kind == 'OPEN_PARENS':
         # skip
         return parse_node(tokens, i + 1)
-    else:
+    elif value == 'leaf':
+        # the index of the corresponding EDU
+        n = int(tokens[i+1].group()) - 1 # zero-based
+        assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
+        return (value, n, i+3)
+    elif value == 'span':
+        # the span of EDUs that are leaves to this node
+        n = int(tokens[i+1].group()) - 1 # zero-based
+        m = int(tokens[i+2].group()) # exclusive end
+        assert tokens[i+3].lastgroup == 'CLOSE_PARENS'
+        return (value, range(n, m), i+4)
+    elif value == 'rel2par':
+        # the discourse relation label.
+        # this should be in the parent node,
+        # which is the reason for having propagate_labels()
+        label = tokens[i+1].group()
+        assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
+        return (value, label, i+3)
+    elif value == 'text':
+        # the EDU's text
+        text = tokens[i+1].group()[2:-2] # drop _! delimiters
+        assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
+        return (value, text, i+3)
+    elif value in ['Nucleus', 'Satellite', 'Root']:
+        # a tree node
         node = Node(value)
         pos = i + 1
         while tokens[pos].lastgroup != 'CLOSE_PARENS':
@@ -97,23 +105,31 @@ def parse_node(tokens, position):
             else:
                 setattr(node, key, val)
         return (value, node, pos+1)
+    else:
+        raise Exception(f"unrecognized kind '{kind}'")
 
 def propagate_labels(node):
+    """propagate rel2par labels from children to parent"""
+    # are we done?
     if node.is_leaf():
         return
+    # unpack children
     [lhs, rhs] = node.children
+    # find label and direction
     if lhs.kind == 'Nucleus' and rhs.kind == 'Satellite':
-        direction = 'LeftToRight'
         label = rhs.rel2par
+        direction = 'LeftToRight'
     elif lhs.kind == 'Satellite' and rhs.kind == 'Nucleus':
+        label = lhs.rel2par
         direction = 'RightToLeft'
-        label = lhs.rel2par
     elif lhs.kind == rhs.kind:
-        direction = 'None'
         label = lhs.rel2par
+        direction = 'None'
     else:
-        raise Exception('this should be impossible')
+        raise Exception('unexpected children kinds')
+    # set label and direction
     node.label = label
     node.direction = direction
+    # recurse
     propagate_labels(lhs)
     propagate_labels(rhs)
