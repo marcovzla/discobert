@@ -1,5 +1,6 @@
 import os
 import re
+from copy import copy
 from collections import namedtuple
 
 RST_CORPUS_PATH = 'RST/data/RSTtrees-WSJ-main-1.0/TRAINING/'
@@ -36,7 +37,8 @@ class TreeNode:
         self.leaf = leaf
         self.span = span
 
-    def is_leaf(self):
+    @property
+    def is_terminal(self):
         return len(self.children) == 0
 
     @property
@@ -48,6 +50,18 @@ class TreeNode:
     def rhs(self):
         if len(self.children) == 2:
             return self.children[1]
+
+    def get_terminals(self):
+        if self.is_terminal:
+            return [self]
+        terminals = []
+        for c in self.children:
+            terminals += c.get_terminals()
+        return terminals
+
+    def get_span(self):
+        edus = [t.leaf for t in self.get_terminals()]
+        return range(min(edus), max(edus) + 1)
 
     @classmethod
     def from_string(cls, string):
@@ -114,7 +128,7 @@ def parse_node(tokens, position):
 def propagate_labels(node):
     """propagate rel2par labels from children to parent"""
     # are we done?
-    if node.is_leaf():
+    if node.is_terminal:
         return
     # unpack children
     [lhs, rhs] = node.children
@@ -134,5 +148,25 @@ def propagate_labels(node):
     node.label = label
     node.direction = direction
     # recurse
-    propagate_labels(lhs)
-    propagate_labels(rhs)
+    for c in node.children:
+        propagate_labels(c)
+
+def binarize_tree(node):
+    if node.is_terminal:
+        return node
+    if len(node.children) > 2:
+        old_children = node.children
+        node.children = []
+        node.children.append(old_children[0])
+        node.children.append(make_binary_child(node, old_children[1:]))
+    for c in node.children:
+        binarize_tree(c)
+    return node
+
+def make_binary_child(parent, children):
+    if len(children) == 1:
+        return children[0]
+    node = copy(parent)
+    node.children = [children[0], make_binary_child(parent, children[1:])]
+    node.span = node.get_span()
+    return node
