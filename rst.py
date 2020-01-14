@@ -21,17 +21,20 @@ def load_raw(name):
 
 def load_dis(name):
     with open(name) as f:
-        return Node.from_string(f.read())
+        return TreeNode.from_string(f.read())
 
 def load_edus(name):
     with open(name) as f:
         return [line.strip() for line in f]
 
-class Node:
+class TreeNode:
 
-    def __init__(self, kind):
+    def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None):
         self.kind = kind
-        self.children = []
+        self.children = children if children is not None else []
+        self.text = text
+        self.leaf = leaf
+        self.span = span
 
     def is_leaf(self):
         return len(self.children) == 0
@@ -96,7 +99,7 @@ def parse_node(tokens, position):
         return (value, text, i+3)
     elif value in ['Nucleus', 'Satellite', 'Root']:
         # a tree node
-        node = Node(value)
+        node = TreeNode(kind=value)
         pos = i + 1
         while tokens[pos].lastgroup != 'CLOSE_PARENS':
             key, val, pos = parse_node(tokens, pos)
