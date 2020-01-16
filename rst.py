@@ -63,6 +63,14 @@ class TreeNode:
         edus = [t.leaf for t in self.get_terminals()]
         return range(min(edus), max(edus) + 1)
 
+    def gold_spans(self):
+        golds = [self.span]
+        if not self.is_terminal:
+            for c in self.children:
+                golds.extend(c.gold_spans())
+        return golds
+
+
     @classmethod
     def from_string(cls, string):
         key, tree, pos = parse_node(tokenize(string), 0)
@@ -121,6 +129,8 @@ def parse_node(tokens, position):
                 node.children.append(val)
             else:
                 setattr(node, key, val)
+        # set correct span
+        node.span = node.get_span()
         return (value, node, pos+1)
     else:
         raise Exception(f"unrecognized kind '{kind}'")
