@@ -3,6 +3,7 @@ from torch import nn
 from transformers import *
 from transition_system import EDU, TransitionSystem
 
+inf = float('inf')
 
 class DiscoBertModel(BertPreTrainedModel):
 
@@ -14,9 +15,13 @@ class DiscoBertModel(BertPreTrainedModel):
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        # todo: check what hidden size
         self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
 
         # TODO tensor to represent missing node
+        self.bert_embedding_size = ??? # FIXME
+        self.missing_node = nn.init.normal_(torch.empty(self.bert_embedding_size))
+
 
         # vocabularies
         self.id2action = ['shift', 'reduce']
@@ -30,6 +35,14 @@ class DiscoBertModel(BertPreTrainedModel):
 
         self.init_weights()
 
+    def make_features(self, parser):
+        s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
+        s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
+        b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+        features = torch.cat([s1, s0, b])
+        return features
+
+
     def merge_embeddings(self, embed_1, embed_2):
         # for now, add
         return embed_1 + embed_2
@@ -37,10 +50,10 @@ class DiscoBertModel(BertPreTrainedModel):
     def best_action(self, actions, logits):
         if len(actions) == 1:
             return self.action2id[actions[0]]
-        elif len(actions) == len(logits):
+        elif len(actions) == logits.shape[0]: # FIXME is batch first or after?
             return torch.argmax(logits)
         action_ids = [self.action2id[a] for a in actions]
-        mask = torch.ones_like(logits) * -torch.inf
+        mask = torch.ones_like(logits) * -inf
         mask[action_ids] = 0
         masked_logits = logits + mask
         return torch.argmax(masked_logits)
@@ -63,7 +76,7 @@ class DiscoBertModel(BertPreTrainedModel):
             losses = []
 
         while not parser.is_done():
-            state_features = self.mk_features(parser)
+            state_features = self.make_features(parser)
             logits = self.classifier(state_features)
             legal_actions = parser.legal_actions()
             pred_action = self.best_action(legal_actions, logits)
