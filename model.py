@@ -63,7 +63,7 @@ class DiscoBertModel(BertPreTrainedModel):
             losses = []
 
         while not parser.is_done():
-            state_features = self.mkFeatures(parser)
+            state_features = self.mk_features(parser)
             logits = self.classifier(state_features)
             legal_actions = parser.legal_actions()
             pred_action = self.best_action(legal_actions, logits)
