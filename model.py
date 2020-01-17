@@ -24,14 +24,14 @@ class DiscoBertModel(BertPreTrainedModel):
 
 
         # vocabularies
-        self.id2action = ['shift', 'reduce']
-        self.action2id = {action:id for id,action in enumerate(self.id2action)}
+        self.id_to_action = ['shift', 'reduce']
+        self.action_to_id = {action:id for id,action in enumerate(self.id_to_action)}
 
-        self.id2direction = ['leftToRight', 'rightToLeft', 'None']
-        self.direction2id = {direction:id for id,direction in self.id2direction}
+        self.id_to_direction = ['leftToRight', 'rightToLeft', 'None']
+        self.direction_to_id = {direction:id for id,direction in enumerate(self.id_to_direction)}
 
-        self.id2relation = ['elaboration', 'contrast'] # fixme: add rest/real
-        self.relation2id = {relation:id for id,relation in self.id2relation}
+        self.id_to_relation = ['elaboration', 'contrast'] # fixme: add rest/real
+        self.relation_to_id = {relation:id for id,relation in enumerate(self.id_to_relation)}
 
         self.init_weights()
 
@@ -86,9 +86,9 @@ class DiscoBertModel(BertPreTrainedModel):
                 loss = loss_fct(logits.view(-1, self.num_labels), gold_action)
                 losses.append(loss)
                 # teacher forcing ?
-                parser.take_action(self.id2action[gold_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
+                parser.take_action(self.id_to_action[gold_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
             else:
-                parser.take_action(self.id2action[pred_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
+                parser.take_action(self.id_to_action[pred_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
 
         predicted_tree = parser.get_result()
         outputs = (predicted_tree,)
