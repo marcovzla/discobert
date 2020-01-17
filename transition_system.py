@@ -1,30 +1,15 @@
-class Node:
-    def __init__(self, lhs, rhs, embedding=None):
-        self.lhs = lhs
-        self.rhs = rhs
-        self.embedding = embedding
-        self.span = range(lhs.span.start, rhs.span.stop)
+from copy import deepcopy
+from collections import namedtuple
+from rst import TreeNode
 
-    def spans(self):
-        ss = [self.span]
-        ss.extend(self.lhs.spans())
-        ss.extend(self.rhs.spans())
-        return ss
-
-class EDU:
-    def __init__(self, text, idx, embedding=None):
-        self.text = text
-        self.span = range(idx, idx+1)
-        self.embedding = embedding
-
-    def spans(self):
-        return [self.span]
+Step = namedtuple('Step', 'action label direction')
 
 class TransitionSystem:
 
     def __init__(self, edus=None):
         self.reset()
-        self.buffer.extend(edus)
+        if edus is not None:
+            self.buffer.extend(edus)
 
     def reset(self):
         self.buffer = []
@@ -37,21 +22,29 @@ class TransitionSystem:
         if self.is_done():
             return self.stack[0]
 
+    def take_action(self, action, *args, **kwargs):
+        if action == 'shift':
+            self.shift()
+        elif action == 'reduce':
+            self.reduce(*args, **kwargs)
+
     def shift(self):
         node = self.buffer.pop(0)
         self.stack.append(node)
 
-    def reduce(self, reduce_fn=None):
+    def reduce(self, label=None, direction=None, reduce_fn=None):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
         emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
-        node = Node(lhs, rhs, emb)
+        node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
+        node.calc_span()
         self.stack.append(node)
 
-    def all_actions(self):
+    @staticmethod
+    def all_actions():
         return ['shift', 'reduce']
 
-    def legal_actions(self):
+    def all_legal_actions(self):
         actions = []
         if self.can_shift():
             actions.append('shift')
@@ -65,24 +58,36 @@ class TransitionSystem:
     def can_reduce(self):
         return len(self.stack) >= 2
 
-    def all_correct_actions(self, gold_spans):
-        correct_actions = []
+    def gold_path(self, gold_tree):
+        """The correct sequence of steps according to the given gold tree."""
+        parser = deepcopy(self)
+        while not parser.is_done():
+            step = parser.gold_step(gold_tree)
+            parser.take_action(*step)
+            yield step
+
+    def gold_step(self, gold_tree):
+        """The right step to take. If there are several then it returns an arbitrary one."""
+        correct_steps = self.all_correct_steps(gold_tree)
+        if len(correct_steps) > 0:
+            return correct_steps[0]
+
+    def all_correct_steps(self, gold_tree):
+        """All steps that would take us from the current state to a state from which it is still possible to reach the gold tree."""
+        correct_steps = []
         if self.can_reduce():
             rhs = self.stack[-1]
             lhs = self.stack[-2]
             new_span = range(lhs.span.start, rhs.span.stop)
-            if new_span in gold_spans:
-                correct_actions.append('reduce')
-            elif self.can_shift():
-                correct_actions.append('shift')
+            for n in gold_tree.iter_nodes():
+                if n.span == new_span:
+                    correct_steps.append(Step('reduce', n.label, n.direction))
+                    break
             else:
-                raise Exception("There is no correct action given the current state of the parser.")
+                if self.can_shift():
+                    correct_steps.append(Step('shift', None, None))
+                else:
+                    raise Exception("There is no correct action given the current state of the parser.")
         elif self.can_shift():
-            correct_actions.append('shift')
-        return correct_actions
-
-    def take_action(self, action, reduce_fn=None):
-        if action == 'shift':
-            self.shift()
-        elif action == 'reduce':
-            self.reduce(reduce_fn)
+            correct_steps.append(Step('shift', None, None))
+        return correct_steps

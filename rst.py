@@ -30,12 +30,18 @@ def load_edus(name):
 
 class TreeNode:
 
-    def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None):
+    def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None, label=None, direction=None, embedding=None):
         self.kind = kind
         self.children = children if children is not None else []
         self.text = text
         self.leaf = leaf
         self.span = span
+        self.label = label
+        self.direction = direction
+        self.embedding = embedding
+
+    def __eq__(self, other):
+        return self.span == other.span and self.label == other.label and self.direction == other.direction and self.children == other.children
 
     @property
     def is_terminal(self):
@@ -59,9 +65,21 @@ class TreeNode:
             terminals += c.get_terminals()
         return terminals
 
-    def get_span(self):
-        edus = [t.leaf for t in self.get_terminals()]
-        return range(min(edus), max(edus) + 1)
+    def calc_span(self):
+        edus = [t.leaf for t in self.iter_terminals()]
+        self.span = range(min(edus), max(edus) + 1)
+
+    def iter_nodes(self):
+        # preorder traversal
+        yield self
+        for c in self.children:
+            for n in c.iter_nodes():
+                yield n
+
+    def iter_terminals(self):
+        for n in self.iter_nodes():
+            if n.is_terminal:
+                yield n
 
     def gold_spans(self):
         golds = [self.span]
@@ -130,7 +148,7 @@ def parse_node(tokens, position):
             else:
                 setattr(node, key, val)
         # set correct span
-        node.span = node.get_span()
+        node.calc_span()
         return (value, node, pos+1)
     else:
         raise Exception(f"unrecognized kind '{kind}'")
@@ -178,5 +196,5 @@ def make_binary_child(parent, children):
         return children[0]
     node = copy(parent)
     node.children = [children[0], make_binary_child(parent, children[1:])]
-    node.span = node.get_span()
+    node.calc_span()
     return node
