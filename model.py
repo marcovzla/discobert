@@ -5,6 +5,8 @@ from transition_system import EDU, TransitionSystem
 
 inf = float('inf')
 
+# TODO: document the types of function args
+
 class DiscoBertModel(BertPreTrainedModel):
 
     def __init__(self, config=None):
