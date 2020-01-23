@@ -7,7 +7,10 @@ inf = float('inf')
 
 class DiscoBertModel(BertPreTrainedModel):
 
-    def __init__(self, config):
+    def __init__(self, config=None):
+        if config is None:
+            config = BertConfig()
+
         super().__init__(config)
         self.num_labels = config.num_labels
 
@@ -15,12 +18,11 @@ class DiscoBertModel(BertPreTrainedModel):
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
         self.bert = BertModel(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        # todo: check what hidden size
-        self.classifier = nn.Linear(config.hidden_size, self.config.num_labels)
+        # TODO: attention over whole stack and whole buffer, then this will be 2 * hidden_size
+        self.classifier = nn.Linear(3 * config.hidden_size, self.config.num_labels)
 
         # TODO tensor to represent missing node
-        self.bert_embedding_size = ??? # FIXME
-        self.missing_node = nn.init.normal_(torch.empty(self.bert_embedding_size))
+        self.missing_node = nn.init.normal_(torch.empty(config.hidden_size))
 
 
         # vocabularies
@@ -78,10 +80,12 @@ class DiscoBertModel(BertPreTrainedModel):
         while not parser.is_done():
             state_features = self.make_features(parser)
             logits = self.classifier(state_features)
-            legal_actions = parser.legal_actions()
+            legal_actions = parser.all_legal_actions()
             pred_action = self.best_action(legal_actions, logits)
             if gold_tree is not None:
-                gold_actions = parser.all_correct_actions(gold_spans)
+                gold_steps = parser.all_correct_steps(gold_spans)
+                gold_actions = [step.action for step in gold_steps]
+                # TODO: should we replace this with getting the gold path from the beginning?
                 gold_action = self.best_action(gold_actions, logits)
                 loss = loss_fct(logits.view(-1, self.num_labels), gold_action)
                 losses.append(loss)
@@ -90,6 +94,7 @@ class DiscoBertModel(BertPreTrainedModel):
             else:
                 parser.take_action(self.id_to_action[pred_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
 
+        # returns the TreeNode for the whole tree
         predicted_tree = parser.get_result()
         outputs = (predicted_tree,)
 

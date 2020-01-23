@@ -1,14 +1,18 @@
+from glob import glob
 import os
 import re
 from copy import copy
 from collections import namedtuple
 
-RST_CORPUS_PATH = 'RST/data/RSTtrees-WSJ-main-1.0/TRAINING/'
-
 Annotation = namedtuple('Annotation', 'raw dis edus')
 
-def load_annotation(name, corpus=RST_CORPUS_PATH):
-    raw_path = os.path.join(corpus, name)
+def load_annotations(directory):
+    pattern = os.path.join(directory, '*.dis')
+    for filename in glob(pattern):
+        raw_path = os.path.splitext(filename)[0]
+        yield load_annotation(raw_path)
+
+def load_annotation(raw_path):
     dis_path = raw_path + '.dis'
     edus_path = raw_path + '.edus'
     raw = load_raw(raw_path)
