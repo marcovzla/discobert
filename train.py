@@ -15,6 +15,12 @@ device = torch.device('cpu')
 RST_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/TRAINING/'
 RST_TEST_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/TEST/'
 
+# TODO: make a validation set
+# TODO: debug the model saving (doesn't work)
+# TODO: finish the validation code -- ability to eval just tree, tree + direction, tree + dir + label
+# TODO: add the classifiers for label and direction
+
+
 def train():
     discobert = DiscoBertModel().to(device)
 
