@@ -12,7 +12,7 @@ def load_annotations(directory):
     pattern = os.path.join(directory, '*.dis')
     for filename in glob(pattern):
         raw_path = os.path.splitext(filename)[0]
-        print("file:", raw_path)
+        # print("file:", raw_path)
         yield load_annotation(raw_path)
 
 def load_annotation(raw_path):
@@ -114,7 +114,7 @@ class TreeNode:
     def from_string(cls, string):
         key, tree, pos = parse_node(tokenize(string), 0)
         propagate_labels(tree)
-
+        binarize_tree(tree)
         return tree
 
 
@@ -124,9 +124,11 @@ def tokenize(data):
         ('CLOSE_PARENS', r'\)'),
         ('STRING',       r'_!.*?_!'),
         ('SYMBOL',       r'[\w-]+'),
+        ('COMMENT',      r'//.*')
     ]
     token_regex = '|'.join(f'(?P<{name}>{regex})' for name,regex in token_specification)
-    return list(re.finditer(token_regex, data))
+    return [tok for tok in re.finditer(token_regex, data) if tok.lastgroup != 'COMMENT']
+
 
 def parse_node(tokens, position):
     i = position
@@ -173,7 +175,7 @@ def parse_node(tokens, position):
         node.calc_span()
         return (value, node, pos+1)
     else:
-        raise Exception(f"unrecognized kind '{kind}'")
+        raise Exception(f"unrecognized kind '{kind}' value='{value}'")
 
 def propagate_labels(node):
     """propagate rel2par labels from children to parent"""

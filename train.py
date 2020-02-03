@@ -23,7 +23,7 @@ def train():
 
     # for each epoch
     for epoch_i in range(num_epochs):
-        for annotation in tqdm(load_annotations(RST_CORPUS_PATH)):
+        for annotation in tqdm(list(load_annotations(RST_CORPUS_PATH))):
             discobert.zero_grad()
             loss, pred_tree = discobert(annotation.edus, annotation.dis)
             loss.backward()

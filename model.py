@@ -44,9 +44,9 @@ class DiscoBertModel(BertPreTrainedModel):
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
         b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
-        print("s1=", s1.shape)
-        print("s0=", s0.shape)
-        print("b=", b.shape)
+        # print("s1=", s1.shape)
+        # print("s0=", s0.shape)
+        # print("b=", b.shape)
         features = torch.cat([s1, s0, b])
         return features
 
@@ -86,11 +86,11 @@ class DiscoBertModel(BertPreTrainedModel):
             loss_fct = nn.CrossEntropyLoss()
             losses = []
 
-        if gold_tree is not None:
-            print("GOLD PATH:")
-            for step in parser.gold_path(gold_tree):
-                print(step)
-            print("-" * 70)
+        # if gold_tree is not None:
+        #     print("GOLD PATH:")
+        #     for step in parser.gold_path(gold_tree):
+        #         print(step)
+        #     print("-" * 70)
 
         while not parser.is_done():
             state_features = self.make_features(parser)
@@ -99,13 +99,13 @@ class DiscoBertModel(BertPreTrainedModel):
             pred_action = self.best_action(legal_actions, logits)
             if gold_tree is not None:
                 gold_steps = parser.all_correct_steps(gold_tree)
-                print('ALL GOLD STEPS:', gold_steps)
+                # print('ALL GOLD STEPS:', gold_steps)
                 gold_actions = [step.action for step in gold_steps]
                 # TODO: should we replace this with getting the gold path from the beginning?
                 gold_action = self.best_action(gold_actions, logits)
-                print('GOLD_ACTION:', self.id_to_action[gold_action])
+                # print('GOLD_ACTION:', self.id_to_action[gold_action])
                 gold_action = torch.tensor([gold_action])
-                print("gold_action", gold_action)
+                # print("gold_action", gold_action)
                 loss = loss_fct(logits.view(-1, self.num_labels), gold_action)
                 losses.append(loss)
                 # teacher forcing ?
