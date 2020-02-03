@@ -1,15 +1,18 @@
 from glob import glob
 import os
 import re
-from copy import copy
+from copy import copy, deepcopy
 from collections import namedtuple
 
 Annotation = namedtuple('Annotation', 'raw dis edus')
+LEFT_TO_RIGHT = 'LeftToRight'
+RIGHT_TO_LEFT = 'RightToLeft'
 
 def load_annotations(directory):
     pattern = os.path.join(directory, '*.dis')
     for filename in glob(pattern):
         raw_path = os.path.splitext(filename)[0]
+        print("file:", raw_path)
         yield load_annotation(raw_path)
 
 def load_annotation(raw_path):
@@ -35,17 +38,31 @@ def load_edus(name):
 class TreeNode:
 
     def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None, label=None, direction=None, embedding=None):
-        self.kind = kind
+        self.kind = kind # ['Nucleus', 'Satellite', 'Root']
         self.children = children if children is not None else []
         self.text = text
-        self.leaf = leaf
-        self.span = span
-        self.label = label
-        self.direction = direction
+        if leaf is not None and span is not None:
+            raise AttributeError("???")
+        self.leaf = leaf # Int -- the index of the EDU *if* it is a leaf node, else None
+        self.span = range(leaf, leaf+1) if leaf is not None else span # Range of EDU indexes
+        self.label = label # relation label
+        self.direction = direction # leftToRight, rightToLeft, or None
         self.embedding = embedding
 
     def __eq__(self, other):
         return self.span == other.span and self.label == other.label and self.direction == other.direction and self.children == other.children
+
+    def __deepcopy__(self, memodict={}):
+        newone = TreeNode()
+        newone.kind = deepcopy(self.kind, memodict)
+        newone.children = deepcopy(self.children, memodict)
+        newone.text = deepcopy(self.text, memodict)
+        newone.leaf = deepcopy(self.leaf, memodict)
+        newone.span = deepcopy(self.span, memodict)
+        newone.label = deepcopy(self.label, memodict)
+        newone.direction = deepcopy(self.direction, memodict)
+        # we don't copy embedding on purpose
+        return newone
 
     @property
     def is_terminal(self):
@@ -97,6 +114,7 @@ class TreeNode:
     def from_string(cls, string):
         key, tree, pos = parse_node(tokenize(string), 0)
         propagate_labels(tree)
+
         return tree
 
 
@@ -163,14 +181,14 @@ def propagate_labels(node):
     if node.is_terminal:
         return
     # unpack children
-    [lhs, rhs] = node.children
+    [lhs, *other_children, rhs] = node.children
     # find label and direction
     if lhs.kind == 'Nucleus' and rhs.kind == 'Satellite':
         label = rhs.rel2par
-        direction = 'LeftToRight'
+        direction = LEFT_TO_RIGHT
     elif lhs.kind == 'Satellite' and rhs.kind == 'Nucleus':
         label = lhs.rel2par
-        direction = 'RightToLeft'
+        direction = RIGHT_TO_LEFT
     elif lhs.kind == rhs.kind:
         label = lhs.rel2par
         direction = 'None'

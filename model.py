@@ -1,7 +1,8 @@
 import torch
 from torch import nn
 from transformers import *
-from transition_system import EDU, TransitionSystem
+from rst import TreeNode
+from transition_system import TransitionSystem
 
 inf = float('inf')
 
@@ -43,6 +44,9 @@ class DiscoBertModel(BertPreTrainedModel):
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
         b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+        print("s1=", s1.shape)
+        print("s0=", s0.shape)
+        print("b=", b.shape)
         features = torch.cat([s1, s0, b])
         return features
 
@@ -53,7 +57,7 @@ class DiscoBertModel(BertPreTrainedModel):
 
     def best_action(self, actions, logits):
         if len(actions) == 1:
-            return self.action2id[actions[0]]
+            return self.action_to_id[actions[0]]
         elif len(actions) == logits.shape[0]: # FIXME is batch first or after?
             return torch.argmax(logits)
         action_ids = [self.action2id[a] for a in actions]
@@ -68,8 +72,11 @@ class DiscoBertModel(BertPreTrainedModel):
         buffer = []
         for i,edu in enumerate(edus):
             token_ids = self.tokenizer.encode(edu, add_special_tokens=True, return_tensors='pt')
-            embedding = self.bert(token_ids)[1]
-            buffer.append(EDU(edu, i, embedding))
+            # self.bert returns a tuple, element 0 is an embedding for each of the words, the second element
+            # is an embedding for the whole sentence
+            # We squeeze to remove the batch dimension
+            embedding = self.bert(token_ids)[1].squeeze()
+            buffer.append(TreeNode(text=edu, leaf=i, embedding=embedding))
 
         # initialize the automata
         parser = TransitionSystem(buffer)
@@ -79,22 +86,32 @@ class DiscoBertModel(BertPreTrainedModel):
             loss_fct = nn.CrossEntropyLoss()
             losses = []
 
+        if gold_tree is not None:
+            print("GOLD PATH:")
+            for step in parser.gold_path(gold_tree):
+                print(step)
+            print("-" * 70)
+
         while not parser.is_done():
             state_features = self.make_features(parser)
             logits = self.classifier(state_features)
             legal_actions = parser.all_legal_actions()
             pred_action = self.best_action(legal_actions, logits)
             if gold_tree is not None:
-                gold_steps = parser.all_correct_steps(gold_spans)
+                gold_steps = parser.all_correct_steps(gold_tree)
+                print('ALL GOLD STEPS:', gold_steps)
                 gold_actions = [step.action for step in gold_steps]
                 # TODO: should we replace this with getting the gold path from the beginning?
                 gold_action = self.best_action(gold_actions, logits)
+                print('GOLD_ACTION:', self.id_to_action[gold_action])
+                gold_action = torch.tensor([gold_action])
+                print("gold_action", gold_action)
                 loss = loss_fct(logits.view(-1, self.num_labels), gold_action)
                 losses.append(loss)
                 # teacher forcing ?
-                parser.take_action(self.id_to_action[gold_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
+                parser.take_action(self.id_to_action[gold_action], reduce_fn=self.merge_embeddings) # merge_embeddings is only used for REDUCE action
             else:
-                parser.take_action(self.id_to_action[pred_action], self.merge_embeddings) # merge_embeddings is only used for REDUCE action
+                parser.take_action(self.id_to_action[pred_action], reduce_fn=self.merge_embeddings) # merge_embeddings is only used for REDUCE action
 
         # returns the TreeNode for the whole tree
         predicted_tree = parser.get_result()

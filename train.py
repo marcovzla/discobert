@@ -12,8 +12,8 @@ learning_rate = 1e-3
 train_dir = ""
 device = torch.device('cpu')
 
-RST_CORPUS_PATH = 'RST/data/RSTtrees-WSJ-main-1.0/TRAINING/'
-
+RST_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/TRAINING/'
+RST_TEST_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/TEST/'
 
 def train():
     discobert = DiscoBertModel().to(device)
@@ -31,7 +31,8 @@ def train():
 
         # save model
         model_file = f'discobert_{epoch_i}'
-        torch.save(discobert, model_file)
+        # torch.save(discobert, model_file)
+    return model_file
 
 def predict(model_file):
     discobert = torch.load(model_file)
@@ -46,3 +47,8 @@ def predict(model_file):
     p, r, f1, _ = precision_recall_fscore_support(all_gold_nodes, all_pred_nodes, average='micro') # TODO confirm
     print(f'P:{p}\tR:{r}\tF1:{f1}')
 
+
+if __name__=='__main__':
+
+    last_model = train()
+    predict(last_model)
