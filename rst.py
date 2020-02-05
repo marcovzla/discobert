@@ -35,6 +35,11 @@ def load_edus(name):
     with open(name) as f:
         return [line.strip() for line in f]
 
+# primarily for evaluation -- make a "view" of the tree nodes to compare
+def iter_spans_only(treenodes):
+    for t in treenodes:
+        yield t.span
+
 class TreeNode:
 
     def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None, label=None, direction=None, embedding=None):
@@ -78,13 +83,11 @@ class TreeNode:
         if len(self.children) == 2:
             return self.children[1]
 
+    def get_nonterminals(self):
+        return list(self.iter_nonterminals())
+
     def get_terminals(self):
-        if self.is_terminal:
-            return [self]
-        terminals = []
-        for c in self.children:
-            terminals += c.get_terminals()
-        return terminals
+        return list(self.iter_terminals())
 
     def calc_span(self):
         edus = [t.leaf for t in self.iter_terminals()]
