@@ -10,6 +10,6 @@
     conda create -y -n discobert-gpu python=3.7
     conda activate discobert-gpu
     conda install -y ipython tqdm requests boto3 regex click joblib nltk scikit-learn jupyter
-    conda install pytorch torchvision cudatoolkit=10.1 -c pytorch
+    conda install -y pytorch torchvision cudatoolkit=10.1 -c pytorch
     pip install transformers
     
