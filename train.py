@@ -36,7 +36,10 @@ RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.
 
 
 def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
-    discobert = DiscoBertModel().to(device)
+    discobert = DiscoBertModel()
+    discobert.set_device(device)
+    discobert.to(device)
+
 
     # setup the optimizer, loss, etc
     optimizer = Adam(params=discobert.parameters(), lr=learning_rate)

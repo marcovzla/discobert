@@ -24,20 +24,20 @@ class DiscoBertModel(BertPreTrainedModel):
         # TODO: attention over whole stack and whole buffer, then this will be 2 * hidden_size
         self.classifier = nn.Linear(3 * config.hidden_size, self.config.num_labels)
 
-        # TODO tensor to represent missing node
-        self.missing_node = nn.init.normal_(torch.empty(config.hidden_size))
-
-
         # vocabularies
         self.id_to_action = ['shift', 'reduce']
-        self.action_to_id = {action:id for id,action in enumerate(self.id_to_action)}
+        self.action_to_id = {action: id for id, action in enumerate(self.id_to_action)}
 
         self.id_to_direction = ['leftToRight', 'rightToLeft', 'None']
-        self.direction_to_id = {direction:id for id,direction in enumerate(self.id_to_direction)}
+        self.direction_to_id = {direction: id for id, direction in enumerate(self.id_to_direction)}
 
-        self.id_to_relation = ['elaboration', 'contrast'] # fixme: add rest/real
-        self.relation_to_id = {relation:id for id,relation in enumerate(self.id_to_relation)}
+        self.id_to_relation = ['elaboration', 'contrast']  # fixme: add rest/real
+        self.relation_to_id = {relation: id for id, relation in enumerate(self.id_to_relation)}
 
+    def set_device(self, device):
+        # TODO tensor to represent missing node
+        self.device = device
+        self.missing_node = nn.init.normal_(torch.empty(self.config.hidden_size).to(device))
         self.init_weights()
 
     def make_features(self, parser):
@@ -104,7 +104,7 @@ class DiscoBertModel(BertPreTrainedModel):
                 # TODO: should we replace this with getting the gold path from the beginning?
                 gold_action = self.best_action(gold_actions, logits)
                 # print('GOLD_ACTION:', self.id_to_action[gold_action])
-                gold_action = torch.tensor([gold_action])
+                gold_action = torch.tensor([gold_action]).to(self.device)
                 # print("gold_action", gold_action)
                 loss = loss_fct(logits.view(-1, self.num_labels), gold_action)
                 losses.append(loss)
