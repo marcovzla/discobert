@@ -65,6 +65,8 @@ def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
 
 def predict(data_dir, model_dir):
     discobert = DiscoBertModel.from_pretrained(model_dir)
+    discobert.set_device(device)
+    discobert.to(device)
 
     all_gold_nodes = []
     all_pred_nodes = []

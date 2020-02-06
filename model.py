@@ -33,11 +33,12 @@ class DiscoBertModel(BertPreTrainedModel):
         self.id_to_relation = ['elaboration', 'contrast']  # fixme: add rest/real
         self.relation_to_id = {relation: id for id, relation in enumerate(self.id_to_relation)}
 
+        self.missing_node = nn.init.normal_(torch.empty(self.config.hidden_size))
+        self.init_weights()
+
     def set_device(self, device):
         # TODO tensor to represent missing node
         self.device = device
-        self.missing_node = nn.init.normal_(torch.empty(self.config.hidden_size).to(device))
-        self.init_weights()
 
     def make_features(self, parser):
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
