@@ -1,3 +1,4 @@
+import argparse
 import os
 import torch
 from torch.optim import Adam
@@ -6,17 +7,29 @@ from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only
 from transformers import *
 
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train')
+    parser.add_argument('--val')
+    parser.add_argument('--modeldir')
+    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--device', default='cpu')
+    args = parser.parse_args()
+    return args
+
 # load some parameters
-num_epochs = 20
+epochs = 20
 learning_rate = 1e-3
-train_dir = ""
 device = torch.device('cpu')
 
 SAVED_MODELS_PATH = '/work/bsharp/data/discobert/RST/models/debug-distil'
 RST_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/training_subset'
 RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/validation'
-# bert, tokenizer, bert_version = BertModel, BertTokenizer, 'bert-base-uncased'
-bert, tokenizer, bert_version = DistilBertModel, DistilBertTokenizer, 'distilbert-base-uncased'
+
+bert, tokenizer, bert_version = BertModel, BertTokenizer, 'bert-base-uncased'
+#bert, tokenizer, bert_version = DistilBertModel, DistilBertTokenizer, 'distilbert-base-uncased'
 
 
 # TODO: replace?? tokenizer based on what Enrique said OR pass all EDUs at once
@@ -24,7 +37,7 @@ bert, tokenizer, bert_version = DistilBertModel, DistilBertTokenizer, 'distilber
 # TODO: add the classifiers for label and direction
 
 
-def train():
+def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
     discobert = DiscoBertModel(bert, tokenizer, bert_version).to(device)
 
     # setup the optimizer, loss, etc
@@ -32,23 +45,27 @@ def train():
 
     # for each epoch
     for epoch_i in range(num_epochs):
-        for annotation in tqdm(list(load_annotations(RST_CORPUS_PATH))):
+        for annotation in tqdm(list(load_annotations(train_dir))):
             discobert.zero_grad()
             loss, pred_tree = discobert(annotation.edus, annotation.dis)
             loss.backward()
             optimizer.step()
 
         # save model
-        model_dir = os.path.join(SAVED_MODELS_PATH, f'discobert_{epoch_i}')
+        model_dir = os.path.join(model_dir, f'discobert_{epoch_i}')
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
         discobert.save_pretrained(model_dir)
-    return model_dir
+        # evaluate on validation
+        predict(val_dir, model_dir)
 
-def predict(model_dir):
+
+def predict(data_dir, model_dir):
     discobert = DiscoBertModel.from_pretrained(model_dir)
 
     all_gold_nodes = []
     all_pred_nodes = []
-    for annotation in tqdm(load_annotations(RST_VAL_CORPUS_PATH)):
+    for annotation in tqdm(load_annotations(data_dir)):
         pred_tree = discobert(annotation.edus)
         all_gold_nodes.extend(annotation.dis.get_nonterminals())
         all_pred_nodes.extend(pred_tree.get_nonterminals())
@@ -79,5 +96,6 @@ def eval(gold, pred):
 
 if __name__=='__main__':
 
-    last_model = train()
-    predict(last_model)
+    args = parse_args()
+    train(args.epochs, args.lr, args.device, args.train, args.val, args.modeldir)
+
