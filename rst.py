@@ -100,6 +100,11 @@ class TreeNode:
             for n in c.iter_nodes():
                 yield n
 
+    def iter_nonterminals(self):
+        for n in self.iter_nodes():
+            if not n.is_terminal:
+                yield n
+
     def iter_terminals(self):
         for n in self.iter_nodes():
             if n.is_terminal:
