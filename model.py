@@ -10,11 +10,10 @@ inf = float('inf')
 
 class DiscoBertModel(BertPreTrainedModel):
 
-    def __init__(self, config=None):
-        if config is None:
-            config = BertConfig()
+    def __init__(self, config=BertConfig()):
 
         super().__init__(config)
+
         self.num_labels = config.num_labels
 
         # todo: put bert selection in the config?
@@ -71,7 +70,7 @@ class DiscoBertModel(BertPreTrainedModel):
         # tokenize
         buffer = []
         for i,edu in enumerate(edus):
-            token_ids = self.tokenizer.encode(edu, add_special_tokens=True, return_tensors='pt')
+            token_ids = self.tokenizer.encode(edu, add_special_tokens=True, return_tensors='pt').to(self.device)
             # self.bert returns a tuple, element 0 is an embedding for each of the words, the second element
             # is an embedding for the whole sentence
             # We squeeze to remove the batch dimension
