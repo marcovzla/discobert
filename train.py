@@ -2,7 +2,7 @@ import argparse
 import os
 import torch
 from torch.optim import Adam
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only
 from transformers import *
@@ -48,6 +48,7 @@ def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
             loss, pred_tree = discobert(annotation.edus, annotation.dis)
             loss.backward()
             optimizer.step()
+        print(f'Finished epoch {epoch_i}')
 
         # save model
         model_dir = os.path.join(model_dir, f'discobert_{epoch_i}')
