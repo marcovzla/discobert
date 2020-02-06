@@ -43,6 +43,7 @@ def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
 
     # for each epoch
     for epoch_i in range(num_epochs):
+        print(f'Beginning epoch {epoch_i}')
         for annotation in tqdm(list(load_annotations(train_dir))):
             discobert.zero_grad()
             loss, pred_tree = discobert(annotation.edus, annotation.dis)
