@@ -37,7 +37,7 @@ RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.
 
 def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
     discobert = DiscoBertModel()
-    discobert.set_device(device)
+    discobert.set_device(device, init_weights=True)
     discobert.to(device)
 
 
@@ -65,7 +65,7 @@ def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
 
 def predict(data_dir, model_dir):
     discobert = DiscoBertModel.from_pretrained(model_dir)
-    discobert.set_device(device)
+    discobert.set_device(device, init_weights=False)
     discobert.to(device)
 
     all_gold_nodes = []
