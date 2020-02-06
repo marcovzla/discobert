@@ -4,7 +4,7 @@ from torch.optim import Adam
 from tqdm import tqdm
 from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only
-
+from transformers import *
 
 # load some parameters
 num_epochs = 20
@@ -12,9 +12,11 @@ learning_rate = 1e-3
 train_dir = ""
 device = torch.device('cpu')
 
-SAVED_MODELS_PATH = '/Users/bsharp/data/discobert/RST/models/debug'
-RST_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/TRAINING/training_subset'
-RST_VAL_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/TRAINING/validation'
+SAVED_MODELS_PATH = '/work/bsharp/data/discobert/RST/models/debug-distil'
+RST_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/training_subset'
+RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/validation'
+# bert, tokenizer, bert_version = BertModel, BertTokenizer, 'bert-base-uncased'
+bert, tokenizer, bert_version = DistilBertModel, DistilBertTokenizer, 'distilbert-base-uncased'
 
 
 # TODO: replace?? tokenizer based on what Enrique said OR pass all EDUs at once
@@ -23,7 +25,7 @@ RST_VAL_CORPUS_PATH = '/Users/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1
 
 
 def train():
-    discobert = DiscoBertModel().to(device)
+    discobert = DiscoBertModel(bert, tokenizer, bert_version).to(device)
 
     # setup the optimizer, loss, etc
     optimizer = Adam(params=discobert.parameters(), lr=learning_rate)
