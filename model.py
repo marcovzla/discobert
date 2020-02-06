@@ -36,12 +36,13 @@ class DiscoBertModel(BertPreTrainedModel):
 
 
     def set_device(self, device, init_weights=False):
+        self.device = device
         # TODO tensor to represent missing node
-        self.missing_node = nn.init.normal_(torch.empty(self.config.hidden_size))
+        self.missing_node = nn.init.normal_(torch.empty(self.config.hidden_size)).to(self.device)
         if init_weights:
             self.init_weights()
 
-        self.device = device
+
 
     def make_features(self, parser):
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
