@@ -64,7 +64,7 @@ def predict(data_dir, model_dir):
     all_gold_nodes = []
     all_pred_nodes = []
     for annotation in tqdm(load_annotations(data_dir)):
-        pred_tree = discobert(annotation.edus)
+        _, pred_tree = discobert(annotation.edus)
         all_gold_nodes.extend(annotation.dis.get_nonterminals())
         all_pred_nodes.extend(pred_tree.get_nonterminals())
 
