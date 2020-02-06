@@ -28,8 +28,6 @@ SAVED_MODELS_PATH = '/work/bsharp/data/discobert/RST/models/debug-distil'
 RST_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/training_subset'
 RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/validation'
 
-bert, tokenizer, bert_version = BertModel, BertTokenizer, 'bert-base-uncased'
-#bert, tokenizer, bert_version = DistilBertModel, DistilBertTokenizer, 'distilbert-base-uncased'
 
 
 # TODO: replace?? tokenizer based on what Enrique said OR pass all EDUs at once
@@ -38,7 +36,7 @@ bert, tokenizer, bert_version = BertModel, BertTokenizer, 'bert-base-uncased'
 
 
 def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
-    discobert = DiscoBertModel(bert, tokenizer, bert_version).to(device)
+    discobert = DiscoBertModel().to(device)
 
     # setup the optimizer, loss, etc
     optimizer = Adam(params=discobert.parameters(), lr=learning_rate)

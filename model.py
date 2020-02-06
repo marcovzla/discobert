@@ -10,7 +10,7 @@ inf = float('inf')
 
 class DiscoBertModel(BertPreTrainedModel):
 
-    def __init__(self, bert, tokenizer, bert_version, config=None):
+    def __init__(self, config=None):
         if config is None:
             config = BertConfig()
 
@@ -18,8 +18,8 @@ class DiscoBertModel(BertPreTrainedModel):
         self.num_labels = config.num_labels
 
         # todo: put bert selection in the config?
-        self.tokenizer = tokenizer.from_pretrained(bert_version)
-        self.bert = bert.from_pretrained(bert_version)
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        self.bert = BertModel.from_pretrained('bert-base-uncased')
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         # TODO: attention over whole stack and whole buffer, then this will be 2 * hidden_size
         self.classifier = nn.Linear(3 * config.hidden_size, self.config.num_labels)
