@@ -20,7 +20,7 @@ class TransitionSystem:
 
     def get_result(self):
         if self.is_done():
-            return self.stack[0]
+            return deepcopy(self.stack[0])
 
     def take_action(self, action, *args, **kwargs):
         if action == 'shift':
