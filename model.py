@@ -86,6 +86,8 @@ class DiscoBertModel(BertPreTrainedModel):
 
         # initialize the automata
         parser = TransitionSystem(buffer)
+        if gold_tree is not None:
+            gold_actions = parser.gold_path(gold_tree)
 
         # remember actions
         predicted_actions = []
@@ -132,8 +134,10 @@ class DiscoBertModel(BertPreTrainedModel):
         outputs = (predicted_tree, predicted_actions)
 
         if gold_tree is not None:
+            outputs = outputs + (gold_actions,) # add the gold actions if we have them
             loss = sum(losses) / len(losses)
             outputs = (loss,) + outputs
+
             # todo: precision, recall, f1 of predicted_tree
 
         return outputs
