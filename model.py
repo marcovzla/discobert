@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch import nn, tanh
 from transformers import *
 from rst import TreeNode
 from transition_system import TransitionSystem
@@ -61,7 +61,7 @@ class DiscoBertModel(BertPreTrainedModel):
         # for now, add
         # return embed_1 + embed_2
         concatted = torch.cat([embed_1, embed_2])
-        return nn.ReLU(self.merger(concatted))
+        return tanh(self.merger(concatted))
 
     def best_action(self, actions, logits):
         if len(actions) == 1:
