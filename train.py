@@ -75,8 +75,8 @@ def predict(data_dir, model_dir):
         all_gold_nodes.extend(annotation.dis.get_nonterminals())
         all_pred_nodes.extend(pred_tree.get_nonterminals())
 
-        all_gold_spans = list(iter_spans_only(all_gold_nodes))
-        all_pred_spans = list(iter_spans_only(all_pred_nodes))
+        all_gold_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(all_gold_nodes))]
+        all_pred_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(all_pred_nodes))]
 
     p, r, f1 = eval(all_gold_spans, all_pred_spans) # TODO confirm
     print(f'P:{p}\tR:{r}\tF1:{f1}')

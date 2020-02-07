@@ -4,7 +4,7 @@ import re
 from copy import copy, deepcopy
 from collections import namedtuple
 
-Annotation = namedtuple('Annotation', 'raw dis edus')
+Annotation = namedtuple('Annotation', 'docid raw dis edus')
 LEFT_TO_RIGHT = 'LeftToRight'
 RIGHT_TO_LEFT = 'RightToLeft'
 
@@ -21,7 +21,7 @@ def load_annotation(raw_path):
     raw = load_raw(raw_path)
     dis = load_dis(dis_path)
     edus = load_edus(edus_path)
-    return Annotation(raw, dis, edus)
+    return Annotation(raw_path, raw, dis, edus)
 
 def load_raw(name):
     with open(name) as f:
