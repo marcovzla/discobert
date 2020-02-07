@@ -87,6 +87,9 @@ class DiscoBertModel(BertPreTrainedModel):
         # initialize the automata
         parser = TransitionSystem(buffer)
 
+        # remember actions
+        predicted_actions = []
+
         if gold_tree is not None:
             gold_spans = gold_tree.gold_spans()
             loss_fct = nn.CrossEntropyLoss()
@@ -103,6 +106,7 @@ class DiscoBertModel(BertPreTrainedModel):
             logits = self.classifier(state_features)
             legal_actions = parser.all_legal_actions()
             pred_action = self.best_action(legal_actions, logits)
+            predicted_actions.append(self.id_to_action[pred_action])
             if gold_tree is not None:
                 gold_steps = parser.all_correct_steps(gold_tree)
                 # print('ALL GOLD STEPS:', gold_steps)
@@ -125,7 +129,7 @@ class DiscoBertModel(BertPreTrainedModel):
 
         # returns the TreeNode for the whole tree
         predicted_tree = parser.get_result()
-        outputs = (predicted_tree,)
+        outputs = (predicted_tree, predicted_actions)
 
         if gold_tree is not None:
             loss = sum(losses) / len(losses)
