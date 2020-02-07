@@ -14,7 +14,8 @@ class DiscoBertModel(BertPreTrainedModel):
 
         super().__init__(config)
 
-        self.num_labels = config.num_labels
+        # FIXME
+        self.num_labels = 2
 
         # todo: put bert selection in the config?
         self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -50,9 +51,6 @@ class DiscoBertModel(BertPreTrainedModel):
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
         b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
-        # print("s1=", s1.shape)
-        # print("s0=", s0.shape)
-        # print("b=", b.shape)
         features = torch.cat([s1, s0, b])
         return features
 
