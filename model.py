@@ -115,6 +115,10 @@ class DiscoBertModel(BertPreTrainedModel):
                 gold_action = torch.tensor([gold_action]).to(self.device)
                 # print("gold_action", gold_action)
                 loss = loss_fct(logits.view(-1, self.num_labels), gold_action)
+                print("****")
+                print(logits.shape)
+                print(logits.view(-1, self.num_labels).shape)
+                print("****")
                 losses.append(loss)
                 # teacher forcing ?
                 parser.take_action(self.id_to_action[gold_action], reduce_fn=self.merge_embeddings) # merge_embeddings is only used for REDUCE action
