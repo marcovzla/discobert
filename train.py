@@ -36,50 +36,65 @@ RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.
 
 
 def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
-    discobert = DiscoBertModel()
-    discobert.set_device(device, init_weights=True)
-    discobert.to(device)
+    with open(os.path.join(model_dir, "log.txt"), 'a') as logfile:
+
+        torch.cuda.empty_cache()
+        discobert = DiscoBertModel()
+        discobert.set_device(device, init_weights=True)
+        discobert.to(device)
+
+        # setup the optimizer, loss, etc
+        optimizer = Adam(params=discobert.parameters(), lr=learning_rate)
+
+        # for each epoch
+        for epoch_i in range(num_epochs):
+            print(f'Beginning epoch {epoch_i}')
+            print(f'Beginning epoch {epoch_i}', file=logfile)
+
+            for annotation in tqdm(list(load_annotations(train_dir))):
+                discobert.zero_grad()
+                loss, pred_tree = discobert(annotation.edus, annotation.dis)
+                loss.backward()
+                optimizer.step()
+
+            print(f'Finished epoch {epoch_i}')
+            print(f'Finished epoch {epoch_i}', file=logfile)
+
+            # save model
+            epoch_model_dir = os.path.join(model_dir, f'discobert_{epoch_i}')
+            if not os.path.exists(epoch_model_dir):
+                os.makedirs(epoch_model_dir)
+            discobert.save_pretrained(epoch_model_dir)
+            # evaluate on validation
+            if discobert.device == 'cuda':
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+            predict(val_dir, discobert, logfile)
 
 
-    # setup the optimizer, loss, etc
-    optimizer = Adam(params=discobert.parameters(), lr=learning_rate)
-
-    # for each epoch
-    for epoch_i in range(num_epochs):
-        print(f'Beginning epoch {epoch_i}')
-        for annotation in tqdm(list(load_annotations(train_dir))):
-            discobert.zero_grad()
-            loss, pred_tree = discobert(annotation.edus, annotation.dis)
-            loss.backward()
-            optimizer.step()
-        print(f'Finished epoch {epoch_i}')
-
-        # save model
-        model_dir = os.path.join(model_dir, f'discobert_{epoch_i}')
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        discobert.save_pretrained(model_dir)
-        # evaluate on validation
-        predict(val_dir, model_dir)
-
-
-def predict(data_dir, model_dir):
-    discobert = DiscoBertModel.from_pretrained(model_dir)
-    discobert.set_device(device, init_weights=False)
-    discobert.to(device)
-
+def predict(data_dir, discobert, logfile):
     all_gold_nodes = []
     all_pred_nodes = []
+    all_gold_spans = []
+    all_pred_spans = []
+
     for annotation in tqdm(list(load_annotations(data_dir))):
         pred_tree = discobert(annotation.edus)[0]
-        all_gold_nodes.extend(annotation.dis.get_nonterminals())
-        all_pred_nodes.extend(pred_tree.get_nonterminals())
 
-        all_gold_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(all_gold_nodes))]
-        all_pred_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(all_pred_nodes))]
+        ann_gold_nodes = annotation.dis.get_nonterminals()
+        ann_gold_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(ann_gold_nodes))]
+        all_gold_nodes.extend(ann_gold_nodes)
+        all_gold_spans.extend(ann_gold_spans)
 
-    p, r, f1 = eval(all_gold_spans, all_pred_spans) # TODO confirm
+        ann_pred_nodes = pred_tree.get_nonterminals()
+        ann_pred_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(ann_pred_nodes))]
+        all_pred_nodes.extend(ann_pred_nodes)
+        all_pred_spans.extend(ann_pred_spans)
+
+    p, r, f1 = eval(all_gold_spans, all_pred_spans)
     print(f'P:{p}\tR:{r}\tF1:{f1}')
+    print(f'P:{p}\tR:{r}\tF1:{f1}', file=logfile)
+
 
 def eval(gold, pred):
     TP, FP, FN = 0, 0, 0
