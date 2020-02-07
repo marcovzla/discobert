@@ -3,6 +3,7 @@ import os
 import re
 from copy import copy, deepcopy
 from collections import namedtuple
+from nltk import Tree
 
 Annotation = namedtuple('Annotation', 'docid raw dis edus')
 LEFT_TO_RIGHT = 'LeftToRight'
@@ -118,6 +119,11 @@ class TreeNode:
                 golds.extend(c.gold_spans())
         return golds
 
+    def to_nltk(self):
+        if self.is_terminal:
+            return Tree('EDU', [self.text])
+        else:
+            return Tree(self.label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
 
     @classmethod
     def from_string(cls, string):
