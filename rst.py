@@ -16,12 +16,13 @@ def load_annotations(directory):
         yield load_annotation(raw_path)
 
 def load_annotation(raw_path):
+    base_name = os.path.basename(raw_path)
     dis_path = raw_path + '.dis'
     edus_path = raw_path + '.edus'
     raw = load_raw(raw_path)
     dis = load_dis(dis_path)
     edus = load_edus(edus_path)
-    return Annotation(raw_path, raw, dis, edus)
+    return Annotation(base_name, raw, dis, edus)
 
 def load_raw(name):
     with open(name) as f:
