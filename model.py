@@ -22,6 +22,8 @@ class DiscoBertModel(BertPreTrainedModel):
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         # TODO: attention over whole stack and whole buffer, then this will be 2 * hidden_size
         self.classifier = nn.Linear(3 * config.hidden_size, self.config.num_labels)
+        # maybe? -- to merge the nodes during a reduction operation
+        self.merger = nn.Linear(2 * config.hidden_size, config.hidden_size)
 
         # vocabularies
         self.id_to_action = ['shift', 'reduce']
@@ -57,7 +59,9 @@ class DiscoBertModel(BertPreTrainedModel):
 
     def merge_embeddings(self, embed_1, embed_2):
         # for now, add
-        return embed_1 + embed_2
+        # return embed_1 + embed_2
+        concatted = torch.cat([embed_1, embed_2])
+        return nn.ReLU(self.merger(concatted))
 
     def best_action(self, actions, logits):
         if len(actions) == 1:
