@@ -1,121 +1,57 @@
-import argparse
-import os
+#!/usr/bin/env python
+
 import torch
-from torch.optim import Adam
-from tqdm.autonotebook import tqdm
+import numpy as np
+from sklearn.metrics import balanced_accuracy_score, classification_report
+from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only
-from transformers import *
+from utils import prf1
+import config
+import engine
 
+def optimizer_parameters(model):
+    no_decay = ['bias', 'LayerNorm']
+    named_params = list(model.named_parameters())
+    return [
+        {'params': [p for n,p in named_params if not any(nd in n for nd in no_decay)], 'weight_decay': 0.001},
+        {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
+    ]
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--train')
-    parser.add_argument('--val')
-    parser.add_argument('--modeldir')
-    parser.add_argument('--epochs', type=int, default=20)
-    parser.add_argument('--lr', type=float, default=1e-3)
-    parser.add_argument('--device', default='cpu')
-    args = parser.parse_args()
-    return args
+def eval_trees(pred_trees, gold_trees):
+    all_pred_spans = [[f'{x}' for x in iter_spans_only(t.get_nonterminals())] for t in pred_trees]
+    all_gold_spans = [[f'{x}' for x in iter_spans_only(t.get_nonterminals())] for t in gold_trees]
+    scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+    scores = np.array(scores).mean(axis=0).tolist()
+    return scores
 
-# load some parameters
-epochs = 20
-learning_rate = 1e-3
-device = torch.device('cpu')
+def main():
+    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    model = DiscoBertModel()
+    model.to(device)
 
-SAVED_MODELS_PATH = '/work/bsharp/data/discobert/RST/models/debug-distil'
-RST_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/training_subset'
-RST_VAL_CORPUS_PATH = '/work/bsharp/data/discobert/RST/data/RSTtrees-WSJ-main-1.0/validation'
+    train_ds = list(load_annotations(config.TRAIN_PATH))
+    valid_ds = list(load_annotations(config.VALID_PATH))
 
+    num_training_steps = int(len(train_ds) * config.EPOCHS)
+    optimizer = AdamW(optimizer_parameters(model), lr=3e-5)
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=0,
+        num_training_steps=num_training_steps,
+    )
 
+    best_f1 = 0
+    for epoch in range(config.EPOCHS):
+        if epoch > 0: print()
+        print(f' epoch: {epoch+1}/{config.EPOCHS}')
+        engine.train_fn(train_ds, model, optimizer, device, scheduler)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+        p, r, f1 = eval_trees(pred_trees, gold_trees)
+        print(f'P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        if f1 > best_f1:
+            model.save(config.MODEL_PATH)
+            best_f1 = f1
 
-# TODO: replace?? tokenizer based on what Enrique said OR pass all EDUs at once
-# TODO: finish the validation code -- ability to eval just tree, tree + direction, tree + dir + label
-# TODO: add the classifiers for label and direction
-
-
-def train(num_epochs, learning_rate, device, train_dir, val_dir, model_dir):
-    with open(os.path.join(model_dir, "log.txt"), 'a') as logfile:
-
-        torch.cuda.empty_cache()
-        discobert = DiscoBertModel()
-        discobert.set_device(device, init_weights=True)
-        discobert.to(device)
-
-        # setup the optimizer, loss, etc
-        optimizer = Adam(params=discobert.parameters(), lr=learning_rate)
-
-        # for each epoch
-        for epoch_i in range(num_epochs):
-            print(f'Beginning epoch {epoch_i}')
-            print(f'Beginning epoch {epoch_i}', file=logfile)
-
-            for annotation in tqdm(list(load_annotations(train_dir))):
-                discobert.zero_grad()
-                loss, pred_tree = discobert(annotation.edus, annotation.dis)
-                loss.backward()
-                optimizer.step()
-
-            print(f'Finished epoch {epoch_i}')
-            print(f'Finished epoch {epoch_i}', file=logfile)
-
-            # save model
-            epoch_model_dir = os.path.join(model_dir, f'discobert_{epoch_i}')
-            if not os.path.exists(epoch_model_dir):
-                os.makedirs(epoch_model_dir)
-            discobert.save_pretrained(epoch_model_dir)
-            # evaluate on validation
-            if discobert.device == 'cuda':
-                torch.cuda.empty_cache()
-                torch.cuda.synchronize()
-            predict(val_dir, discobert, logfile)
-
-
-def predict(data_dir, discobert, logfile):
-    all_gold_nodes = []
-    all_pred_nodes = []
-    all_gold_spans = []
-    all_pred_spans = []
-
-    for annotation in tqdm(list(load_annotations(data_dir))):
-        pred_tree = discobert(annotation.edus)[0]
-
-        ann_gold_nodes = annotation.dis.get_nonterminals()
-        ann_gold_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(ann_gold_nodes))]
-        all_gold_nodes.extend(ann_gold_nodes)
-        all_gold_spans.extend(ann_gold_spans)
-
-        ann_pred_nodes = pred_tree.get_nonterminals()
-        ann_pred_spans = [f'{annotation.docid}_{x}' for x in list(iter_spans_only(ann_pred_nodes))]
-        all_pred_nodes.extend(ann_pred_nodes)
-        all_pred_spans.extend(ann_pred_spans)
-
-    p, r, f1 = eval(all_gold_spans, all_pred_spans)
-    print(f'P:{p}\tR:{r}\tF1:{f1}')
-    print(f'P:{p}\tR:{r}\tF1:{f1}', file=logfile)
-
-
-def eval(gold, pred):
-    TP, FP, FN = 0, 0, 0
-    for g in gold:
-        if g in pred:
-            TP += 1
-        else:
-            FN += 1
-
-    for p in pred:
-        if p not in gold:
-            FP += 1
-
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
-    f1 = 2 * ((precision * recall) / (precision + recall))
-    return precision, recall, f1
-
-
-if __name__=='__main__':
-
-    args = parse_args()
-    train(args.epochs, args.lr, args.device, args.train, args.val, args.modeldir)
-
+if __name__ == '__main__':
+    main()
