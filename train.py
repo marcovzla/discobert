@@ -3,6 +3,7 @@
 import torch
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only
@@ -30,8 +31,7 @@ def main():
     model = DiscoBertModel()
     model.to(device)
 
-    train_ds = list(load_annotations(config.TRAIN_PATH))
-    valid_ds = list(load_annotations(config.VALID_PATH))
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)))
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=3e-5)
