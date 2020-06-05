@@ -86,12 +86,12 @@ class TransitionSystem:
                     break
             else:
                 if self.can_shift():
-                    correct_steps.append(Step('shift', None, None))
+                    correct_steps.append(Step('shift', 'None', 'None'))
                 else:
                     # print("all spans:")
                     # for s in [x.span for x in list(gold_tree.iter_nodes())]:
                     #     print("\t", s)
                     raise Exception("There is no correct action given the current state of the parser.")
         elif self.can_shift():
-            correct_steps.append(Step('shift', None, None))
+            correct_steps.append(Step('shift', 'None', 'None'))
         return correct_steps
