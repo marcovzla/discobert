@@ -1,0 +1,136 @@
+from pathlib import Path
+import tokenizers
+
+EPOCHS = 20
+MAX_LEN = 100
+DROPOUT = 0.3
+USE_CUDA = True
+
+DISCOBERT_PATH = Path('~/data/discobert').expanduser()
+TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
+VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
+MODEL_PATH = DISCOBERT_PATH/'discobert.model'
+
+ID_TO_ACTION = ['shift', 'reduce']
+ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
+
+ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']
+DIRECTION_TO_ID = {direction:i for i,direction in enumerate(ID_TO_DIRECTION)}
+
+ID_TO_LABEL = [
+    'None',
+    'analogy',
+    'Analogy',
+    'analogy-e',
+    'antithesis',
+    'antithesis-e',
+    'attribution',
+    'attribution-e',
+    'attribution-n',
+    'background',
+    'cause',
+    'Cause-Result',
+    'circumstance',
+    'circumstance-e',
+    'comment',
+    'comment-e',
+    'Comment-Topic',
+    'comparison',
+    'Comparison',
+    'comparison-e',
+    'concession',
+    'concession-e',
+    'conclusion',
+    'condition',
+    'condition-e',
+    'Consequence',
+    'consequence-n',
+    'consequence-n-e',
+    'consequence-s',
+    'consequence-s-e',
+    'contingency',
+    'Contrast',
+    'definition',
+    'definition-e',
+    'Disjunction',
+    'elaboration-additional',
+    'elaboration-additional-e',
+    'elaboration-general-specific',
+    'elaboration-general-specific-e',
+    'elaboration-object-attribute',
+    'elaboration-object-attribute-e',
+    'elaboration-part-whole',
+    'elaboration-part-whole-e',
+    'elaboration-process-step',
+    'elaboration-set-member',
+    'elaboration-set-member-e',
+    'enablement',
+    'enablement-e',
+    'Evaluation',
+    'evaluation-n',
+    'evaluation-s',
+    'evaluation-s-e',
+    'evidence',
+    'evidence-e',
+    'example',
+    'example-e',
+    'explanation-argumentative',
+    'explanation-argumentative-e',
+    'hypothetical',
+    'Interpretation',
+    'interpretation-n',
+    'interpretation-s',
+    'interpretation-s-e',
+    'Inverted-Sequence',
+    'List',
+    'manner',
+    'manner-e',
+    'means',
+    'means-e',
+    'otherwise',
+    'Otherwise',
+    'preference',
+    'preference-e',
+    'Problem-Solution',
+    'problem-solution-n',
+    'problem-solution-s',
+    'Proportion',
+    'purpose',
+    'purpose-e',
+    'Question-Answer',
+    'question-answer-n',
+    'question-answer-s',
+    'reason',
+    'Reason',
+    'reason-e',
+    'restatement',
+    'restatement-e',
+    'result',
+    'result-e',
+    'rhetorical-question',
+    'Same-Unit',
+    'Sequence',
+    'Statement-Response',
+    'statement-response-n',
+    'statement-response-s',
+    'summary-n',
+    'summary-s',
+    'temporal-after',
+    'temporal-after-e',
+    'temporal-before',
+    'temporal-before-e',
+    'temporal-same-time',
+    'Temporal-Same-Time',
+    'temporal-same-time-e',
+    'TextualOrganization',
+    'Topic-Comment',
+    'topic-drift',
+    'Topic-Drift',
+    'topic-shift',
+    'Topic-Shift',
+]
+LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
+
+BERT_PATH = Path('~/data/spandex/bert-base-cased').expanduser()
+TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
+TOKENIZER.enable_padding(max_length=MAX_LEN)
