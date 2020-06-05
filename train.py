@@ -44,7 +44,7 @@ def main():
     best_f1 = 0
     for epoch in range(config.EPOCHS):
         if epoch > 0: print()
-        print(f' epoch: {epoch+1}/{config.EPOCHS}')
+        print(f'epoch: {epoch+1}/{config.EPOCHS}')
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_trees(pred_trees, gold_trees)

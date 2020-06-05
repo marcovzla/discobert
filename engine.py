@@ -9,7 +9,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
     model.train()
     loss_avg = CumulativeMovingAverage()
     annotations = tqdm(annotations, total=len(annotations))
-    annotations.set_description(' train')
+    annotations.set_description('train')
     for a in annotations:
         loss, tree = model(a.edus, a.dis)
         loss_avg.add(loss.item())
@@ -26,7 +26,7 @@ def eval_fn(annotations, model, device):
     gold_trees = []
     with torch.no_grad():
         annotations = tqdm(annotations, total=len(annotations))
-        annotations.set_description('  eval')
+        annotations.set_description('devel')
         for a in annotations:
             tree = model(a.edus)[0]
             pred_trees.append(tree)
