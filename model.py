@@ -31,6 +31,8 @@ class DiscoBertModel(nn.Module):
         self.action_classifier = nn.Linear(3 * self.bert.config.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.bert.config.hidden_size, len(self.id_to_label))
         self.direction_classifier = nn.Linear(3 * self.bert.config.hidden_size, len(self.id_to_direction))
+        self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
+        self.relu = nn.ReLU()
 
     @property
     def device(self):
@@ -47,7 +49,8 @@ class DiscoBertModel(nn.Module):
         torch.save(self.state_dict(), path)
 
     def merge_embeddings(self, embed_1, embed_2):
-        return embed_1 + embed_2
+        # return torch.max(embed_1, embed_2)
+        return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
 
     def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
