@@ -4,6 +4,7 @@ import re
 from copy import copy, deepcopy
 from collections import namedtuple
 from nltk import Tree
+from utils import extractrelation
 
 Annotation = namedtuple('Annotation', 'docid raw dis edus')
 LEFT_TO_RIGHT = 'LeftToRight'
@@ -41,6 +42,16 @@ def load_edus(name):
 def iter_spans_only(treenodes):
     for t in treenodes:
         yield t.span
+
+# for evaluation, must get the span and the nuclearity right
+def iter_nuclearity_spans(treenodes):
+    for t in treenodes:
+        yield f'{t.span}::{t.direction}'
+
+# for evaluation -- must get everything right
+def iter_labeled_spans(treenodes):
+    for t in treenodes:
+        yield f'{t.span}::{t.direction}::{t.label}'
 
 class TreeNode:
 
@@ -212,7 +223,7 @@ def propagate_labels(node):
     else:
         raise Exception('unexpected children kinds')
     # set label and direction
-    node.label = label
+    node.label = extractrelation(label)
     node.direction = direction
     # recurse
     for c in node.children:
