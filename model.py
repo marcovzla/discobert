@@ -3,6 +3,7 @@ from torch import nn
 from transformers import *
 from rst import TreeNode
 from transition_system import TransitionSystem
+from treelstm import TreeLstm
 import config
 
 inf = float('inf')
@@ -23,15 +24,20 @@ class DiscoBertModel(nn.Module):
         self.direction_to_id = config.DIRECTION_TO_ID
         self.id_to_label = config.ID_TO_LABEL
         self.label_to_id = config.LABEL_TO_ID
+        self.hidden_size = 200
         # init model
         self.tokenizer = config.TOKENIZER
         self.bert = BertModel.from_pretrained(self.bert_path)
+        # for param in self.bert.parameters():
+        #     param.requires_grad = False
         self.bert_drop = nn.Dropout(self.dropout)
-        self.missing_node = nn.Parameter(torch.rand(self.bert.config.hidden_size, dtype=torch.float))
-        self.action_classifier = nn.Linear(3 * self.bert.config.hidden_size, len(self.id_to_action))
-        self.label_classifier = nn.Linear(3 * self.bert.config.hidden_size, len(self.id_to_label))
-        self.direction_classifier = nn.Linear(3 * self.bert.config.hidden_size, len(self.id_to_direction))
-        self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
+        self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
+        self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
+        self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
+        self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
+        self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
+        # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
+        self.treelstm = TreeLstm(self.hidden_size // 2)
         self.relu = nn.ReLU()
 
     @property
@@ -50,7 +56,8 @@ class DiscoBertModel(nn.Module):
 
     def merge_embeddings(self, embed_1, embed_2):
         # return torch.max(embed_1, embed_2)
-        return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
+        # return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
+        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0)).squeeze(dim=0)
 
     def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
@@ -94,7 +101,11 @@ class DiscoBertModel(nn.Module):
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
         )
-        enc_edus = self.bert_drop(pooled_output)
+        # print('sequence', sequence_output.shape)
+        # print('pooled', pooled_output.shape)
+        # enc_edus = self.bert_drop(pooled_output)
+        enc_edus = self.bert_drop(sequence_output[:,0,:])
+        enc_edus = self.project(enc_edus)
 
         # make treenodes
         buffer = []

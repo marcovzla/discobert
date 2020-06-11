@@ -48,11 +48,14 @@ def main():
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
-        print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        print(f'S (span only)   F1:{f1:.2%}')
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
-        print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        print(f'N (span + dir)  F1:{f1:.2%}')
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
-        print(f'R (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        # print(f'R (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        print(f'R (full)        F1:{f1:.2%}')
         if f1 > best_f1:
             model.save(config.MODEL_PATH)
             best_f1 = f1
