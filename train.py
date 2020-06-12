@@ -17,7 +17,6 @@ random.seed(r_seed)
 torch.manual_seed(r_seed)
 torch.cuda.manual_seed(r_seed)
 np.random.seed(r_seed)
-random.seed(r_seed)
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
