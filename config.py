@@ -6,6 +6,7 @@ MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
 LR = 3e-5 #default 3e-5
+SEED = 22
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser()
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
