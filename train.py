@@ -10,6 +10,14 @@ from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_l
 from utils import prf1
 import config
 import engine
+import random
+
+r_seed = 22
+random.seed(r_seed)
+torch.manual_seed(r_seed)
+torch.cuda.manual_seed(r_seed)
+np.random.seed(r_seed)
+random.seed(r_seed)
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
