@@ -12,7 +12,7 @@ import config
 import engine
 import random
 
-r_seed = 22
+r_seed = config.SEED
 random.seed(r_seed)
 torch.manual_seed(r_seed)
 torch.cuda.manual_seed(r_seed)
