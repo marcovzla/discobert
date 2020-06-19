@@ -5,6 +5,8 @@ from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
+import torch.nn.functional as F
+
 
 inf = float('inf')
 
@@ -30,6 +32,9 @@ class DiscoBertModel(nn.Module):
         self.bert = BertModel.from_pretrained(self.bert_path)
         # for param in self.bert.parameters():
         #     param.requires_grad = False
+        self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
+        self.attn2 = nn.Linear(100, 1)
+        self.attn_combine = nn.Linear(self.bert.config.hidden_size * 2, self.hidden_size)
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
@@ -92,20 +97,138 @@ class DiscoBertModel(nn.Module):
         # tokenize edus
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
+        # print("ids shape: ", ids.shape)
         attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
         token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
 
         # encode edus
-        sequence_output, pooled_output = self.bert(
+        sequence_output, pooled_output = self.bert( #first token represents the full sentence in seq output; in pooled it's different; maybe drop that first token? maybe not. hm.
             ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
         )
-        # print('sequence', sequence_output.shape)
-        # print('pooled', pooled_output.shape)
+
+        # print("mask shape: ", attention_mask.shape)
+
+
+        #todo: try with these settings:
+        sequence_output = sequence_output[:, 1:, :] 
+        attention_mask = attention_mask[:, 1:]
+        
+
+
+        #TODO:
+        #make a results table with different settings (eg dropping one, adding linearity, etc)
+
+        #try non linearity between attn layers
+        #try removing first token 
+        #attend on edus around
+        #Becky: need to focus on S - predict reduce left/right 
+        #check if trees are binarized 
+        #visualize the tree - ask becky to send the ref to codebase
+        # marco: try different flavors of bert? 
+        # becky: weighting components of the loss, ; if loss only be S, does S improve; how high does S get if loss is only that? if S gets high, maybe do curriculum learning. curr learning can be based on doc length or it can be based on loss, e.g., (see below where losses are)
+        # if architecture is promising, then can try switching out bert trained with the most appropriate task (sent prediction)
+        # check if eval is overly punitive on R!!!!
+        # but could also have a paper with bert not really helping
+        # if i give you the gold structure, does bert help with relation classifier
+        # analysis of what components bert helps with or does not help with
+
+        #what needs to be done:
+
+        #encode a sequence of edus 
+
+        # one opetion to get a a vector for each edu is by pooling the token vectors, so for every doc, we get 40 edu vectors 
+        # such that the token embeddings are not pooled, but weighted
+
+
+        
+        #what we have now is sequence output:
+        # for every doc:
+
+        # [
+        #   [edu1 
+        #       [tok1_emb], 
+        #       [tok2_emb]
+        #   ], 
+        #   [edu2 
+        #       [tok1_emb], 
+        #       [tok2_emb]
+        #   ]
+        # ]
+
+        
+        # we want to find attention weights for each token and use those weights to create a vector for every edu where token embeddings will be multiplied by their weights? 
+
+        #pass input through two att layers and softmax the result?
+
+        # mult input by those weights? 
+
+
+        # print(sequence_output)
+        # print('sequence', sequence_output.shape) #eg [40, 38, 768]
+        # # print("seq output: ", sequence_output)
+        # print('pooled', pooled_output.shape) #eg [40, 768] 
         # enc_edus = self.bert_drop(pooled_output)
-        enc_edus = self.bert_drop(sequence_output[:,0,:])
-        enc_edus = self.project(enc_edus)
+        
+        # sequence_output = sequence_output.view(1, 1, -1)
+        
+        after1stAttn = self.attn1(sequence_output)
+        #Marco: add non-linearity between the two attentions, otherwise this could be a single layer - becky also was suggesting trying 1 layer at some point
+
+        # print("after 1st attn: ", after1stAttn)
+
+        # print('after 1st attn: ', after1stAttn.shape)
+
+        after2ndAttn = self.attn2(after1stAttn)
+        # print("after 2nd att: ", after2ndAttn)
+        # print('after 2nd attn: ', after2ndAttn.shape)
+
+        # print("first of after second attention: ", after2ndAttn[0])
+
+        # print("after att shape: ", after2ndAttn.shape)
+        attention_mask = attention_mask.unsqueeze(dim=-1)
+        masked_att = after2ndAttn * attention_mask
+        attn_weights = F.softmax(masked_att, dim=1)
+        # print("att weights shape: ", attn_weights.shape)
+        # print("att weights: ", attn_weights)
+        # print("one of the att weights: ", attn_weights[0])
+
+        attn_applied =  sequence_output * attn_weights #[9, 17, 768] [9, 17, 1]  
+
+        #first dimension is normally the batch
+
+        summed_up = torch.sum(attn_applied, dim=1)
+
+        # print("summed_up: ", summed_up.shape)
+        # output = torch.cat((enc_edus[0], attn_applied[0]), 0)
+        # # score = torch.tahn(after1stAttn + after2ndAttn)
+        
+        # # attn_applied = torch.mul(attn_weights, enc_edus)#.view(1,1,-1))#.view(sequence_output.shape[0], sequence_output.shape[1], sequence_output.shape[2])
+        # # print("shape attn applied: ", attn_applied.shape)
+        # enc_edus = self.attn_combine(output)
+
+        # enc_edus = self.attn(enc_edus)
+        # print('enc_edus after attn: ', enc_edus.shape)
+        # enc_edus = torch.nn.Softmax(self.attn_combine(enc_edus))
+        # print('enc_edus after attn combine: ', enc_edus.shape)
+        # attn_applied = attn_applied.view(sequence_output.shape[0], sequence_output.shape[1], sequence_output.shape[2])
+        
+        # print('enc educ after drop ', enc_edus.shape)
+        enc_edus = self.bert_drop(summed_up)
+        # print("enc edus after dropout: ", enc_edus.shape)
+        enc_edus = self.project(enc_edus) #try without this
+        # print('enc educ after project ', enc_edus.shape)
+
+        # enc_edus = self.attn(sequence_output[:,0,:])
+        # print('enc_edus after attn: ', enc_edus.shape)
+        # enc_edus = self.attn_combine(enc_edus)
+        # print('enc_edus after attn combine: ', enc_edus.shape)
+        # enc_edus = self.bert_drop(enc_edus)
+        # print('enc_edus after bert dropout: ', enc_edus.shape)
+        # enc_edus = self.project(enc_edus)
+        # print('enc_edus after project: ', enc_edus.shape)
+
 
         # make treenodes
         buffer = []
@@ -136,7 +259,13 @@ class DiscoBertModel(nn.Module):
                 loss_1 = loss_fn(action_scores, gold_action)
                 loss_2 = loss_fn(label_scores, gold_label)
                 loss_3 = loss_fn(direction_scores, gold_direction)
-                loss = loss_1 + loss_2 + loss_3
+                loss = loss_1 + loss_2 + loss_3 #todo: rename :) 
+                #todo: (from becky) change to just loss1 
+                #can make a scheduler to make sure losses are
+                #weighted different at different stages of learning 
+                #train the model with initial params 0.9 * loss1 + 0.5 loss2 + 0.5 loss 3 -> freeze (not pretty)
+                #if keep only loss 1, dont compute loss2 and 3
+                #if S improves with just loss1, then there's hope for this architecture
                 # store loss for later
                 losses.append(loss)
                 # teacher forcing
