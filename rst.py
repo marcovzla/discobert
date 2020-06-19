@@ -38,18 +38,23 @@ def load_edus(name):
     with open(name) as f:
         return [line.strip() for line in f]
 
-# primarily for evaluation -- make a "view" of the tree nodes to compare
+# primarily for evaluation -- make a "view" of the tree nodes to compare (S)
 def iter_spans_only(treenodes):
     for t in treenodes:
         yield t.span
 
-# for evaluation, must get the span and the nuclearity right
+# for evaluation, must get the span and the nuclearity right (N)
 def iter_nuclearity_spans(treenodes):
     for t in treenodes:
         yield f'{t.span}::{t.direction}'
 
-# for evaluation -- must get everything right
+# for evaluation -- must get span and relation label right (R)
 def iter_labeled_spans(treenodes):
+    for t in treenodes:
+        yield f'{t.span}::{t.label}'
+
+# for evaluation -- must get everything right (F)
+def iter_labeled_spans_with_nuclearity(treenodes):
     for t in treenodes:
         yield f'{t.span}::{t.direction}::{t.label}'
 

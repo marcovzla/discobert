@@ -6,10 +6,17 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans
+from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
 from utils import prf1
 import config
 import engine
+import random
+
+r_seed = config.SEED
+random.seed(r_seed)
+torch.manual_seed(r_seed)
+torch.cuda.manual_seed(r_seed)
+np.random.seed(r_seed)
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -54,8 +61,11 @@ def main():
         # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'N (span + dir)  F1:{f1:.2%}')
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+        # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        print(f'R (span + label)        F1:{f1:.2%}')
+        p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'R (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'R (full)        F1:{f1:.2%}')
+        print(f'F (full)        F1:{f1:.2%}')
         if f1 > best_f1:
             model.save(config.MODEL_PATH)
             best_f1 = f1
