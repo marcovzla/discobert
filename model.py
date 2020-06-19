@@ -34,7 +34,7 @@ class DiscoBertModel(nn.Module):
         #     param.requires_grad = False
         self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
         self.attn2 = nn.Linear(100, 1)
-        self.attn_combine = nn.Linear(self.bert.config.hidden_size * 2, self.hidden_size)
+        self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
@@ -112,8 +112,8 @@ class DiscoBertModel(nn.Module):
 
 
         #todo: try with these settings:
-        sequence_output = sequence_output[:, 1:, :] 
-        attention_mask = attention_mask[:, 1:]
+        # sequence_output = sequence_output[:, 1:, :] 
+        # attention_mask = attention_mask[:, 1:]
         
 
 
@@ -180,7 +180,9 @@ class DiscoBertModel(nn.Module):
 
         # print('after 1st attn: ', after1stAttn.shape)
 
-        after2ndAttn = self.attn2(after1stAttn)
+        nonLinearity = self.betweenAttention(after1stAttn)
+
+        after2ndAttn = self.attn2(nonLinearity)
         # print("after 2nd att: ", after2ndAttn)
         # print('after 2nd attn: ', after2ndAttn.shape)
 
