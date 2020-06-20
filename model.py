@@ -34,7 +34,7 @@ class DiscoBertModel(nn.Module):
         #     param.requires_grad = False
         self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
         self.attn2 = nn.Linear(100, 1)
-        self.betweenAttention = nn.Tanh()
+        self.betweenAttention = nn.ReLU()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
@@ -180,9 +180,10 @@ class DiscoBertModel(nn.Module):
 
         # print('after 1st attn: ', after1stAttn.shape)
 
-        nonLinearity = self.betweenAttention(after1stAttn)
+        # nonLinearity = self.betweenAttention(after1stAttn)
 
-        after2ndAttn = self.attn2(nonLinearity)
+        # after2ndAttn = self.attn2(nonLinearity)
+        after2ndAttn = self.attn2(after1stAttn)
         # print("after 2nd att: ", after2ndAttn)
         # print('after 2nd attn: ', after2ndAttn.shape)
 
@@ -259,9 +260,9 @@ class DiscoBertModel(nn.Module):
                 gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_1 = loss_fn(action_scores, gold_action)
-                loss_2 = loss_fn(label_scores, gold_label)
-                loss_3 = loss_fn(direction_scores, gold_direction)
-                loss = loss_1 + loss_2 + loss_3 #todo: rename :) 
+                #loss_2 = loss_fn(label_scores, gold_label)
+                #loss_3 = loss_fn(direction_scores, gold_direction)
+                loss = loss_1 #+ loss_2 + loss_3 #todo: rename :) 
                 #todo: (from becky) change to just loss1 
                 #can make a scheduler to make sure losses are
                 #weighted different at different stages of learning 
