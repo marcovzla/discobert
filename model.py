@@ -112,8 +112,8 @@ class DiscoBertModel(nn.Module):
 
 
         #todo: try with these settings:
-        # sequence_output = sequence_output[:, 1:, :] 
-        # attention_mask = attention_mask[:, 1:]
+        sequence_output = sequence_output[:, 1:, :] 
+        attention_mask = attention_mask[:, 1:]
         
 
 
@@ -260,9 +260,9 @@ class DiscoBertModel(nn.Module):
                 gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_1 = loss_fn(action_scores, gold_action)
-                #loss_2 = loss_fn(label_scores, gold_label)
-                #loss_3 = loss_fn(direction_scores, gold_direction)
-                loss = loss_1 #+ loss_2 + loss_3 #todo: rename :) 
+                loss_2 = loss_fn(label_scores, gold_label)
+                loss_3 = loss_fn(direction_scores, gold_direction)
+                loss = loss_1 + loss_2 + loss_3 #todo: rename :) 
                 #todo: (from becky) change to just loss1 
                 #can make a scheduler to make sure losses are
                 #weighted different at different stages of learning 
