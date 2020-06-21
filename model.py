@@ -180,10 +180,10 @@ class DiscoBertModel(nn.Module):
 
         # print('after 1st attn: ', after1stAttn.shape)
 
-        # nonLinearity = self.betweenAttention(after1stAttn)
+        nonLinearity = self.betweenAttention(after1stAttn)
 
         # after2ndAttn = self.attn2(nonLinearity)
-        after2ndAttn = self.attn2(after1stAttn)
+        after2ndAttn = self.attn2(nonLinearity)
         # print("after 2nd att: ", after2ndAttn)
         # print('after 2nd attn: ', after2ndAttn.shape)
 
