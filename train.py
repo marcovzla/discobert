@@ -40,13 +40,16 @@ def main():
 
     print("model: ", model)
     
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)))
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH))) #, test_size=25)
     train_ids_by_length = {}
     for item in train_ds:
         train_ids_by_length.setdefault(len(item.edus), []).append(item)
 
     # for i in train_ds:
     #     print(i)
+
+    for key in sorted(train_ids_by_length):
+        print("=>: ", key, len(train_ids_by_length[key]))
 
     result = []
     for n in sorted(train_ids_by_length):
@@ -66,7 +69,7 @@ def main():
     print(len(result))
 
 
-    num_training_steps = int(len(result) * config.EPOCHS)
+    num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -78,7 +81,7 @@ def main():
     for epoch in range(config.EPOCHS):
         if epoch > 0: print()
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
-        engine.train_fn(result, model, optimizer, device, scheduler)
+        engine.train_fn(train_ds, model, optimizer, device, scheduler)
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')

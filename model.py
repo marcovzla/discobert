@@ -113,8 +113,8 @@ class DiscoBertModel(nn.Module):
 
 
         # #todo: try with these settings:
-        sequence_output = sequence_output[:, 1:, :] 
-        attention_mask = attention_mask[:, 1:]
+        # sequence_output = sequence_output[:, 1:, :] 
+        # attention_mask = attention_mask[:, 1:]
         
 
 
