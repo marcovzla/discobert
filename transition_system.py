@@ -24,7 +24,7 @@ class TransitionSystem:
 
     def take_action(self, action, *args, **kwargs):
         if action == 'shift':
-            print("action == shift, line 27 in transition system")
+            # print("action == shift, line 27 in transition system")
             self.shift()
         elif action == 'reduceL':
             self.reduceL(*args, **kwargs)
@@ -69,14 +69,14 @@ class TransitionSystem:
         if self.can_reduce():
             actions.append('reduceL')
             actions.append('reduceR')
-        print("all legal actions: ", actions)
+        # print("all legal actions: ", actions)
         return actions
 
     def can_shift(self):
-        print("buffer: ", self.buffer)
-        print("len buffer: ", len(self.buffer))
+        # print("buffer: ", self.buffer)
+        # print("len buffer: ", len(self.buffer))
         if len(self.buffer) >= 1:
-            print("can shift")
+            # print("can shift")
             return True
 
     def can_reduce(self):
@@ -118,7 +118,7 @@ class TransitionSystem:
                     break
                     
             else:
-                print("shift")
+                # print("shift")
                 if self.can_shift():
                     correct_steps.append(Step('shift', 'None'))
                 else:

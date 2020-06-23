@@ -82,11 +82,22 @@ class DiscoBertModel(nn.Module):
         else:
             # some actions are illegal, beware
             action_ids = [self.action_to_id[a] for a in actions]
-            print("scores: ", scores)
-            print("action ids:", action_ids)
+            # print("scores: ", scores)
+            # print("action ids:", action_ids)
             mask = torch.ones_like(scores) * -inf
-            mask[action_ids] = 0
-            print("mask: ", mask)
+            # mask[action_ids] = 0
+            # print("mask: ", mask)
+
+            for i in action_ids:
+                mask[0][i] = 0
+            # print("mask with zeros for valid action ids:", mask)
+            scores:  tensor([[ 0.1267, -0.1348,  0.3190]], device='cuda:0')
+            # this is what happens to the scores with this way of masking
+            # action ids: [1, 2]
+            # mask:  tensor([[-inf, -inf, -inf]], device='cuda:0')
+            # mask with zeros for valid action ids: tensor([[-inf, 0., 0.]], device='cuda:0')
+            # masked scores:  tensor([[   -inf, -0.1850,  0.0953]], device='cuda:0')
+            # arg max score:  tensor(2, device='cuda:0')
             masked_scores = scores + mask
             print("masked scores: ", masked_scores)
             print("arg max score: ", torch.argmax(masked_scores))
@@ -126,7 +137,7 @@ class DiscoBertModel(nn.Module):
             state_features = self.make_features(parser)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
-            print("legal actions in model line 124: ", legal_actions)
+            # print("legal actions in model line 124: ", legal_actions)
             # predict next action, label, and direction
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
             label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
@@ -151,7 +162,7 @@ class DiscoBertModel(nn.Module):
                 # next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                print("next action: ", next_action)
+                # print("next action: ", next_action)
                 
                 next_label = label_scores.argmax()
                 # next_direction = direction_scores.argmax()
