@@ -51,6 +51,12 @@ class TransitionSystem:
         node.calc_span()
         self.stack.append(node)
 
+    #todo:
+    #keep actions as shift and reduce
+    #in take action, call reduce, and pass direction as an arg
+    #arcRight = LeftToRight
+    
+
 
     @staticmethod
     def all_actions():

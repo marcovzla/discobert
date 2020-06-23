@@ -82,11 +82,14 @@ class DiscoBertModel(nn.Module):
         else:
             # some actions are illegal, beware
             action_ids = [self.action_to_id[a] for a in actions]
+            print("scores: ", scores)
             print("action ids:", action_ids)
             mask = torch.ones_like(scores) * -inf
             mask[action_ids] = 0
+            print("mask: ", mask)
             masked_scores = scores + mask
             print("masked scores: ", masked_scores)
+            print("arg max score: ", torch.argmax(masked_scores))
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None):
