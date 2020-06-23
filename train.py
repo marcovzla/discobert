@@ -38,7 +38,7 @@ def main():
     model = DiscoBertModel()
     model.to(device)
 
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)))
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), train_size = 5)
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
@@ -53,6 +53,7 @@ def main():
         if epoch > 0: print()
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
+        print("done with train")
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')

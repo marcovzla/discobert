@@ -82,9 +82,11 @@ class DiscoBertModel(nn.Module):
         else:
             # some actions are illegal, beware
             action_ids = [self.action_to_id[a] for a in actions]
+            print("action ids:", action_ids)
             mask = torch.ones_like(scores) * -inf
             mask[action_ids] = 0
             masked_scores = scores + mask
+            print("masked scores: ", masked_scores)
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None):
@@ -121,38 +123,41 @@ class DiscoBertModel(nn.Module):
             state_features = self.make_features(parser)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
+            print("legal actions in model line 124: ", legal_actions)
             # predict next action, label, and direction
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
             label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-            direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+            # direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
             # are we training?
             if gold_tree is not None:
                 gold_step = parser.gold_step(gold_tree)
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-                gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+                # gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_1 = loss_fn(action_scores, gold_action)
                 loss_2 = loss_fn(label_scores, gold_label)
-                loss_3 = loss_fn(direction_scores, gold_direction)
-                loss = loss_1 + loss_2 + loss_3
+                # loss_3 = loss_fn(direction_scores, gold_direction)
+                loss = loss_1 + loss_2 #+ loss_3
                 # store loss for later
                 losses.append(loss)
                 # teacher forcing
                 next_action = gold_action
                 next_label = gold_label
-                next_direction = gold_direction
+                # next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
+                print("next action: ", next_action)
+                
                 next_label = label_scores.argmax()
-                next_direction = direction_scores.argmax()
+                # next_direction = direction_scores.argmax()
 
             # take the next parser step
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
-                direction=self.id_to_direction[next_direction],
+                # direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
             )
 
