@@ -1,7 +1,7 @@
 from pathlib import Path
 import tokenizers
 
-EPOCHS = 30
+EPOCHS = 1
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True

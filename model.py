@@ -54,10 +54,10 @@ class DiscoBertModel(nn.Module):
     def save(self, path):
         torch.save(self.state_dict(), path)
 
-    def merge_embeddings(self, embed_1, embed_2):
+    def merge_embeddings(self, embed_1, embed_2, relation_one_hot):
         # return torch.max(embed_1, embed_2)
         # return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
-        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0)).squeeze(dim=0)
+        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0)).squeeze(dim=0, relation_one_hot)
 
     def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
@@ -147,8 +147,10 @@ class DiscoBertModel(nn.Module):
                 next_action = self.best_legal_action(legal_actions, action_scores)
                 next_label = label_scores.argmax()
                 next_direction = direction_scores.argmax()
-
+            # print("dir: ", direction_scores)
             # take the next parser step
+            # print(next_direction)
+            # print(self.id_to_label[next_label])
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
