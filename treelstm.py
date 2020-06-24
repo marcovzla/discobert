@@ -13,7 +13,7 @@ class TreeLstm(nn.Module):
         self.hidden_size = hidden_size
         self.W_l = nn.Linear(self.hidden_size, 5 * self.hidden_size)
         self.W_r = nn.Linear(self.hidden_size, 5 * self.hidden_size)
-        self.W_rel = nn.Linear(len(config.ID_TO_LABEL), 5 * self.hidden_size)
+        self.W_rel = nn.Linear(len(config.ID_TO_LABEL) + len(config.DIRECTION_TO_ID), 5 * self.hidden_size)
 
     def slice_gate(self, gates, i):
         size = self.hidden_size

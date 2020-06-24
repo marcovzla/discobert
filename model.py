@@ -163,15 +163,22 @@ class DiscoBertModel(nn.Module):
             # print(rel_one_hot)
             rel_one_hot[next_label] = 1
             # print("rel emb: ", rel_one_hot)
+
+            dir_one_hot = numpy.zeros(len(config.DIRECTION_TO_ID))
+            dir_one_hot[next_direction] = 1
+            # print("dir one hot: ", dir_one_hot)
             
-            rel_tensor = torch.from_numpy(rel_one_hot).to(self.device)
+
+            rel_dir_one_hot = numpy.concatenate((rel_one_hot, dir_one_hot), axis=0)
+            # rel_tensor = torch.from_numpy(rel_one_hot).to(self.device)
+            rel_dir_tensor = torch.from_numpy(rel_dir_one_hot).to(self.device)
             # print("rel tensor: ", rel_tensor)
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
                 direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
-                rel_tensor = rel_tensor
+                rel_tensor = rel_dir_tensor
             )
 
         # returns the TreeNode for the tree root
