@@ -5,6 +5,7 @@ from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
+import numpy
 
 inf = float('inf')
 
@@ -57,7 +58,8 @@ class DiscoBertModel(nn.Module):
     def merge_embeddings(self, embed_1, embed_2, relation_one_hot):
         # return torch.max(embed_1, embed_2)
         # return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
-        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0)).squeeze(dim=0, relation_one_hot)
+        # print("emb1: ", embed_1.shape, "\n", embed_1)
+        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_one_hot.float().unsqueeze(dim=0)).squeeze(dim=0)
 
     def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
@@ -151,11 +153,25 @@ class DiscoBertModel(nn.Module):
             # take the next parser step
             # print(next_direction)
             # print(self.id_to_label[next_label])
+
+            # rel_id = config.LABEL_TO_ID[next_label]
+            # print("label: ", next_label)
+            
+
+            rel_one_hot = numpy.zeros(len(config.LABEL_TO_ID))
+        
+            # print(rel_one_hot)
+            rel_one_hot[next_label] = 1
+            # print("rel emb: ", rel_one_hot)
+            
+            rel_tensor = torch.from_numpy(rel_one_hot).to(self.device)
+            # print("rel tensor: ", rel_tensor)
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
                 direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
+                rel_tensor = rel_tensor
             )
 
         # returns the TreeNode for the tree root
