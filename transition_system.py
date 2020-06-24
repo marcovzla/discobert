@@ -35,21 +35,32 @@ class TransitionSystem:
         node = self.buffer.pop(0)
         self.stack.append(node)
 
-    def reduceL(self, label=None, direction=None, reduce_fn=None):
+    def reduce(self, label=None, direction=None, reduce_fn=None):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
         emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
-        node = TreeNode(children=[lhs, rhs], label=label, direction='RightToLeft', embedding=emb)
+        node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
         node.calc_span()
         self.stack.append(node)
 
+
+    def reduceL(self, label=None, direction=None, reduce_fn=None):
+        self.reduce(label, 'RightToLeft', reduce_fn)
+        # rhs = self.stack.pop()
+        # lhs = self.stack.pop()
+        # emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
+        # node = TreeNode(children=[lhs, rhs], label=label, direction='RightToLeft', embedding=emb)
+        # node.calc_span()
+        # self.stack.append(node)
+
     def reduceR(self, label=None, direction=None, reduce_fn=None):
-        rhs = self.stack.pop()
-        lhs = self.stack.pop()
-        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
-        node = TreeNode(children=[lhs, rhs], label=label, direction='LeftToRight', embedding=emb)
-        node.calc_span()
-        self.stack.append(node)
+        self.reduce(label, 'LeftToRight', reduce_fn)
+        # rhs = self.stack.pop()
+        # lhs = self.stack.pop()
+        # emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
+        # node = TreeNode(children=[lhs, rhs], label=label, direction='LeftToRight', embedding=emb)
+        # node.calc_span()
+        # self.stack.append(node)
 
     #todo:
     #keep actions as shift and reduce

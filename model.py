@@ -91,7 +91,7 @@ class DiscoBertModel(nn.Module):
             for i in action_ids:
                 mask[0][i] = 0
             # print("mask with zeros for valid action ids:", mask)
-            scores:  tensor([[ 0.1267, -0.1348,  0.3190]], device='cuda:0')
+            # scores:  tensor([[ 0.1267, -0.1348,  0.3190]], device='cuda:0')
             # this is what happens to the scores with this way of masking
             # action ids: [1, 2]
             # mask:  tensor([[-inf, -inf, -inf]], device='cuda:0')
@@ -99,8 +99,8 @@ class DiscoBertModel(nn.Module):
             # masked scores:  tensor([[   -inf, -0.1850,  0.0953]], device='cuda:0')
             # arg max score:  tensor(2, device='cuda:0')
             masked_scores = scores + mask
-            print("masked scores: ", masked_scores)
-            print("arg max score: ", torch.argmax(masked_scores))
+            # print("masked scores: ", masked_scores)
+            # print("arg max score: ", torch.argmax(masked_scores))
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None):
