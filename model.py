@@ -86,6 +86,19 @@ class DiscoBertModel(nn.Module):
             mask[action_ids] = 0
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
+    
+    def legal_action_scores(self, actions, scores):
+        """Gets a list of legal actions w.r.t the current state of the parser
+        and the predicted scores for all possible actions. Returns only the scores for the legal actions."""
+
+        # some actions are illegal, beware
+        action_ids = [self.action_to_id[a] for a in actions]
+        mask = torch.ones_like(scores) * -inf
+        for i in action_ids:
+            mask[0][i] = 0
+
+        masked_scores = scores + mask
+        return masked_scores
 
     def forward(self, edus, gold_tree=None):
 
@@ -157,29 +170,72 @@ class DiscoBertModel(nn.Module):
 
 
         else:
-            while not parser.is_done():
-                state_features = self.make_features(parser)
-                # legal actions for current parser
-                legal_actions = parser.all_legal_actions()
-                # predict next action, label, and direction
-                action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
-                # are we training?
 
+            # for every highest scored combo of action/label/dir, take an action and store the parser and cur score (make sure to update parser score)
+            #OR
+            # for every combo of action/label/dir (maybe also choose top k?), calc scores with previous parsers, then take action and store the parser and cur score
+            parsers_done = []
+            parsers = [[list(), 0.0]] #for us, it's parsers (?)
+            # walk over each step in sequence
+            while len(parsers_done) < 5:
+            # while not parser.is_done():
+                all_candidates = list() #here will be all parser candidates (previous parser updated with current steps)
+		        # expand each current candidate
+                for i in range(len(parsers)):
+                    # for every previously found sequence, get the seq and its score (we'll update them with new scores)
+                    parser, score = parsers[i] #this is one previous parser
+                    #we want to see several ways of how we can update it
+
+                    
+                    state_features = self.make_features(parser)
+                    # legal actions for current parser
+                    legal_actions = parser.all_legal_actions()
+                    # predict next action, label, and direction
+                    action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                    legal_action_scores = self.legal_action_scores(legal_actions, action_scores)
+                    label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                    direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+     
+                    # if len(legal_actions) == 1:
+                    #     print('legal actions: ', legal_actions)
+                    #     print("1: ", action_scores)
+                    #     print("2: ", legal_action_scores)
+                    # print("label scores: ", label_scores)
+                    # print("direction scores: ", direction_scores)
+
+           
+                    # next_action = self.best_legal_action(legal_actions, action_scores)
+                    # next_label = label_scores.argmax()
+                    # next_direction = direction_scores.argmax()
+
+                    #get top k action/label/dir combos and their scores
+                    top_k_combos, combo_score = some_new_method_for_getting_top_combos(legal_action_scores, label_scores, direction_scores)
+                    #would the combo score be mult or sum? or something else?
+
+                    for combo in top_k_combos:
+                        # take the next parser step
+                        parser.take_action(
+                            action=self.id_to_action[next_action],
+                            label=self.id_to_label[next_label],
+                            direction=self.id_to_direction[next_direction],
+                            reduce_fn=self.merge_embeddings,
+                        )
+
+                    all_candidates.append(parser, score + combo) #this is the new parser after the action has been taken with the score updated
+
+                #now we have several parse/score candidates
+                #get top scoring parsers (remember to incorporate previous score)
+                #should we normalize at every step?
+            
+                #out of all the top scoring parsers, check if any are done? 
+                if parser.is_done:
+                    parsers_done.append(parser)
+
+
+        #out of done parsers, choose the highest prob one
+
+        #here, get the results from the highest scoring of the done parsers
         
-                next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax()
-                next_direction = direction_scores.argmax()
-
-                # take the next parser step
-                parser.take_action(
-                    action=self.id_to_action[next_action],
-                    label=self.id_to_label[next_label],
-                    direction=self.id_to_direction[next_direction],
-                    reduce_fn=self.merge_embeddings,
-                )
-
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
         outputs = (predicted_tree,)
