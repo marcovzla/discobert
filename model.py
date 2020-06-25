@@ -115,18 +115,22 @@ class DiscoBertModel(nn.Module):
         # initialize automata
         parser = TransitionSystem(buffer)
 
-        losses = []
+        
+        #diverge train and eval here
+        if gold_tree is not None:
 
-        while not parser.is_done():
-            state_features = self.make_features(parser)
-            # legal actions for current parser
-            legal_actions = parser.all_legal_actions()
-            # predict next action, label, and direction
-            action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-            direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
-            # are we training?
-            if gold_tree is not None:
+            losses = []
+
+            while not parser.is_done():
+                state_features = self.make_features(parser)
+                # legal actions for current parser
+                legal_actions = parser.all_legal_actions()
+                # predict next action, label, and direction
+                action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+                # are we training?
+
                 gold_step = parser.gold_step(gold_tree)
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
@@ -143,18 +147,38 @@ class DiscoBertModel(nn.Module):
                 next_action = gold_action
                 next_label = gold_label
                 next_direction = gold_direction
-            else:
-                next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax()
-                next_direction = direction_scores.argmax()
-
-            # take the next parser step
-            parser.take_action(
+                parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
                 direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
             )
+
+
+
+        else:
+            while not parser.is_done():
+                state_features = self.make_features(parser)
+                # legal actions for current parser
+                legal_actions = parser.all_legal_actions()
+                # predict next action, label, and direction
+                action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+                # are we training?
+
+        
+                next_action = self.best_legal_action(legal_actions, action_scores)
+                next_label = label_scores.argmax()
+                next_direction = direction_scores.argmax()
+
+                # take the next parser step
+                parser.take_action(
+                    action=self.id_to_action[next_action],
+                    label=self.id_to_label[next_label],
+                    direction=self.id_to_direction[next_direction],
+                    reduce_fn=self.merge_embeddings,
+                )
 
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
