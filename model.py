@@ -39,6 +39,7 @@ class DiscoBertModel(nn.Module):
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2)
         self.relu = nn.ReLU()
+        self.rel_embeddings = nn.Embedding(len(config.ID_TO_LABEL), 50)
 
     @property
     def device(self):
@@ -175,7 +176,7 @@ class DiscoBertModel(nn.Module):
             #OR
             # for every combo of action/label/dir (maybe also choose top k?), calc scores with previous parsers, then take action and store the parser and cur score
             parsers_done = []
-            parsers = [[list(), 0.0]] #for us, it's parsers (?)
+            parsers = [[list(), 0.0, steps_taken]] #for us, it's parsers (?)
             # walk over each step in sequence
             while len(parsers_done) < 5:
             # while not parser.is_done():
@@ -209,11 +210,17 @@ class DiscoBertModel(nn.Module):
                     # next_direction = direction_scores.argmax()
 
                     #get top k action/label/dir combos and their scores
+
+                    #
+                    #get softmax scores for all of those classifier scores, convert scores to log probabilities, and then sum up
+                    #be careful: keep track of how many steps i took--> bc need to normalize at the end (normalizing during doesnt make sense bc by then, they have taken the same# of steps)
                     top_k_combos, combo_score = some_new_method_for_getting_top_combos(legal_action_scores, label_scores, direction_scores)
-                    #would the combo score be mult or sum? or something else?
+                    #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
                     for combo in top_k_combos:
                         # take the next parser step
+                        #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
+                        #the steps should apply to the copies of the previous parser
                         parser.take_action(
                             action=self.id_to_action[next_action],
                             label=self.id_to_label[next_label],
@@ -227,15 +234,17 @@ class DiscoBertModel(nn.Module):
                 #get top scoring parsers (remember to incorporate previous score)
                 #should we normalize at every step?
             
-                #out of all the top scoring parsers, check if any are done? 
+                #out of all the top scoring parsers, check if any are done? make sure this is in the right place
                 if parser.is_done:
                     parsers_done.append(parser)
 
 
-        #out of done parsers, choose the highest prob one
+        #out of done parsers (normalize scores by length of corresponding sequence---the number of actions), choose the highest prob one (NORMALIZE)
 
         #here, get the results from the highest scoring of the done parsers
-        
+
+        #likely to cause bugs - if some finish, need to decrease the size of beam
+
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
         outputs = (predicted_tree,)
