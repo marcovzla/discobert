@@ -29,7 +29,7 @@ class TreeLstm(nn.Module):
         # print("r_c shape: ", r_c.shape)
         # print("rel one hot: ", rel_one_hot)
         rel_after_W = self.W_rel(rel_one_hot)
-        gates = self.W_l(l_h) + self.W_r(r_h) + rel_after_W #hidden state * 5 to accommodate 5 diff gates?
+        gates = self.W_l(l_h) + self.W_r(r_h) #+ rel_after_W #hidden state * 5 to accommodate 5 diff gates?
     
 
         # print("gates shape: ", gates.shape)
@@ -40,5 +40,5 @@ class TreeLstm(nn.Module):
         o   = torch.sigmoid(self.slice_gate(gates, 3))
         g   = torch.tanh(self.slice_gate(gates, 4))
         c_t = f_l * l_c + f_r * r_c + i * g
-        h_t = o * torch.tanh(c_t)
+        h_t = o * torch.tanh(c_t * rel_after_W)
         return torch.cat([h_t, c_t], dim=1)
