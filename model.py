@@ -25,7 +25,11 @@ class DiscoBertModel(nn.Module):
         self.direction_to_id = config.DIRECTION_TO_ID
         self.id_to_label = config.ID_TO_LABEL
         self.label_to_id = config.LABEL_TO_ID
-        self.hidden_size = 200
+        self.hidden_size = config.HIDDEN_SIZE
+        self.relation_label_hidden_size = config.RELATION_LABEL_HIDDEN_SIZE
+        self.direction_hidden_size = config.DIRECTION_HIDDEN_SIZE
+        self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
+        self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
         self.tokenizer = config.TOKENIZER
         self.bert = BertModel.from_pretrained(self.bert_path)
@@ -38,10 +42,12 @@ class DiscoBertModel(nn.Module):
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
-        self.treelstm = TreeLstm(self.hidden_size // 2)
+        self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         self.relu = nn.ReLU()
-        self.relation_embeddings = nn.Embedding(len(config.ID_TO_LABEL), config.RELATION_LABEL_HIDDEN_SIZE)
-        self.direction_embedding = nn.Embedding(len(config.ID_TO_DIRECTION), config.DIRECTION_HIDDEN_SIZE)
+        if self.include_relation_embedding:
+            self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
+        if self.include_direction_embedding:
+            self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
 
     @property
     def device(self):
@@ -149,33 +155,25 @@ class DiscoBertModel(nn.Module):
                 next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax()
-                next_direction = direction_scores.argmax()
-            # print("dir: ", direction_scores)
-            # take the next parser step
-            # print(next_direction)
-            # print(self.id_to_label[next_label])
+                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                next_direction = direction_scores.argmax().unsqueeze(0)
+            
+            if self.include_relation_embedding:
+                rel_emb = self.relation_embeddings(next_label)
+                if self.include_direction_embedding:
+                    dir_emb = self.direction_embedding(next_direction)
+                    rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
+                else:
+                    rel_dir_emb = rel_emb
+            else:
+                rel_dir_emb = None  
 
-            # rel_id = config.LABEL_TO_ID[next_label]
-            # print("next label: ", next_label)
-            
-            
-
-            rel_emb = self.relation_embeddings(next_label)
-            # print("all relation emb: ", self.relation_embeddings)
-            # print("rel emb size: ", rel_emb.shape)
-        
-            # dir_emb = self.direction_embedding(next_direction)
-            
-
-            # rel_dir_emb = torch.cat((rel_emb, dir_emb), 1)
-            
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
                 direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
-                rel_tensor = rel_emb
+                rel_embedding = rel_dir_emb
             )
 
         # returns the TreeNode for the tree root

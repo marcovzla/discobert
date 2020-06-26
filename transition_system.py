@@ -35,7 +35,7 @@ class TransitionSystem:
         node = self.buffer.pop(0)
         self.stack.append(node)
 
-    def reduce(self, label=None, direction=None, reduce_fn=None, rel_tensor=None):
+    def reduce(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
 
@@ -48,7 +48,7 @@ class TransitionSystem:
         
 
         
-        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_tensor) 
+        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_embedding) 
         # print(emb)
 
         node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
