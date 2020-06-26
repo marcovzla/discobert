@@ -13,23 +13,24 @@ class TreeLstm(nn.Module):
         self.hidden_size = hidden_size
         self.W_l = nn.Linear(self.hidden_size, 5 * self.hidden_size)
         self.W_r = nn.Linear(self.hidden_size, 5 * self.hidden_size)
-        self.W_rel = nn.Linear(len(config.ID_TO_LABEL) + len(config.DIRECTION_TO_ID), 5 * self.hidden_size)
-
+        self.W_rel = nn.Linear(config.RELATION_LABEL_HIDDEN_SIZE, 5 * self.hidden_size) 
+        
     def slice_gate(self, gates, i):
         size = self.hidden_size
         pos = i * size
         return gates[:,pos:pos+size]
 
-    def forward(self, lhs, rhs, rel_one_hot):
+    def forward(self, lhs, rhs, rel_emb):
         l_h, l_c = torch.split(lhs, self.hidden_size, dim=1)
         r_h, r_c = torch.split(rhs, self.hidden_size, dim=1)
         # print("lh shape: ", l_h.shape)
         # print("l_c shape: ", l_c.shape)
         # print("r_h shape: ", r_h.shape)
         # print("r_c shape: ", r_c.shape)
-        # print("rel one hot: ", rel_one_hot)
-        rel_after_W = self.W_rel(rel_one_hot)
-        gates = self.W_l(l_h) + self.W_r(r_h) #+ rel_after_W #hidden state * 5 to accommodate 5 diff gates?
+        # print("rel_emb: ", rel_emb)
+        # print("rel emb shape: ", rel_emb.shape)
+        rel_after_W = self.W_rel(rel_emb)
+        gates = self.W_l(l_h) + self.W_r(r_h) + rel_after_W #hidden state * 5 to accommodate 5 diff gates?
     
 
         # print("gates shape: ", gates.shape)
@@ -40,5 +41,5 @@ class TreeLstm(nn.Module):
         o   = torch.sigmoid(self.slice_gate(gates, 3))
         g   = torch.tanh(self.slice_gate(gates, 4))
         c_t = f_l * l_c + f_r * r_c + i * g
-        h_t = o * torch.tanh(c_t * rel_after_W)
+        h_t = o * torch.tanh(c_t) # * rel_after_W)
         return torch.cat([h_t, c_t], dim=1)

@@ -40,6 +40,8 @@ class DiscoBertModel(nn.Module):
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2)
         self.relu = nn.ReLU()
+        self.relation_embeddings = nn.Embedding(len(config.ID_TO_LABEL), config.RELATION_LABEL_HIDDEN_SIZE)
+        self.direction_embedding = nn.Embedding(len(config.ID_TO_DIRECTION), config.DIRECTION_HIDDEN_SIZE)
 
     @property
     def device(self):
@@ -55,11 +57,11 @@ class DiscoBertModel(nn.Module):
     def save(self, path):
         torch.save(self.state_dict(), path)
 
-    def merge_embeddings(self, embed_1, embed_2, relation_one_hot):
+    def merge_embeddings(self, embed_1, embed_2, relation_embedding):
         # return torch.max(embed_1, embed_2)
         # return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
         # print("emb1: ", embed_1.shape, "\n", embed_1)
-        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_one_hot.float().unsqueeze(dim=0)).squeeze(dim=0)
+        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_embedding).squeeze(dim=0)
 
     def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
@@ -155,30 +157,25 @@ class DiscoBertModel(nn.Module):
             # print(self.id_to_label[next_label])
 
             # rel_id = config.LABEL_TO_ID[next_label]
-            # print("label: ", next_label)
+            # print("next label: ", next_label)
+            
             
 
-            rel_one_hot = numpy.zeros(len(config.LABEL_TO_ID))
+            rel_emb = self.relation_embeddings(next_label)
+            # print("all relation emb: ", self.relation_embeddings)
+            # print("rel emb size: ", rel_emb.shape)
         
-            # print(rel_one_hot)
-            rel_one_hot[next_label] = 1
-            # print("rel emb: ", rel_one_hot)
-
-            dir_one_hot = numpy.zeros(len(config.DIRECTION_TO_ID))
-            dir_one_hot[next_direction] = 1
-            # print("dir one hot: ", dir_one_hot)
+            # dir_emb = self.direction_embedding(next_direction)
             
 
-            rel_dir_one_hot = numpy.concatenate((rel_one_hot, dir_one_hot), axis=0)
-            # rel_tensor = torch.from_numpy(rel_one_hot).to(self.device)
-            rel_dir_tensor = torch.from_numpy(rel_dir_one_hot).to(self.device)
-            # print("rel tensor: ", rel_tensor)
+            # rel_dir_emb = torch.cat((rel_emb, dir_emb), 1)
+            
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
                 direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
-                rel_tensor = rel_dir_tensor
+                rel_tensor = rel_emb
             )
 
         # returns the TreeNode for the tree root
