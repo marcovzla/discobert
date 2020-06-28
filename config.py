@@ -13,7 +13,7 @@ TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_PATH = DISCOBERT_PATH/'discobert.model'
 
-ID_TO_ACTION = ['shift', 'reduceL', 'reduceR']
+ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 
 ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']

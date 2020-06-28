@@ -30,6 +30,8 @@ class TransitionSystem:
             self.reduceL(*args, **kwargs)
         elif action == 'reduceR':
             self.reduceR(*args, **kwargs)
+        else:
+            self.reduce(*args, **kwargs)
 
     def shift(self):
         node = self.buffer.pop(0)
@@ -71,7 +73,7 @@ class TransitionSystem:
 
     @staticmethod
     def all_actions():
-        return ['shift', 'reduceL', 'reduceR']
+        return ['shift', 'reduceL', 'reduceR', 'reduce']
 
     def all_legal_actions(self):
         actions = []
@@ -80,6 +82,7 @@ class TransitionSystem:
         if self.can_reduce():
             actions.append('reduceL')
             actions.append('reduceR')
+            actions.append('reduce')
         # print("all legal actions: ", actions)
         return actions
 
@@ -123,9 +126,10 @@ class TransitionSystem:
                         # print(n.direction)
                         correct_steps.append(Step('reduceR', n.label))
                         # break
-                    else:
+                    elif n.direction == 'RightToLeft':
                         correct_steps.append(Step('reduceL', n.label))
-                        # print(n.direction)
+                    else:
+                       correct_steps.append(Step('reduce', n.label))
                     break
                     
             else:
