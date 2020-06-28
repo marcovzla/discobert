@@ -73,17 +73,22 @@ class DiscoBertModel(nn.Module):
         """Gets a list of legal actions w.r.t the current state of the parser
         and the predicted scores for all possible actions. Returns the legal action
         with the highest score."""
+        print("=====================\nlegal actions: ", actions)
+        print("scores: ", scores)
         if len(actions) == 1:
             # only one legal action available
+            print("len actions = 1: ", self.action_to_id[actions[0]])
             return self.action_to_id[actions[0]]
-        elif len(actions) == scores.shape[0]:
+        elif len(actions) == scores.shape[1]:
             # all actions are legal
+            print("len legal actions = len scores: ", torch.argmax(scores))
             return torch.argmax(scores)
         else:
             # some actions are illegal, beware
+            
             action_ids = [self.action_to_id[a] for a in actions]
             # print("scores: ", scores)
-            # print("action ids:", action_ids)
+            print("action ids:", action_ids)
             mask = torch.ones_like(scores) * -inf
             # mask[action_ids] = 0
             # print("mask: ", mask)
@@ -101,6 +106,7 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             # print("masked scores: ", masked_scores)
             # print("arg max score: ", torch.argmax(masked_scores))
+            print("need masking: ", torch.argmax(masked_scores))
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None):
@@ -162,7 +168,7 @@ class DiscoBertModel(nn.Module):
                 # next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                # print("next action: ", next_action)
+                print("next action: ", self.id_to_action[next_action])
                 
                 next_label = label_scores.argmax()
                 # next_direction = direction_scores.argmax()
