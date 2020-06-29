@@ -110,9 +110,6 @@ def main(experiment_dir_path):
             saved_model_f1_r = f1_r
             saved_model_f1_f = f1
             
-
-
-
         print("\n--------------------------------------------------------")
         print("Best epochs:\n--------------------------------------------------------")
         print("metric\t|\tscore\t|\tepoch")
@@ -177,7 +174,7 @@ if __name__ == '__main__':
                 best_seed = r_seed
 
         print("\n========================================================")
-        print(f"Average scores from {len(random_seeds)} runs with different random seeds:")
+        print(f"Average scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
         print("--------------------------------------------------------")
         print("F1 (span):\t", f1_s_overall/len(random_seeds))
         print("F1 (span + dir):\t", f1_n_overall/len(random_seeds))
