@@ -52,12 +52,14 @@ def main(experiment_dir_path):
         num_training_steps=num_training_steps,
     )
 
-    
+    # the scores from the model that was best based on Full F1 score and that was saved
     saved_model_f1_s = 0
     saved_model_f1_n = 0
     saved_model_f1_r = 0
     saved_model_f1_f = 0
     
+    # max component scores and the associated epochs
+    # Note: saved_model_f1_f should be equal to max_f1_F
     max_f1_S = 0
     max_f1_N = 0
     max_f1_R = 0
@@ -75,17 +77,17 @@ def main(experiment_dir_path):
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        print(f'S (span only)   F1:{f1_s:.2%}')
         if f1_s > max_f1_S:
             max_f1_S = f1_s
             max_f1_S_epoch = epoch
-
-        print(f'S (span only)   F1:{f1_span:.2%}')
+        
         p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
         # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        print(f'N (span + dir)  F1:{f1_n:.2%}')
         if f1_n > max_f1_N:
             max_f1_N = f1_n
-            max_f1_N_epoch = epoch
-        print(f'N (span + dir)  F1:{f1_n:.2%}')
+            max_f1_N_epoch = epoch        
 
         p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
         # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
@@ -93,6 +95,7 @@ def main(experiment_dir_path):
         if f1_r > max_f1_R:
             max_f1_R = f1_r
             max_f1_R_epoch = epoch
+
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
@@ -118,6 +121,8 @@ def main(experiment_dir_path):
         print("max f1 (span + rel):\t", max_f1_R, "\t", max_f1_R_epoch)
         print("max f1 (span + rel + dir):\t", max_f1_F, "\t", max_f1_F_epoch)
         print("--------------------------------------------------------")
+
+        assert saved_model_f1_f == max_f1_F
         # return these if we want to get averages from last epoch
         # return f1_span, f1_n, f1_r, f1
         # return saved (best full f1) model scores
