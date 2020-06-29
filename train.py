@@ -15,6 +15,7 @@ import os
 import sys
 import shutil
 from datetime import date
+import time
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -80,28 +81,28 @@ def main(experiment_dir_path):
         print(f'S (span only)   F1:{f1_s:.2%}')
         if f1_s > max_f1_S:
             max_f1_S = f1_s
-            max_f1_S_epoch = epoch
+            max_f1_S_epoch = epoch + 1
         
         p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
         # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'N (span + dir)  F1:{f1_n:.2%}')
         if f1_n > max_f1_N:
             max_f1_N = f1_n
-            max_f1_N_epoch = epoch        
+            max_f1_N_epoch = epoch + 1     
 
         p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
         # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'R (span + label)        F1:{f1_r:.2%}')
         if f1_r > max_f1_R:
             max_f1_R = f1_r
-            max_f1_R_epoch = epoch
+            max_f1_R_epoch = epoch + 1
 
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
         if f1 > max_f1_F:
             max_f1_F = f1
-            max_f1_F_epoch = epoch
+            max_f1_F_epoch = epoch + 1
         if f1 > saved_model_f1_f:
             #we decide whether or not save the model based on Full F1, but save best scores from each component
             model.save(model_path)
@@ -109,27 +110,36 @@ def main(experiment_dir_path):
             saved_model_f1_n = f1_n
             saved_model_f1_r = f1_r
             saved_model_f1_f = f1
-            
-        print("\n--------------------------------------------------------")
-        print("Best epochs:\n--------------------------------------------------------")
-        print("metric\t|\tscore\t|\tepoch")
-        print("max f1 (span):\t", max_f1_S, "\t", max_f1_S_epoch)
-        print("max f1 (span + dir):\t", max_f1_N, "\t", max_f1_N_epoch)
-        print("max f1 (span + rel):\t", max_f1_R, "\t", max_f1_R_epoch)
-        print("max f1 (span + rel + dir):\t", max_f1_F, "\t", max_f1_F_epoch)
-        print("--------------------------------------------------------")
 
-        assert saved_model_f1_f == max_f1_F
-        # return these if we want to get averages from last epoch
-        # return f1_span, f1_n, f1_r, f1
-        # return saved (best full f1) model scores
-        return saved_model_f1_s, saved_model_f1_n, saved_model_f1_r, saved_model_f1_f
-        
+    print("\n--------------------------------------------------------")
+    print("Saved model:\n--------------------------------------------------------")
+    print("F1 span:\t", saved_model_f1_s)
+    print("F1 span + direction:\t", saved_model_f1_n)
+    print("F1 span + relation:\t", saved_model_f1_r)
+    print("F1 full:\t", saved_model_f1_f)
+    
+
+
+    print("\n--------------------------------------------------------")
+    print("Best epochs:\n--------------------------------------------------------")
+    print("metric\t|\tscore\t|\tepoch")
+    print("max f1 (span):\t", max_f1_S, "\t", max_f1_S_epoch)
+    print("max f1 (span + dir):\t", max_f1_N, "\t", max_f1_N_epoch)
+    print("max f1 (span + rel):\t", max_f1_R, "\t", max_f1_R_epoch)
+    print("max f1 (span + rel + dir):\t", max_f1_F, "\t", max_f1_F_epoch)
+    print("--------------------------------------------------------")
+
+    assert saved_model_f1_f == max_f1_F
+    # return these if we want to get averages from last epoch
+    # return f1_span, f1_n, f1_r, f1
+    # return saved (best full f1) model scores
+    return saved_model_f1_s, saved_model_f1_n, saved_model_f1_r, saved_model_f1_f
+    
         
 
 if __name__ == '__main__':
 
-    #also output here which rs gave best f1
+    start_time = time.time()
 
     #create dir for the experiment
     experiment_dir_path = os.path.join(config.OUTPUT_DIR, "experiment" + str(config.EXPERIMENT_ID) + "-" + config.EXPERIMENT_DESCRIPTION + "-" + str(date.today()))
@@ -168,9 +178,11 @@ if __name__ == '__main__':
             f1_n_overall += rs_results[1]
             f1_r_overall += rs_results[2]
             f1_f_overall += rs_results[3]
-
-            if f1_f_overall > best_f1_full:
-                best_f1_full = f1_f_overall
+            
+            # if the full f1 output from the random seed is higher than previously recorded best f1 (from a diff seed), 
+            # update the best f1 and the random seed
+            if rs_results[3] > best_f1_full:
+                best_f1_full = rs_results[3]
                 best_seed = r_seed
 
         print("\n========================================================")
@@ -181,4 +193,5 @@ if __name__ == '__main__':
         print("F1 (span + rel):\t", f1_r_overall/len(random_seeds))
         print("F1 (full):\t", f1_f_overall/len(random_seeds))
         print("Best random seed:\t", best_seed)
+        print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 
