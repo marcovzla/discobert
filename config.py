@@ -1,19 +1,22 @@
 from pathlib import Path
 import tokenizers
 
-EXPERIMENT_ID = 1
-EPOCHS = 1
+EXPERIMENT_ID = 0
+EXPERIMENT_DESCRIPTION = "OriginalRun" # enter a brief description that will make the experiment easy to identify
+EPOCHS = 30
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
 LR = 3e-5 #default 3e-5
 RANDOM_SEEDS = [22, 42, 137, 198, 202]
 
-DISCOBERT_PATH = Path('~/data/discobert').expanduser()
-OUTPUT_DIR = Path('~/discobert/outputs').expanduser()
+DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
+DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
+OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_FILENAME = 'discobert.model'
+CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
 ID_TO_ACTION = ['shift', 'reduce']
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}

@@ -12,9 +12,9 @@ import config
 import engine
 import random
 import os
-
-
-
+import sys
+import shutil
+from datetime import date
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -31,13 +31,13 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
 
-def main():
-    model_dir_path = os.path.join(os.path.join(config.OUTPUT_DIR, "experiment" + str(config.EXPERIMENT_ID)), "rs" + str(r_seed))
-    print("model dir path: ", model_dir_path)
+def main(experiment_dir_path):
+    model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
+    # print("model dir path: ", model_dir_path)
     if not os.path.exists(model_dir_path):
         os.makedirs(model_dir_path)
     model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
-    print("model path: ", model_path)
+    print("path to model: ", model_path)
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel()
     model.to(device)
@@ -52,7 +52,11 @@ def main():
         num_training_steps=num_training_steps,
     )
 
-    best_f1 = 0
+    
+    saved_model_f1_s = 0
+    saved_model_f1_n = 0
+    saved_model_f1_r = 0
+    saved_model_f1_f = 0
     
     max_f1_S = 0
     max_f1_N = 0
@@ -64,13 +68,15 @@ def main():
     max_f1_F_epoch = 1
     for epoch in range(config.EPOCHS):
         if epoch > 0: print()
+        print("-----------")
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
+        print("-----------")
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
-        p, r, f1_span = eval_trees(pred_trees, gold_trees, iter_spans_only)
+        p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        if f1_span > max_f1_S:
-            max_f1_S = f1_span
+        if f1_s > max_f1_S:
+            max_f1_S = f1_s
             max_f1_S_epoch = epoch
 
         print(f'S (span only)   F1:{f1_span:.2%}')
@@ -93,41 +99,84 @@ def main():
         if f1 > max_f1_F:
             max_f1_F = f1
             max_f1_F_epoch = epoch
-        if f1 > best_f1:
+        if f1 > saved_model_f1_f:
+            #we decide whether or not save the model based on Full F1, but save best scores from each component
             model.save(model_path)
-            best_f1 = f1
+            saved_model_f1_s = f1_s
+            saved_model_f1_n = f1_n
+            saved_model_f1_r = f1_r
+            saved_model_f1_f = f1
+            
 
-        print("max f1 span: ", max_f1_S, " ", max_f1_S_epoch)
-        print("max f1 span + dir: ", max_f1_N, " ", max_f1_N_epoch)
-        print("max f1 span + rel: ", max_f1_R, " ", max_f1_R_epoch)
-        print("max f1 span + rel + dir: ", max_f1_F, " ", max_f1_F_epoch)
-        return f1_span, f1_n, f1_r, f1
+
+
+        print("\n--------------------------------------------------------")
+        print("Best epochs:\n--------------------------------------------------------")
+        print("metric\t|\tscore\t|\tepoch")
+        print("max f1 (span):\t", max_f1_S, "\t", max_f1_S_epoch)
+        print("max f1 (span + dir):\t", max_f1_N, "\t", max_f1_N_epoch)
+        print("max f1 (span + rel):\t", max_f1_R, "\t", max_f1_R_epoch)
+        print("max f1 (span + rel + dir):\t", max_f1_F, "\t", max_f1_F_epoch)
+        print("--------------------------------------------------------")
+        # return these if we want to get averages from last epoch
+        # return f1_span, f1_n, f1_r, f1
+        # return saved (best full f1) model scores
+        return saved_model_f1_s, saved_model_f1_n, saved_model_f1_r, saved_model_f1_f
         
         
 
 if __name__ == '__main__':
 
-    #todo: cp config into experiment folder
-    #log outputs from both main() (one log file per random seed) and log from this main method with overall results
     #also output here which rs gave best f1
-    f1_s_overall = 0
-    f1_n_overall = 0
-    f1_r_overall = 0
-    f1_overall = 0
-    random_seeds = config.RANDOM_SEEDS
-    for r_seed in random_seeds:
-        
-        random.seed(r_seed)
-        torch.manual_seed(r_seed)
-        torch.cuda.manual_seed(r_seed)
-        np.random.seed(r_seed)
-        rs_results = main()
-        f1_s_overall += rs_results[0]
-        f1_n_overall += rs_results[1]
-        f1_r_overall += rs_results[2]
-        f1_overall += rs_results[3]
-    print(f1_s_overall/len(random_seeds), "<-")
-    print(f1_n_overall/len(random_seeds))
-    print(f1_r_overall/len(random_seeds))
-    print(f1_overall/len(random_seeds))
+
+    #create dir for the experiment
+    experiment_dir_path = os.path.join(config.OUTPUT_DIR, "experiment" + str(config.EXPERIMENT_ID) + "-" + config.EXPERIMENT_DESCRIPTION + "-" + str(date.today()))
+    if not os.path.exists(experiment_dir_path):
+        os.makedirs(experiment_dir_path)
+
+    #copy the config file into the experiment directory
+    shutil.copyfile(config.CONFIG_FILE, os.path.join(experiment_dir_path, "config.py"))
+
+    with open(os.path.join(experiment_dir_path, "log"), "w") as f:
+        sys.stdout = f
+    
+        random_seeds = config.RANDOM_SEEDS
+
+        f1_s_overall = 0    # span (S)
+        f1_n_overall = 0    # span + direction (N-uclearity)
+        f1_r_overall = 0    # span + relation (R)
+        f1_f_overall = 0    # span + direction + relation (F-ull)
+        best_f1_full = 0    # best Full F1 among the runs with different seeds
+        best_seed = random_seeds[0] # the random seed that produced the best Full F1
+
+        # do training for every random seed
+        for r_seed in random_seeds:
+            print("===============")
+            print("random seed ", r_seed)
+            print("---------------")
+            
+            random.seed(r_seed)
+            torch.manual_seed(r_seed)
+            torch.cuda.manual_seed(r_seed)
+            np.random.seed(r_seed)
+
+            rs_results = main(experiment_dir_path)
+
+            f1_s_overall += rs_results[0]
+            f1_n_overall += rs_results[1]
+            f1_r_overall += rs_results[2]
+            f1_f_overall += rs_results[3]
+
+            if f1_f_overall > best_f1_full:
+                best_f1_full = f1_f_overall
+                best_seed = r_seed
+
+        print("\n========================================================")
+        print(f"Average scores from {len(random_seeds)} runs with different random seeds:")
+        print("--------------------------------------------------------")
+        print("F1 (span):\t", f1_s_overall/len(random_seeds))
+        print("F1 (span + dir):\t", f1_n_overall/len(random_seeds))
+        print("F1 (span + rel):\t", f1_r_overall/len(random_seeds))
+        print("F1 (full):\t", f1_f_overall/len(random_seeds))
+        print("Best random seed:\t", best_seed)
 
