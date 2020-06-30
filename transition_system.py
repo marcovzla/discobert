@@ -15,6 +15,11 @@ class TransitionSystem:
         self.buffer = []
         self.stack = []
 
+    def fill_out(self, buffer, stack):
+        self.buffer = buffer
+        self.stack = stack
+        return self
+
     def is_done(self):
         return len(self.buffer) == 0 and len(self.stack) == 1
 
@@ -23,6 +28,7 @@ class TransitionSystem:
             return deepcopy(self.stack[0])
 
     def take_action(self, action, *args, **kwargs):
+        # print("parser inside take action: ", self)
         if action == 'shift':
             self.shift()
         elif action == 'reduce':

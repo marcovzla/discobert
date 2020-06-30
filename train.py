@@ -53,6 +53,7 @@ def main():
         if epoch > 0: print()
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
+        print("START DEV")
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')

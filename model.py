@@ -67,18 +67,21 @@ class DiscoBertModel(nn.Module):
         The state is represented by the concatenation of the embeddings corresponding
         to the two nodes on the top of the stack and the next node in the buffer.
         """
-        print("parser inside make features: ", parser)
-        print("parser stack: ", parser.stack)
+        # print("parser inside make features: ", parser)
+        # print("parser stack: ", parser.stack)
+
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         # print("s1: ", s1)
-        print("parser stack: ", parser.stack)
+        # print("parser stack: ", parser.stack)
         
         if len(parser.stack) < 1:
-            print("len parser stack < 1")
+            # print("len parser stack < 1")
             s0 = self.missing_node 
         else:
-            print("len parser stack not less than 1")
+            # print("len parser stack not less than 1")
             tens = parser.stack[-1]
+            # print("tens: ", tens.span)
+            # print("tens emb: ", tens.embedding)
             print(tens.children)
             s0 = tens.embedding
         # print("s0: ", s0)
@@ -173,9 +176,15 @@ class DiscoBertModel(nn.Module):
         for i in range(enc_edus.shape[0]):
             buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
 
+        for b in buffer:
+            print("b: ", b)
+
         # initialize automata
         parser = TransitionSystem(buffer)
+        # print("parser just initialized: ", parser)
 
+        print("parser initialized buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
+            
         
         #diverge train and eval here
         if gold_tree is not None:
@@ -183,7 +192,7 @@ class DiscoBertModel(nn.Module):
             losses = []
 
             while not parser.is_done():
-                print("parser in train: ", parser)
+                # print("parser in train: ", parser)
                 state_features = self.make_features(parser)
                 # legal actions for current parser
                 legal_actions = parser.all_legal_actions()
@@ -210,7 +219,7 @@ class DiscoBertModel(nn.Module):
                 next_label = gold_label
                 next_direction = gold_direction
 
-                print("action in train: ", self.id_to_action[next_action])
+                # print("action in train: ", self.id_to_action[next_action])
                 parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
@@ -228,19 +237,25 @@ class DiscoBertModel(nn.Module):
             parsers_done = []
             parsers = [[parser, 0.0, 1]] #for us, it's parsers (?) [[parser, score:Float, stepsTaken:Int]] and the parser is not gonna be an actual list---we are not storing a sequence
             
-            
+            print("parser buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
             
             # walk over each step in sequence 
             while len(parsers_done) < 5:
             # while not parser.is_done():
-                print("parsers in dev: ", parsers)
+                # print("parsers in dev: ", parsers)
+                # if len(parsers[0][0].stack) > 0:
+                #     print("here: ", parsers[0][0].stack[0], " ", parsers[0][0].stack[0].embedding, " ", len(parsers[0][0].stack))
+                # else:
+                #     print("buffer here: ", parsers[0][0].buffer[0], " ", parsers[0][0].buffer[0].embedding)
                 all_candidates = list() #here will be all parser candidates (previous parser updated with current steps)
 		        # expand each current candidate
                 for i in range(len(parsers)):
                     # for every previously found sequence, get the seq and its score (we'll update them with new scores)
                     parser, score, steps = parsers[i] #this is one previous parser
                     #we want to see several ways of how we can update it
-                    print("parser in dev: ", parser)
+                    # print("parser in dev: ", parser)
+                    print("parser inside parsers loop buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
+            
                     
                     state_features = self.make_features(parser)
                     # legal actions for current parser
@@ -277,7 +292,12 @@ class DiscoBertModel(nn.Module):
                         print(combo)
                         next_action = combo[0]
                         # print("next act from combo ", next_action)
-                        parser_cand = deepcopy(parser)
+                        print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
+            
+                        # parser_cand = deepcopy(parser)
+                        parser_cand = TransitionSystem.fill_out(parser, parser.buffer, parser.stack)
+
+                        print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
                         # take the next parser step
                         #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
                         #the steps should apply to the copies of the previous parser
@@ -288,10 +308,12 @@ class DiscoBertModel(nn.Module):
                         print("label: ", label)
                         direction=self.id_to_direction[next_action[2]]
                         print("direction: ", direction)
+
+                        
                         
 
 
-
+                        print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
                         parser_cand.take_action(
                             action=self.id_to_action[next_action[0]],
                             label=self.id_to_label[next_action[1]],
@@ -299,12 +321,17 @@ class DiscoBertModel(nn.Module):
                             reduce_fn=self.merge_embeddings,
                         )
 
+                        # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
+                        
+                        if len(parser_cand.stack) > 0:
+                            print("parser cand stack after action: ", parser_cand.stack)
+
                         all_candidates.append([parser_cand, score + combo[1], steps + 1]) #this is the new parser after the action has been taken with the score updated
 
                 #now we have several parse/score candidates
                 #get top scoring parsers (remember to incorporate previous score)
                 #should we normalize at every step? - no
-                print("all candidates: ", all_candidates)
+                # print("all candidates: ", all_candidates)
 
                 #sort candidates by score
 
@@ -314,11 +341,14 @@ class DiscoBertModel(nn.Module):
 
                 parsers = sorted_candidates[:self.beam_size]
 
-                print("parsers: ", parsers)
+                # print("parsers: ", parsers, " ", len(parsers))
                 for parser in parsers:
-                    print("one parser: ", parser)
-                    
-                    if parser[0].is_done:
+                    # print("one parser: ", parser)
+                    # print("par stack: ", parser[0].stack[0].embedding)
+                    # print("parser stack: ", parser[0].stack)
+                    # print("parser buffer: ", len(parser[0].buffer))
+                    if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1:
+                        # print("parser done")
                         parsers_done.append(parser)
                         parsers.remove(parser)
 
@@ -341,7 +371,7 @@ class DiscoBertModel(nn.Module):
 
 
         if gold_tree is None:
-            print("parsers done: ", parsers_done)
+            # print("parsers done: ", parsers_done)
             #normalize done parsers
 
             normalized_parsers = []
