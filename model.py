@@ -82,7 +82,7 @@ class DiscoBertModel(nn.Module):
             tens = parser.stack[-1]
             # print("tens: ", tens.span)
             # print("tens emb: ", tens.embedding)
-            print(tens.children)
+            # print(tens.children)
             s0 = tens.embedding
         # print("s0: ", s0)
         b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
@@ -109,7 +109,7 @@ class DiscoBertModel(nn.Module):
     def legal_action_scores(self, actions, scores):
         """Gets a list of legal actions w.r.t the current state of the parser
         and the predicted scores for all possible actions. Returns only the scores for the legal actions."""
-        print("scores  in legal action scores: ", scores)
+        # print("scores  in legal action scores: ", scores)
         # some actions are illegal, beware
         action_ids = [self.action_to_id[a] for a in actions]
         mask = torch.ones_like(scores) * -inf
@@ -176,14 +176,14 @@ class DiscoBertModel(nn.Module):
         for i in range(enc_edus.shape[0]):
             buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
 
-        for b in buffer:
-            print("b: ", b)
+        # for b in buffer:
+        #     print("b: ", b)
 
         # initialize automata
         parser = TransitionSystem(buffer)
         # print("parser just initialized: ", parser)
 
-        print("parser initialized buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
+        # print("parser initialized buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
             
         
         #diverge train and eval here
@@ -260,11 +260,14 @@ class DiscoBertModel(nn.Module):
                     state_features = self.make_features(parser)
                     # legal actions for current parser
                     legal_actions = parser.all_legal_actions()
+                    print("parser stack len: ", len(parser.stack))
+                    print("parser buffer len: ", len(parser.buffer))
+                    print("LEGAL ACTIONS: ", legal_actions)
                     # predict next action, label, and direction
                     action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
                     # print("action scores: ", action_scores)
                     legal_action_scores = self.legal_action_scores(legal_actions, action_scores)
-                    # print("legal action scores: ", legal_action_scores)
+                    print("legal action scores: ", legal_action_scores)
                     label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
                     direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
      
@@ -292,12 +295,12 @@ class DiscoBertModel(nn.Module):
                         print(combo)
                         next_action = combo[0]
                         # print("next act from combo ", next_action)
-                        print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
-            
+                        # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
+                        print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
                         # parser_cand = deepcopy(parser)
                         parser_cand = TransitionSystem.fill_out(parser, parser.buffer, parser.stack)
-
-                        print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
+                        print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
+                        # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
                         # take the next parser step
                         #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
                         #the steps should apply to the copies of the previous parser
@@ -313,7 +316,7 @@ class DiscoBertModel(nn.Module):
                         
 
 
-                        print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
+                        # print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
                         parser_cand.take_action(
                             action=self.id_to_action[next_action[0]],
                             label=self.id_to_label[next_action[1]],
@@ -321,10 +324,11 @@ class DiscoBertModel(nn.Module):
                             reduce_fn=self.merge_embeddings,
                         )
 
+                        print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
                         # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
                         
-                        if len(parser_cand.stack) > 0:
-                            print("parser cand stack after action: ", parser_cand.stack)
+                        # if len(parser_cand.stack) > 0:
+                        #     print("parser cand stack after action: ", parser_cand.stack)
 
                         all_candidates.append([parser_cand, score + combo[1], steps + 1]) #this is the new parser after the action has been taken with the score updated
 
