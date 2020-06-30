@@ -1,6 +1,9 @@
 from copy import deepcopy
 from collections import namedtuple
 from rst import TreeNode
+import config
+import torch
+import numpy
 
 Step = namedtuple('Step', 'action label direction')
 
@@ -32,10 +35,22 @@ class TransitionSystem:
         node = self.buffer.pop(0)
         self.stack.append(node)
 
-    def reduce(self, label=None, direction=None, reduce_fn=None):
+    def reduce(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
-        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
+
+        # print("label: ", lhs.label)
+        # relation_one_hot = torch.FloatTensor(1, len(config.ID_TO_LABEL))
+        # print(relation_one_hot)
+        # relation_one_hot(1, config.LABEL_TO_ID[label]) = 1.0
+        # print(relation_one_hot)
+        # print("lhs shape: ", )
+        
+
+        
+        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_embedding) 
+        # print(emb)
+
         node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
         node.calc_span()
         self.stack.append(node)
