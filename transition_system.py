@@ -6,16 +6,19 @@ Step = namedtuple('Step', 'action label direction')
 
 class TransitionSystem:
 
-    def __init__(self, edus=None):
+    def __init__(self, edus=None, stack=None):
         self.reset()
         if edus is not None:
             self.buffer.extend(edus)
+        if stack is not None:
+            self.stack.extend(stack)
 
     def reset(self):
         self.buffer = []
         self.stack = []
 
     def fill_out(self, buffer, stack):
+        # new_parser = deepcopy(self)
         self.buffer = buffer
         self.stack = stack
         return self

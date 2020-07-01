@@ -152,7 +152,7 @@ class DiscoBertModel(nn.Module):
         return sorted_combos[:beam_size]
 
     def forward(self, edus, gold_tree=None):
-
+        # print("ONE TREE")
         # tokenize edus
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
@@ -180,7 +180,7 @@ class DiscoBertModel(nn.Module):
         #     print("b: ", b)
 
         # initialize automata
-        parser = TransitionSystem(buffer)
+        parser = TransitionSystem(buffer, None)
         # print("parser just initialized: ", parser)
 
         # print("parser initialized buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
@@ -237,10 +237,16 @@ class DiscoBertModel(nn.Module):
             parsers_done = []
             parsers = [[parser, 0.0, 1]] #for us, it's parsers (?) [[parser, score:Float, stepsTaken:Int]] and the parser is not gonna be an actual list---we are not storing a sequence
             
-            print("parser buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
+            # print("parser buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
             
             # walk over each step in sequence 
-            while len(parsers_done) < 5:
+            # for i in range(0, 20):
+            while len(parsers_done) == 0:
+                print("len parsers done: ", len(parsers_done))
+                print("parsers done list: ", parsers_done)
+                if len(parsers) > 0:
+                    print("first parser's steps: ", parsers[0][2])
+                print("=+=+=+=+=+=\nWHILE\n=+=+=+=+=+=")
             # while not parser.is_done():
                 # print("parsers in dev: ", parsers)
                 # if len(parsers[0][0].stack) > 0:
@@ -249,12 +255,15 @@ class DiscoBertModel(nn.Module):
                 #     print("buffer here: ", parsers[0][0].buffer[0], " ", parsers[0][0].buffer[0].embedding)
                 all_candidates = list() #here will be all parser candidates (previous parser updated with current steps)
 		        # expand each current candidate
+                print("++++++++++++++++\ngoing through existing parsers\n+++++++++++++")
+                print("existing parsers: ", parsers)
                 for i in range(len(parsers)):
+                    
                     # for every previously found sequence, get the seq and its score (we'll update them with new scores)
                     parser, score, steps = parsers[i] #this is one previous parser
                     #we want to see several ways of how we can update it
-                    # print("parser in dev: ", parser)
-                    print("parser inside parsers loop buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
+                    print("current parser: ", parser)
+                    # print("parser inside parsers loop buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
             
                     
                     state_features = self.make_features(parser)
@@ -291,14 +300,15 @@ class DiscoBertModel(nn.Module):
                     top_k_combos = self.getTopNCombos(legal_action_scores, label_scores, direction_scores, self.beam_size) #returns tuples of ((indices of action/label/direction), score for the combo)
                     #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
-                    for combo in top_k_combos:
-                        print(combo)
-                        next_action = combo[0]
-                        # print("next act from combo ", next_action)
+                    for i in range(len(top_k_combos)):
+                        print(f"============\ncombo {i}: ", top_k_combos[i], "\n----------")
+                        next_action = top_k_combos[i][0]
+                        print("next act from combo ", next_action)
                         # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
                         print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
                         # parser_cand = deepcopy(parser)
-                        parser_cand = TransitionSystem.fill_out(parser, parser.buffer, parser.stack)
+                        parser_cand = TransitionSystem(parser.buffer, parser.stack)
+                        print("parser cand: ", parser_cand)
                         print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
                         # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
                         # take the next parser step
@@ -330,12 +340,12 @@ class DiscoBertModel(nn.Module):
                         # if len(parser_cand.stack) > 0:
                         #     print("parser cand stack after action: ", parser_cand.stack)
 
-                        all_candidates.append([parser_cand, score + combo[1], steps + 1]) #this is the new parser after the action has been taken with the score updated
+                        all_candidates.append([parser_cand, score + top_k_combos[i][1], steps + 1]) #this is the new parser after the action has been taken with the score updated
 
                 #now we have several parse/score candidates
                 #get top scoring parsers (remember to incorporate previous score)
                 #should we normalize at every step? - no
-                # print("all candidates: ", all_candidates)
+                print("all candidates: ", all_candidates)
 
                 #sort candidates by score
 
@@ -345,6 +355,8 @@ class DiscoBertModel(nn.Module):
 
                 parsers = sorted_candidates[:self.beam_size]
 
+                print("sorted parsers: ", parsers)
+
                 # print("parsers: ", parsers, " ", len(parsers))
                 for parser in parsers:
                     # print("one parser: ", parser)
@@ -352,7 +364,7 @@ class DiscoBertModel(nn.Module):
                     # print("parser stack: ", parser[0].stack)
                     # print("parser buffer: ", len(parser[0].buffer))
                     if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1:
-                        # print("parser done")
+                        print("parser done")
                         parsers_done.append(parser)
                         parsers.remove(parser)
 
@@ -381,9 +393,10 @@ class DiscoBertModel(nn.Module):
             normalized_parsers = []
             for parser in parsers_done:
                 score = float(parser[1])/parser[2] 
-                normalized_parsers.append(parser[0], score)
+                normalized_parsers.append((parser[0], score))
 
-            parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0]
+            parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0]
+            print(parser)
 
 
         predicted_tree = parser.get_result()
