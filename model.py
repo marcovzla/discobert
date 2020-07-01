@@ -5,6 +5,7 @@ from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
+import numpy
 
 inf = float('inf')
 
@@ -24,7 +25,11 @@ class DiscoBertModel(nn.Module):
         self.direction_to_id = config.DIRECTION_TO_ID
         self.id_to_label = config.ID_TO_LABEL
         self.label_to_id = config.LABEL_TO_ID
-        self.hidden_size = 200
+        self.hidden_size = config.HIDDEN_SIZE
+        self.relation_label_hidden_size = config.RELATION_LABEL_HIDDEN_SIZE
+        self.direction_hidden_size = config.DIRECTION_HIDDEN_SIZE
+        self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
+        self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
         self.tokenizer = config.TOKENIZER
         self.bert = BertModel.from_pretrained(self.bert_path)
@@ -37,8 +42,12 @@ class DiscoBertModel(nn.Module):
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
-        self.treelstm = TreeLstm(self.hidden_size // 2)
+        self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         self.relu = nn.ReLU()
+        if self.include_relation_embedding:
+            self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
+        if self.include_direction_embedding:
+            self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
 
     @property
     def device(self):
@@ -54,10 +63,11 @@ class DiscoBertModel(nn.Module):
     def save(self, path):
         torch.save(self.state_dict(), path)
 
-    def merge_embeddings(self, embed_1, embed_2):
+    def merge_embeddings(self, embed_1, embed_2, relation_embedding):
         # return torch.max(embed_1, embed_2)
         # return self.relu(self.merge_layer(torch.cat((embed_1, embed_2))))
-        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0)).squeeze(dim=0)
+        # print("emb1: ", embed_1.shape, "\n", embed_1)
+        return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_embedding).squeeze(dim=0)
 
     def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
@@ -145,15 +155,25 @@ class DiscoBertModel(nn.Module):
                 next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax()
-                next_direction = direction_scores.argmax()
+                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                next_direction = direction_scores.argmax().unsqueeze(0)
+            
+            if self.include_relation_embedding:
+                rel_emb = self.relation_embeddings(next_label)
+                if self.include_direction_embedding:
+                    dir_emb = self.direction_embedding(next_direction)
+                    rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
+                else:
+                    rel_dir_emb = rel_emb
+            else:
+                rel_dir_emb = None  
 
-            # take the next parser step
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
                 direction=self.id_to_direction[next_direction],
                 reduce_fn=self.merge_embeddings,
+                rel_embedding = rel_dir_emb
             )
 
         # returns the TreeNode for the tree root
