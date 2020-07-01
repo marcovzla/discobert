@@ -43,7 +43,7 @@ def main(experiment_dir_path):
     model = DiscoBertModel()
     model.to(device)
 
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)))
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH))) 
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
