@@ -83,7 +83,7 @@ class DiscoBertModel(nn.Module):
             # some actions are illegal, beware
             action_ids = [self.action_to_id[a] for a in actions]
             mask = torch.ones_like(scores) * -inf
-            mask[action_ids] = 0
+            mask[:, action_ids] = 0
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
