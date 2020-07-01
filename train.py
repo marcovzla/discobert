@@ -154,15 +154,17 @@ if __name__ == '__main__':
     
         random_seeds = config.RANDOM_SEEDS
 
-        f1_s_overall = 0    # span (S)
-        f1_n_overall = 0    # span + direction (N-uclearity)
-        f1_r_overall = 0    # span + relation (R)
-        f1_f_overall = 0    # span + direction + relation (F-ull)
+        span_scores = np.zeros(len(random_seeds))
+        nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
+        relations_scores = np.zeros(len(random_seeds)) # span + relation label
+        full_scores = np.zeros(len(random_seeds)) # span + direction + relation label
+
         best_f1_full = 0    # best Full F1 among the runs with different seeds
         best_seed = random_seeds[0] # the random seed that produced the best Full F1
 
         # do training for every random seed
-        for r_seed in random_seeds:
+        for i in range(len(random_seeds)):
+            r_seed = random_seeds[i]
             print("===============")
             print("random seed ", r_seed)
             print("---------------")
@@ -174,24 +176,25 @@ if __name__ == '__main__':
 
             rs_results = main(experiment_dir_path)
 
-            f1_s_overall += rs_results[0]
-            f1_n_overall += rs_results[1]
-            f1_r_overall += rs_results[2]
-            f1_f_overall += rs_results[3]
-            
+            span_scores[i] = rs_results[0]
+            nuclearity_scores[i] = rs_results[1]
+            relations_scores[i] = rs_results[2]
+            full_scores[i] = rs_results[3]
+
             # if the full f1 output from the random seed is higher than previously recorded best f1 (from a diff seed), 
             # update the best f1 and the random seed
             if rs_results[3] > best_f1_full:
                 best_f1_full = rs_results[3]
                 best_seed = r_seed
 
+
         print("\n========================================================")
-        print(f"Average scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
+        print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
         print("--------------------------------------------------------")
-        print("F1 (span):\t", f1_s_overall/len(random_seeds))
-        print("F1 (span + dir):\t", f1_n_overall/len(random_seeds))
-        print("F1 (span + rel):\t", f1_r_overall/len(random_seeds))
-        print("F1 (full):\t", f1_f_overall/len(random_seeds))
+        print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
+        print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
+        print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
+        print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
         print("Best random seed:\t", best_seed)
         print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 
