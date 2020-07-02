@@ -157,6 +157,22 @@ class DiscoBertModel(nn.Module):
         # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
         return sorted_combos[:beam_size]
 
+    # def getTopNCombos(self, legal_action_scores, label_scores, direction_scores, beam_size):
+    #     softmax_func = nn.Softmax(dim=1)
+    #     log_action_scores = torch.log(softmax_func(legal_action_scores))
+    #     print("log act scores: ", log_action_scores)
+    #     log_label_scores = torch.log(softmax_func(label_scores))
+    #     print("log label scores: ", log_label_scores)
+    #     log_dir_scores = torch.log(softmax_func(direction_scores))
+    #     print("log dir scores: ", log_dir_scores)
+
+        
+    #     softmax_action_scores_as_one_line = softmax_action_scores.view(1, 1, -1)
+    #     print(softmax_action_scores_as_one_line, "<-")
+    #     sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
+    # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
+        return sorted_combos[:beam_size]
+
     def forward(self, edus, gold_tree=None):
         # print("ONE TREE")
         # tokenize edus
@@ -375,6 +391,7 @@ class DiscoBertModel(nn.Module):
                         print("parser done")
                         parsers_done.append(parser)
                         parsers.remove(parser)
+                        self.beam_size = self.beam_size - 1
 
                 #out of all the top scoring parsers, check if any are done? make sure this is in the right place
                 # if parser.is_done:
