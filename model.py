@@ -120,10 +120,13 @@ class DiscoBertModel(nn.Module):
         return masked_scores
 
     def getTopNCombos(self, legal_action_scores, label_scores, direction_scores, beam_size):
-
-        # log_action_scores = torch.log(nn.Softmax(legal_action_scores))
-        # log_label_scores = torch.log(nn.Softmax(label_scores))
-        # log_dir_scores = torch.log(nn.Softmax(direction_scores))
+        softmax_func = nn.Softmax(dim=1)
+        softmax_action_scores = softmax_func(legal_action_scores)
+        print("log act scores: ", softmax_action_scores)
+        softmax_label_scores = softmax_func(label_scores)
+        print("log label scores: ", softmax_label_scores)
+        softmax_dir_scores = softmax_func(direction_scores)
+        print("log dir scores: ", softmax_dir_scores)
 
         combos = []
         
@@ -139,16 +142,19 @@ class DiscoBertModel(nn.Module):
                     # print("dir scores: ", direction_scores)
                     for k in range(len(direction_scores.squeeze(dim=0))):
                         # print("dir score: ", direction_scores[0][k])
-                        log_act_score = torch.log(legal_action_scores[0][i])
-                        # print("log act score: ", log_act_score)
-                        # print("log label score: ", torch.log(label_scores[0][j]).item())
-                        # print("log dir score: ", torch.log(direction_scores[0][k]).item())
-                        combo_score = legal_action_scores[0][i].item() * label_scores[0][j].item() * direction_scores[0][k].item()
+                        log_act_score = torch.log(softmax_action_scores[0][i])
+                        print("log act score: ", log_act_score)
+                        log_label_score = torch.log(softmax_label_scores[0][j]).item()
+                        print("log label score: ", log_label_score)
+                        log_dir_score =  torch.log(softmax_dir_scores[0][k]).item()
+                        print("log dir score: ", log_dir_score)
+                        combo_score = log_act_score + log_label_score + log_dir_score
                         # combo_score = torch.log(legal_action_scores[0][i]).item() + torch.log(label_scores[0][j]).item() + torch.log(direction_scores[0][k]).item()
                         # print('combo score: ', combo_score)
                         combos.append(((i,j,k), combo_score))
         # print("sorted combos: ", sorted(combos, key = lambda x: x[1], reverse=True))
         sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
+        # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
         return sorted_combos[:beam_size]
 
     def forward(self, edus, gold_tree=None):
@@ -278,7 +284,9 @@ class DiscoBertModel(nn.Module):
                     legal_action_scores = self.legal_action_scores(legal_actions, action_scores)
                     print("legal action scores: ", legal_action_scores)
                     label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                    print("label scores: ", label_scores)
                     direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+                    print('direction scores: ', direction_scores)
      
                     # if len(legal_actions) == 1:
                     #     print('legal actions: ', legal_actions)
@@ -387,14 +395,15 @@ class DiscoBertModel(nn.Module):
 
 
         if gold_tree is None:
-            # print("parsers done: ", parsers_done)
+            print("parsers done before normalization: ", parsers_done)
             #normalize done parsers
 
             normalized_parsers = []
+            
             for parser in parsers_done:
                 score = float(parser[1])/parser[2] 
                 normalized_parsers.append((parser[0], score))
-
+            print("parsers done: ", parsers_done)
             parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0]
             print(parser)
 
