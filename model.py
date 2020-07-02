@@ -86,14 +86,14 @@ class DiscoBertModel(nn.Module):
         if len(actions) == 1:
             # only one legal action available
             return self.action_to_id[actions[0]]
-        elif len(actions) == scores.shape[0]:
+        elif len(actions) == scores.shape[1]:
             # all actions are legal
             return torch.argmax(scores)
         else:
             # some actions are illegal, beware
             action_ids = [self.action_to_id[a] for a in actions]
             mask = torch.ones_like(scores) * -inf
-            mask[action_ids] = 0
+            mask[:, action_ids] = 0
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
