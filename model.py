@@ -113,69 +113,58 @@ class DiscoBertModel(nn.Module):
         # some actions are illegal, beware
         action_ids = [self.action_to_id[a] for a in actions]
         mask = torch.ones_like(scores) * -inf
-        for i in action_ids:
-            mask[0][i] = 0
+        mask[action_ids] = 0
 
         masked_scores = scores + mask
         return masked_scores
 
     def getTopNCombos(self, legal_action_scores, label_scores, direction_scores, beam_size):
-        softmax_func = nn.Softmax(dim=1)
-        softmax_action_scores = softmax_func(legal_action_scores)
-        print("log act scores: ", softmax_action_scores)
-        softmax_label_scores = softmax_func(label_scores)
-        print("log label scores: ", softmax_label_scores)
-        softmax_dir_scores = softmax_func(direction_scores)
-        print("log dir scores: ", softmax_dir_scores)
-
         combos = []
+
+        print("legal act scores: ", legal_action_scores)
+        print("top k label scores: ", torch.topk(label_scores, 3))
+        print("dir scores: ", direction_scores)
         
         # print("leg act scores: ", legal_action_scores)
-        for i in range(len(legal_action_scores.squeeze(dim=0))):
+        for i in range(len(legal_action_scores)):
             
-            if legal_action_scores[0][i] != -inf:
-                # print("legal acr score: ", legal_action_scores[0][i])
-                # print("not inf")
-                # print("label scores: ", label_scores)
-                for j in range(len(label_scores.squeeze(dim=0))):
-                    # print("label score: ", label_scores[0][j])
-                    # print("dir scores: ", direction_scores)
-                    for k in range(len(direction_scores.squeeze(dim=0))):
-                        # print("dir score: ", direction_scores[0][k])
-                        log_act_score = torch.log(softmax_action_scores[0][i])
-                        print("log act score: ", log_act_score)
-                        log_label_score = torch.log(softmax_label_scores[0][j]).item()
-                        print("log label score: ", log_label_score)
-                        log_dir_score =  torch.log(softmax_dir_scores[0][k]).item()
-                        print("log dir score: ", log_dir_score)
-                        combo_score = log_act_score + log_label_score + log_dir_score
-                        # combo_score = torch.log(legal_action_scores[0][i]).item() + torch.log(label_scores[0][j]).item() + torch.log(direction_scores[0][k]).item()
-                        # print('combo score: ', combo_score)
+            if legal_action_scores[i] != -inf:
+               
+                for j in range(len(torch.topk(label_scores, 3))):
+                   
+                    for k in range(len(direction_scores)):
+                        
+                        
+                        combo_score = legal_action_scores[i] + label_scores[j] + direction_scores[k]
                         combos.append(((i,j,k), combo_score))
-        # print("sorted combos: ", sorted(combos, key = lambda x: x[1], reverse=True))
+
         sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
-        # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
+        print("sorted combos all: ", sorted_combos) 
         return sorted_combos[:beam_size]
 
     # def getTopNCombos(self, legal_action_scores, label_scores, direction_scores, beam_size):
-    #     softmax_func = nn.Softmax(dim=1)
-    #     log_action_scores = torch.log(softmax_func(legal_action_scores))
+    #     logSotmax = nn.LogSoftmax(dim=1)
+    #     log_action_scores = logSotmax(legal_action_scores)
     #     print("log act scores: ", log_action_scores)
-    #     log_label_scores = torch.log(softmax_func(label_scores))
+    #     log_label_scores = logSotmax(label_scores)
     #     print("log label scores: ", log_label_scores)
-    #     log_dir_scores = torch.log(softmax_func(direction_scores))
+    #     log_dir_scores = logSotmax(direction_scores)
     #     print("log dir scores: ", log_dir_scores)
 
-        
-    #     softmax_action_scores_as_one_line = softmax_action_scores.view(1, 1, -1)
-    #     print(softmax_action_scores_as_one_line, "<-")
-    #     sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
-    # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
-        return sorted_combos[:beam_size]
+    #     all_scores = (log_action_scores.transpose(0,1) * log_label_scores).unsqueeze(dim=2) * log_dir_scores
+    #     print("all scores: ", all_scores)
+    #     topK = torch.topk(all_scores, 5)
+    #     print("top k: ", topK)
+    #     # softmax_action_scores_as_one_line = softmax_action_scores.view(1, 1, -1)
+    #     # print(softmax_action_scores_as_one_line, "<-")
+    #     # sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
+    # # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
+    #     return sorted_combos[:beam_size]
 
     def forward(self, edus, gold_tree=None):
         # print("ONE TREE")
         # tokenize edus
+        print("beam: ", self.beam_size)
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
         attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
@@ -263,64 +252,37 @@ class DiscoBertModel(nn.Module):
             
             # walk over each step in sequence 
             # for i in range(0, 20):
-            while len(parsers_done) == 0:
-                print("len parsers done: ", len(parsers_done))
-                print("parsers done list: ", parsers_done)
-                if len(parsers) > 0:
-                    print("first parser's steps: ", parsers[0][2])
-                print("=+=+=+=+=+=\nWHILE\n=+=+=+=+=+=")
-            # while not parser.is_done():
-                # print("parsers in dev: ", parsers)
-                # if len(parsers[0][0].stack) > 0:
-                #     print("here: ", parsers[0][0].stack[0], " ", parsers[0][0].stack[0].embedding, " ", len(parsers[0][0].stack))
-                # else:
-                #     print("buffer here: ", parsers[0][0].buffer[0], " ", parsers[0][0].buffer[0].embedding)
+            while len(parsers_done) < self.beam_size:
+               
                 all_candidates = list() #here will be all parser candidates (previous parser updated with current steps)
-		        # expand each current candidate
-                print("++++++++++++++++\ngoing through existing parsers\n+++++++++++++")
-                print("existing parsers: ", parsers)
+		        # expand each current parser and store all candidates in all_candidates (to later pick top k to append to parsers for next step)
+                
                 for i in range(len(parsers)):
                     
-                    # for every previously found sequence, get the seq and its score (we'll update them with new scores)
+                    # for every parser from last step, get the parser and its score (we'll update them with new scores)
                     parser, score, steps = parsers[i] #this is one previous parser
-                    #we want to see several ways of how we can update it
-                    print("current parser: ", parser)
-                    # print("parser inside parsers loop buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
-            
+                    #we want to get top k parsers that highest scored action-label-direction combinations will produce
                     
                     state_features = self.make_features(parser)
                     # legal actions for current parser
                     legal_actions = parser.all_legal_actions()
-                    print("parser stack len: ", len(parser.stack))
-                    print("parser buffer len: ", len(parser.buffer))
-                    print("LEGAL ACTIONS: ", legal_actions)
-                    # predict next action, label, and direction
-                    action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-                    # print("action scores: ", action_scores)
-                    legal_action_scores = self.legal_action_scores(legal_actions, action_scores)
-                    print("legal action scores: ", legal_action_scores)
-                    label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-                    print("label scores: ", label_scores)
-                    direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
-                    print('direction scores: ', direction_scores)
-     
-                    # if len(legal_actions) == 1:
-                    #     print('legal actions: ', legal_actions)
-                    #     print("1: ", action_scores)
-                    #     print("2: ", legal_action_scores)
-                    # print("label scores: ", label_scores)
-                    # print("direction scores: ", direction_scores)
+                    
+                    # get next action, label, and direction scores
+                    # we will want to get top k action/label/dir combos and their scores to decide which steps to take
 
-           
-                    # next_action = self.best_legal_action(legal_actions, action_scores)
-                    # next_label = label_scores.argmax()
-                    # next_direction = direction_scores.argmax()
-
-                    #get top k action/label/dir combos and their scores
-
-                    #
-                    #get softmax scores for all of those classifier scores, convert scores to log probabilities, and then sum up
+                    
+                    # marco: get softmax scores for all of those classifier scores, convert scores to log probabilities, and then sum up
                     #be careful: keep track of how many steps i took--> bc need to normalize at the end (normalizing during doesnt make sense bc by then, they have taken the same# of steps)
+                    
+
+                    logSotmax = nn.LogSoftmax(dim=0)
+                    
+                    action_scores = logSotmax(self.action_classifier(state_features))
+                    legal_action_scores = self.legal_action_scores(legal_actions, action_scores)
+                    label_scores = logSotmax(self.label_classifier(state_features))
+                    direction_scores = logSotmax(self.direction_classifier(state_features))
+     
+                    
                     top_k_combos = self.getTopNCombos(legal_action_scores, label_scores, direction_scores, self.beam_size) #returns tuples of ((indices of action/label/direction), score for the combo)
                     #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
@@ -391,7 +353,7 @@ class DiscoBertModel(nn.Module):
                         print("parser done")
                         parsers_done.append(parser)
                         parsers.remove(parser)
-                        self.beam_size = self.beam_size - 1
+                        # self.beam_size = self.beam_size - 1
 
                 #out of all the top scoring parsers, check if any are done? make sure this is in the right place
                 # if parser.is_done:
@@ -411,7 +373,7 @@ class DiscoBertModel(nn.Module):
         # returns the TreeNode for the tree root
 
 
-        if gold_tree is None:
+           
             print("parsers done before normalization: ", parsers_done)
             #normalize done parsers
 
@@ -420,7 +382,8 @@ class DiscoBertModel(nn.Module):
             for parser in parsers_done:
                 score = float(parser[1])/parser[2] 
                 normalized_parsers.append((parser[0], score))
-            print("parsers done: ", parsers_done)
+
+            print("normalized parsers: ", normalized_parsers)
             parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0]
             print(parser)
 
