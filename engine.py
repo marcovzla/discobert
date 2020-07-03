@@ -11,7 +11,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')
     for a in annotations:
-        loss, tree = model(a.edus, a.dis)
+        loss, tree = model(True, a.edus, a.dis)
         loss_avg.add(loss.item())
         annotations.set_postfix_str(f'loss={loss_avg:.4f}')
         loss.backward()
@@ -28,7 +28,7 @@ def eval_fn(annotations, model, device):
         annotations = tqdm(annotations, total=len(annotations))
         annotations.set_description('devel')
         for a in annotations:
-            tree = model(a.edus)[0]
+            tree = model(False, a.edus, a.dis)[0]
             pred_trees.append(tree)
             gold_trees.append(a.dis)
     return pred_trees, gold_trees

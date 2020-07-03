@@ -100,7 +100,7 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, gold_tree=None):
+    def forward(self, train, edus, gold_tree=None):
 
         # tokenize edus
         encodings = self.tokenizer.encode_batch(edus)
@@ -154,13 +154,22 @@ class DiscoBertModel(nn.Module):
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
             label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
             direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
-            # are we training?
-            if gold_tree is not None:
-                gold_step = parser.gold_step(gold_tree)
+            
+            gold_step = parser.gold_step(gold_tree)
+                
+            
+            
+
+            if gold_step != None:
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
                 gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+
+            
+            # are we training?
+            if train==True:
+                
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
                 loss_on_labels = loss_fn(label_scores, gold_label)
@@ -173,9 +182,31 @@ class DiscoBertModel(nn.Module):
                 next_label = gold_label
                 next_direction = gold_direction
             else:
-                next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
-                next_direction = direction_scores.argmax().unsqueeze(0)
+                if config.ACTION_FORCING:
+                    if gold_step != None:
+                        next_action = gold_action
+                    else:
+                        print("no gold action")
+                        next_action = self.best_legal_action(legal_actions, action_scores)
+                else:
+                    next_action = self.best_legal_action(legal_actions, action_scores)
+                if config.LABEL_FORCING:
+                    if gold_step != None:
+                        # print("yes gold label")
+                        next_label = gold_label
+                    else:
+                        print("no gold label")
+                        next_label = label_scores.argmax().unsqueeze(0)
+                else:
+                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                if config.DIRECTION_FORCING:
+                    if gold_step != None:
+                        next_direction = gold_direction
+                    else:
+                        print("no gold direction")
+                        next_direction = direction_scores.argmax().unsqueeze(0)
+                else:
+                    next_direction = direction_scores.argmax().unsqueeze(0)
             
             if self.include_relation_embedding:
                 rel_emb = self.relation_embeddings(next_label)
@@ -200,7 +231,7 @@ class DiscoBertModel(nn.Module):
         outputs = (predicted_tree,)
 
         # are we training?
-        if gold_tree is not None:
+        if train:
             loss = sum(losses) / len(losses)
             outputs = (loss,) + outputs
 
