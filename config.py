@@ -1,6 +1,9 @@
 from pathlib import Path
 import tokenizers
 
+
+
+TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
 DROPOUT = 0.2
@@ -12,6 +15,9 @@ DISCOBERT_PATH = Path('~/data/discobert').expanduser()
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_PATH = DISCOBERT_PATH/'discobert.model'
+USE_ATTENTION = True
+DROP_CLS = True
+SORT_INPUT = False #simplified curriculum learning
 
 ID_TO_ACTION = ['shift', 'reduce']
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
