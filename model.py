@@ -126,7 +126,7 @@ class DiscoBertModel(nn.Module):
         print("dir scores: ", direction_scores)
         
         # print("leg act scores: ", legal_action_scores)
-        for i in range(len(legal_action_scores)):
+        for i in range(len(legal_action_scores)): #[1,2], [1,19], [1,3]
             
             if legal_action_scores[i] != -inf:
                
@@ -265,7 +265,7 @@ class DiscoBertModel(nn.Module):
                     
                     state_features = self.make_features(parser)
                     # legal actions for current parser
-                    legal_actions = parser.all_legal_actions()
+                    # legal_actions = parser.all_legal_actions()
                     
                     # get next action, label, and direction scores
                     # we will want to get top k action/label/dir combos and their scores to decide which steps to take
@@ -286,14 +286,18 @@ class DiscoBertModel(nn.Module):
                     top_k_combos = self.getTopNCombos(legal_action_scores, label_scores, direction_scores, self.beam_size) #returns tuples of ((indices of action/label/direction), score for the combo)
                     #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
+
+                    #todo: read on pass by value/reference
                     for i in range(len(top_k_combos)):
                         print(f"============\ncombo {i}: ", top_k_combos[i], "\n----------")
-                        next_action = top_k_combos[i][0]
+                        next_action = top_k_combos[i][0] #what's the zero
                         print("next act from combo ", next_action)
                         # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
                         print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
                         # parser_cand = deepcopy(parser)
-                        parser_cand = TransitionSystem(parser.buffer, parser.stack)
+                        new_buffer = list(parser.buffer)
+                        new_stack = list(parser.stack)
+                        parser_cand = TransitionSystem(new_buffer, new_stack) #need to send a copy, grab them as list
                         print("parser cand: ", parser_cand)
                         print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
                         # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
@@ -349,11 +353,11 @@ class DiscoBertModel(nn.Module):
                     # print("par stack: ", parser[0].stack[0].embedding)
                     # print("parser stack: ", parser[0].stack)
                     # print("parser buffer: ", len(parser[0].buffer))
-                    if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1:
+                    if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1: #maybe this will work now with is_done
                         print("parser done")
                         parsers_done.append(parser)
                         parsers.remove(parser)
-                        # self.beam_size = self.beam_size - 1
+                        # self.beam_size = self.beam_size - 1 - let's not do this
 
                 #out of all the top scoring parsers, check if any are done? make sure this is in the right place
                 # if parser.is_done:
@@ -384,7 +388,7 @@ class DiscoBertModel(nn.Module):
                 normalized_parsers.append((parser[0], score))
 
             print("normalized parsers: ", normalized_parsers)
-            parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0]
+            parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0] #call max, not sort - easier to decipher when reading
             print(parser)
 
 
