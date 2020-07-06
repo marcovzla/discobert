@@ -118,53 +118,27 @@ class DiscoBertModel(nn.Module):
         masked_scores = scores + mask
         return masked_scores
 
-    def getTopNCombos(self, legal_action_scores, label_scores, direction_scores, beam_size):
+    def getScoreCombinations(self, action_scores, label_scores, direction_scores):
         combos = []
+        #todo: update shapes from hardcoded to shapes of args
+        summable_action_scores = torch.cat([action_scores.squeeze(0)[i].repeat(19*3) for i in range(action_scores.squeeze(0).shape[0])]) 
+        print("summable action scores: ", summable_action_scores)
+        summable_label_scores = label_scores.squeeze(dim=0).repeat(2*3)
+        print("summable_label_scores: ", summable_label_scores)
+        direction_scores_summable_with_labels = torch.cat([direction_scores.squeeze(dim=0)[i].repeat(19) for i in range(direction_scores.squeeze(dim=0).shape[0])])
+        summable_direction_scores = torch.cat([direction_scores_summable_with_labels, direction_scores_summable_with_labels]) 
+        print("summable direction scores: ", summable_direction_scores)
 
-        print("legal act scores: ", legal_action_scores)
-        print("top k label scores: ", torch.topk(label_scores, 3))
-        print("dir scores: ", direction_scores)
-        
-        # print("leg act scores: ", legal_action_scores)
-        for i in range(len(legal_action_scores)): #[1,2], [1,19], [1,3]
-            
-            if legal_action_scores[i] != -inf:
-               
-                for j in range(len(torch.topk(label_scores, 3))):
-                   
-                    for k in range(len(direction_scores)):
-                        
-                        
-                        combo_score = legal_action_scores[i] + label_scores[j] + direction_scores[k]
-                        combos.append(((i,j,k), combo_score))
+        all_scores = (summable_action_scores + summable_label_scores + summable_direction_scores).view(2,19,3)
+        print("all scores: ", all_scores)
+        return all_scores
 
-        sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
-        print("sorted combos all: ", sorted_combos) 
-        return sorted_combos[:beam_size]
-
-    # def getTopNCombos(self, legal_action_scores, label_scores, direction_scores, beam_size):
-    #     logSotmax = nn.LogSoftmax(dim=1)
-    #     log_action_scores = logSotmax(legal_action_scores)
-    #     print("log act scores: ", log_action_scores)
-    #     log_label_scores = logSotmax(label_scores)
-    #     print("log label scores: ", log_label_scores)
-    #     log_dir_scores = logSotmax(direction_scores)
-    #     print("log dir scores: ", log_dir_scores)
-
-    #     all_scores = (log_action_scores.transpose(0,1) * log_label_scores).unsqueeze(dim=2) * log_dir_scores
-    #     print("all scores: ", all_scores)
-    #     topK = torch.topk(all_scores, 5)
-    #     print("top k: ", topK)
-    #     # softmax_action_scores_as_one_line = softmax_action_scores.view(1, 1, -1)
-    #     # print(softmax_action_scores_as_one_line, "<-")
-    #     # sorted_combos = sorted(combos, key = lambda x: x[1], reverse=True)
-    # # print("sorted combos all: ", sorted_combos) - checked --sorts by score and not somehow by some score inside the action tuple
-    #     return sorted_combos[:beam_size]
+    
 
     def forward(self, edus, gold_tree=None):
         # print("ONE TREE")
         # tokenize edus
-        print("beam: ", self.beam_size)
+        # print("beam: ", self.beam_size)
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
         attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
@@ -265,7 +239,7 @@ class DiscoBertModel(nn.Module):
                     
                     state_features = self.make_features(parser)
                     # legal actions for current parser
-                    # legal_actions = parser.all_legal_actions()
+                    legal_actions = parser.all_legal_actions()
                     
                     # get next action, label, and direction scores
                     # we will want to get top k action/label/dir combos and their scores to decide which steps to take
@@ -275,72 +249,83 @@ class DiscoBertModel(nn.Module):
                     #be careful: keep track of how many steps i took--> bc need to normalize at the end (normalizing during doesnt make sense bc by then, they have taken the same# of steps)
                     
 
-                    logSotmax = nn.LogSoftmax(dim=0)
+                    logSoftmax = nn.LogSoftmax(dim=0)
                     
-                    action_scores = logSotmax(self.action_classifier(state_features))
-                    legal_action_scores = self.legal_action_scores(legal_actions, action_scores)
-                    label_scores = logSotmax(self.label_classifier(state_features))
-                    direction_scores = logSotmax(self.direction_classifier(state_features))
+                    action_scores = self.action_classifier(state_features)
+                    # logSoftmaxedActionScores = logSoftmax(action_scores)
+                    # print("action scores: ", action_scores)
+                    # print("log softmaxed scores: ", logSoftmaxedActionScores)
+
+                    legal_action_scores = logSoftmax(self.legal_action_scores(legal_actions, action_scores))
+                    print("legal act scores: ", legal_action_scores)
+                    label_scores = logSoftmax(self.label_classifier(state_features))
+                    print("label scores: ", label_scores)
+                    direction_scores = logSoftmax(self.direction_classifier(state_features))
+                    print("dir scores: ", direction_scores)
      
                     
-                    top_k_combos = self.getTopNCombos(legal_action_scores, label_scores, direction_scores, self.beam_size) #returns tuples of ((indices of action/label/direction), score for the combo)
+                    combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns tuples of ((indices of action/label/direction), score for the combo)
+                    # print(combo_scores)
+                    #print("combo scores shape: ", combo_scores.shape)
                     #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
-
+                    action_ids = [self.action_to_id[a] for a in legal_actions]
                     #todo: read on pass by value/reference
-                    for i in range(len(top_k_combos)):
-                        print(f"============\ncombo {i}: ", top_k_combos[i], "\n----------")
-                        next_action = top_k_combos[i][0] #what's the zero
-                        print("next act from combo ", next_action)
-                        # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
-                        print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
-                        # parser_cand = deepcopy(parser)
-                        new_buffer = list(parser.buffer)
-                        new_stack = list(parser.stack)
-                        parser_cand = TransitionSystem(new_buffer, new_stack) #need to send a copy, grab them as list
-                        print("parser cand: ", parser_cand)
-                        print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
-                        # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
-                        # take the next parser step
-                        #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
-                        #the steps should apply to the copies of the previous parser
+                    for i in action_ids:
+                        for j in range(len(label_scores)):
+                            for k in range(len(direction_scores)):
+                                print(i, " ", j, " ", k)
+                                combo_score = combo_scores[i][j][k]
+                                print("combo score: ", combo_score)
+                                # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
+                                #print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
+                                # parser_cand = deepcopy(parser)
+                                # new_buffer = list(parser.buffer)
+                                # new_stack = list(parser.stack)
+                                parser_cand = TransitionSystem(parser.buffer, parser.stack) #need to send a copy, grab them as list
+                                #print("parser cand: ", parser_cand)
+                                #print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
+                                # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
+                                # take the next parser step
+                                #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
+                                #the steps should apply to the copies of the previous parser
 
-                        action=self.id_to_action[next_action[0]]
-                        print("action: ", action)
-                        label=self.id_to_label[next_action[1]]
-                        print("label: ", label)
-                        direction=self.id_to_direction[next_action[2]]
-                        print("direction: ", direction)
+                                action=self.id_to_action[i]
+                                print("action: ", action)
+                                label=self.id_to_label[j]
+                                print("label: ", label)
+                                direction=self.id_to_direction[k]
+                                print("direction: ", direction)
 
-                        
-                        
+                                
+                                
 
 
-                        # print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
-                        parser_cand.take_action(
-                            action=self.id_to_action[next_action[0]],
-                            label=self.id_to_label[next_action[1]],
-                            direction=self.id_to_direction[next_action[2]],
-                            reduce_fn=self.merge_embeddings,
-                        )
+                                # print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
+                                parser_cand.take_action(
+                                    action=action,
+                                    label=label,
+                                    direction=direction,
+                                    reduce_fn=self.merge_embeddings,
+                                )
 
-                        print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
-                        # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
-                        
-                        # if len(parser_cand.stack) > 0:
-                        #     print("parser cand stack after action: ", parser_cand.stack)
+                                #print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
+                                # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
+                                
+                                # if len(parser_cand.stack) > 0:
+                                #     print("parser cand stack after action: ", parser_cand.stack)
 
-                        all_candidates.append([parser_cand, score + top_k_combos[i][1], steps + 1]) #this is the new parser after the action has been taken with the score updated
+                                all_candidates.append([parser_cand, score + combo_score, steps + 1]) #this is the new parser after the action has been taken with the score updated
 
                 #now we have several parse/score candidates
                 #get top scoring parsers (remember to incorporate previous score)
                 #should we normalize at every step? - no
-                print("all candidates: ", all_candidates)
+                #print("all candidates: ", all_candidates)
 
                 #sort candidates by score
 
                 sorted_candidates = sorted(all_candidates, key = lambda x: x[1], reverse=True)
-
+                print("sorted candidates: ", sorted_candidates)
                 #now top n candidates are the new parsers
 
                 parsers = sorted_candidates[:self.beam_size]
@@ -378,7 +363,7 @@ class DiscoBertModel(nn.Module):
 
 
            
-            print("parsers done before normalization: ", parsers_done)
+            #print("parsers done before normalization: ", parsers_done)
             #normalize done parsers
 
             normalized_parsers = []
@@ -387,9 +372,9 @@ class DiscoBertModel(nn.Module):
                 score = float(parser[1])/parser[2] 
                 normalized_parsers.append((parser[0], score))
 
-            print("normalized parsers: ", normalized_parsers)
+            #print("normalized parsers: ", normalized_parsers)
             parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0] #call max, not sort - easier to decipher when reading
-            print(parser)
+            #print(parser)
 
 
         predicted_tree = parser.get_result()
