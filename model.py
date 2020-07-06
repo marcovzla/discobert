@@ -5,7 +5,7 @@ from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
-import numpy
+import torch.nn.functional as F
 
 inf = float('inf')
 
@@ -35,6 +35,9 @@ class DiscoBertModel(nn.Module):
         self.bert = BertModel.from_pretrained(self.bert_path)
         # for param in self.bert.parameters():
         #     param.requires_grad = False
+        self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
+        self.attn2 = nn.Linear(100, 1)
+        self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
@@ -106,16 +109,32 @@ class DiscoBertModel(nn.Module):
         token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
 
         # encode edus
-        sequence_output, pooled_output = self.bert(
+        sequence_output, pooled_output = self.bert( #sequence_output: [edu, tok, emb]
             ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
         )
-        # print('sequence', sequence_output.shape)
-        # print('pooled', pooled_output.shape)
-        # enc_edus = self.bert_drop(pooled_output)
-        enc_edus = self.bert_drop(sequence_output[:,0,:])
-        enc_edus = self.project(enc_edus)
+
+        if config.DROP_CLS == True:
+            sequence_output = sequence_output[:, 1:, :] 
+            attention_mask = attention_mask[:, 1:]
+        
+        
+        if config.USE_ATTENTION == True:
+            after1stAttn = self.attn1(sequence_output)
+            nonLinearity = self.betweenAttention(after1stAttn)
+            after2ndAttn = self.attn2(nonLinearity)
+            attention_mask = attention_mask.unsqueeze(dim=-1)
+            masked_att = after2ndAttn * attention_mask
+            attn_weights = F.softmax(masked_att, dim=1)
+            attn_applied =  sequence_output * attn_weights #[9, 17, 768] [9, 17, 1] 
+            summed_up = torch.sum(attn_applied, dim=1)
+            enc_edus = self.bert_drop(summed_up)
+
+        else:
+            enc_edus = self.bert_drop(sequence_output[:,0,:])
+
+        enc_edus = self.project(enc_edus) 
 
         # make treenodes
         buffer = []
@@ -143,10 +162,10 @@ class DiscoBertModel(nn.Module):
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
                 gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
-                loss_1 = loss_fn(action_scores, gold_action)
-                loss_2 = loss_fn(label_scores, gold_label)
-                loss_3 = loss_fn(direction_scores, gold_direction)
-                loss = loss_1 + loss_2 + loss_3
+                loss_on_actions = loss_fn(action_scores, gold_action)
+                loss_on_labels = loss_fn(label_scores, gold_label)
+                loss_on_direction = loss_fn(direction_scores, gold_direction)
+                loss = loss_on_actions + loss_on_labels + loss_on_direction 
                 # store loss for later
                 losses.append(loss)
                 # teacher forcing

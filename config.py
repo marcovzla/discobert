@@ -1,8 +1,10 @@
 from pathlib import Path
 import tokenizers
 
-EXPERIMENT_ID = 0
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+EXPERIMENT_ID = 1
 EXPERIMENT_DESCRIPTION = "OriginalRun" # enter a brief description that will make the experiment easy to identify
+TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
 DROPOUT = 0.2
@@ -13,6 +15,12 @@ RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 50
 DIRECTION_HIDDEN_SIZE = 20
+
+INCLUDE_RELATION_EMBEDDING = False
+INCLUDE_DIRECTION_EMBEDDING = False
+USE_ATTENTION = True
+DROP_CLS = True
+SORT_INPUT = False #simplified curriculum learning
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
 DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
@@ -56,6 +64,3 @@ BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
 TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
 TOKENIZER.enable_padding() #max_length=MAX_LEN)
 
-# Architecture settings
-INCLUDE_RELATION_EMBEDDING = False
-INCLUDE_DIRECTION_EMBEDDING = False

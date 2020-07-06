@@ -33,17 +33,30 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def main(experiment_dir_path):
-    model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
-    # print("model dir path: ", model_dir_path)
-    if not os.path.exists(model_dir_path):
-        os.makedirs(model_dir_path)
-    model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
-    print("path to model: ", model_path)
+    if config.DEBUG == False:
+        model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
+        # print("model dir path: ", model_dir_path)
+        if not os.path.exists(model_dir_path):
+            os.makedirs(model_dir_path)
+        model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
+        print("path to model: ", model_path)
+
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel()
     model.to(device)
+    
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH))) 
+    if config.SORT_INPUT == True:
+        # construct new train_ds
+        train_ids_by_length = {}
+        for item in train_ds:
+            train_ids_by_length.setdefault(len(item.edus), []).append(item)
+
+        train_ds = []
+        for n in sorted(train_ids_by_length):
+            for ann in train_ids_by_length[n]:
+                train_ds.append(ann)
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
@@ -105,7 +118,8 @@ def main(experiment_dir_path):
             max_f1_F_epoch = epoch + 1
         if f1 > saved_model_f1_f:
             #we decide whether or not save the model based on Full F1, but save best scores from each component
-            model.save(model_path)
+            if config.DEBUG == False:
+                model.save(model_path)
             saved_model_f1_s = f1_s
             saved_model_f1_n = f1_n
             saved_model_f1_r = f1_r
@@ -140,61 +154,69 @@ def main(experiment_dir_path):
 if __name__ == '__main__':
 
     start_time = time.time()
+    random_seeds = config.RANDOM_SEEDS
+    if config.DEBUG == True:
+        r_seed = random_seeds[0]
+        random.seed(r_seed)
+        torch.manual_seed(r_seed)
+        torch.cuda.manual_seed(r_seed)
+        np.random.seed(r_seed)
+        main(None)
 
-    #create dir for the experiment
-    experiment_dir_path = os.path.join(config.OUTPUT_DIR, "experiment" + str(config.EXPERIMENT_ID) + "-" + config.EXPERIMENT_DESCRIPTION + "-" + str(date.today()))
-    if not os.path.exists(experiment_dir_path):
-        os.makedirs(experiment_dir_path)
+    else:
 
-    #copy the config file into the experiment directory
-    shutil.copyfile(config.CONFIG_FILE, os.path.join(experiment_dir_path, "config.py"))
+        #create dir for the experiment
+        experiment_dir_path = os.path.join(config.OUTPUT_DIR, "experiment" + str(config.EXPERIMENT_ID) + "-" + config.EXPERIMENT_DESCRIPTION + "-" + str(date.today()))
+        if not os.path.exists(experiment_dir_path):
+            os.makedirs(experiment_dir_path)
 
-    with open(os.path.join(experiment_dir_path, "log"), "w") as f:
-        sys.stdout = f
-    
-        random_seeds = config.RANDOM_SEEDS
+        #copy the config file into the experiment directory
+        shutil.copyfile(config.CONFIG_FILE, os.path.join(experiment_dir_path, "config.py"))
 
-        span_scores = np.zeros(len(random_seeds))
-        nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
-        relations_scores = np.zeros(len(random_seeds)) # span + relation label
-        full_scores = np.zeros(len(random_seeds)) # span + direction + relation label
+        with open(os.path.join(experiment_dir_path, "log"), "w") as f:
+            sys.stdout = f
+        
+            span_scores = np.zeros(len(random_seeds))
+            nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
+            relations_scores = np.zeros(len(random_seeds)) # span + relation label
+            full_scores = np.zeros(len(random_seeds)) # span + direction + relation label
 
-        best_f1_full = 0    # best Full F1 among the runs with different seeds
-        best_seed = random_seeds[0] # the random seed that produced the best Full F1
+            best_f1_full = 0    # best Full F1 among the runs with different seeds
+            best_seed = random_seeds[0] # the random seed that produced the best Full F1
 
-        # do training for every random seed
-        for i in range(len(random_seeds)):
-            r_seed = random_seeds[i]
-            print("===============")
-            print("random seed ", r_seed)
-            print("---------------")
-            
-            random.seed(r_seed)
-            torch.manual_seed(r_seed)
-            torch.cuda.manual_seed(r_seed)
-            np.random.seed(r_seed)
+            # do training for every random seed
+            for i in range(len(random_seeds)):
+                r_seed = random_seeds[i]
+                print("===============")
+                print("random seed ", r_seed)
+                print("---------------")
+                
+                random.seed(r_seed)
+                torch.manual_seed(r_seed)
+                torch.cuda.manual_seed(r_seed)
+                np.random.seed(r_seed)
 
-            rs_results = main(experiment_dir_path)
+                rs_results = main(experiment_dir_path)
 
-            span_scores[i] = rs_results[0]
-            nuclearity_scores[i] = rs_results[1]
-            relations_scores[i] = rs_results[2]
-            full_scores[i] = rs_results[3]
+                span_scores[i] = rs_results[0]
+                nuclearity_scores[i] = rs_results[1]
+                relations_scores[i] = rs_results[2]
+                full_scores[i] = rs_results[3]
 
-            # if the full f1 output from the random seed is higher than previously recorded best f1 (from a diff seed), 
-            # update the best f1 and the random seed
-            if rs_results[3] > best_f1_full:
-                best_f1_full = rs_results[3]
-                best_seed = r_seed
+                # if the full f1 output from the random seed is higher than previously recorded best f1 (from a diff seed), 
+                # update the best f1 and the random seed
+                if rs_results[3] > best_f1_full:
+                    best_f1_full = rs_results[3]
+                    best_seed = r_seed
 
 
-        print("\n========================================================")
-        print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
-        print("--------------------------------------------------------")
-        print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
-        print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
-        print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
-        print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
-        print("Best random seed:\t", best_seed)
-        print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
+            print("\n========================================================")
+            print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
+            print("--------------------------------------------------------")
+            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
+            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
+            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
+            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
+            print("Best random seed:\t", best_seed)
+            print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 
