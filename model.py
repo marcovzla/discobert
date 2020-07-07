@@ -134,23 +134,25 @@ class DiscoBertModel(nn.Module):
         combos = []
         #todo: update shapes from hardcoded to shapes of args
         summable_action_scores = torch.cat([action_scores.squeeze(0)[i].repeat(19*3) for i in range(action_scores.squeeze(0).shape[0])]) 
-        print("summable action scores: ", summable_action_scores)
+        #print("summable action scores: ", summable_action_scores)
         summable_label_scores = label_scores.squeeze(dim=0).repeat(2*3)
-        print("summable_label_scores: ", summable_label_scores)
+        #print("summable_label_scores: ", summable_label_scores)
         direction_scores_summable_with_labels = torch.cat([direction_scores.squeeze(dim=0)[i].repeat(19) for i in range(direction_scores.squeeze(dim=0).shape[0])])
         summable_direction_scores = torch.cat([direction_scores_summable_with_labels, direction_scores_summable_with_labels]) 
-        print("summable direction scores: ", summable_direction_scores)
+        #print("summable direction scores: ", summable_direction_scores)
 
         all_scores = (summable_action_scores + summable_label_scores + summable_direction_scores).view(2,19,3)
-        print("all scores: ", all_scores)
+        #print("all scores: ", all_scores)
         return all_scores
 
     
 
-    def forward(self, edus, gold_tree=None):
+    def forward(self, train, edus, gold_tree=None):
         # print("ONE TREE")
         # tokenize edus
         # print("beam: ", self.beam_size)
+
+        
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
         attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
@@ -196,11 +198,21 @@ class DiscoBertModel(nn.Module):
         parser = TransitionSystem(buffer, None)
         # print("parser just initialized: ", parser)
 
+        if train==False:
+
+            gold_sequence = parser.gold_path(gold_tree)
+            print("Steps:")
+            for step in gold_sequence:
+                print(step)
+            # nltked_gold_tree = gold_tree.to_nltk
+            # print(nltked_gold_tree)
+        
+
         # print("parser initialized buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
         losses = []    
         
         #diverge train and eval here
-        if gold_tree is not None:
+        if train==True:
 
             
 
@@ -276,6 +288,8 @@ class DiscoBertModel(nn.Module):
                     parser, score, steps = parsers[i] #this is one previous parser
                     #we want to get top k parsers that highest scored action-label-direction combinations will produce
                     
+                    print("-------------------\nStarting a parser, step:", steps)
+                    print("-------------------")
                     state_features = self.make_features(parser)
                     # legal actions for current parser
                     legal_actions = parser.all_legal_actions()
@@ -292,19 +306,24 @@ class DiscoBertModel(nn.Module):
                     
                     action_scores = self.action_classifier(state_features)
                     # logSoftmaxedActionScores = logSoftmax(action_scores)
-                    # print("action scores: ", action_scores)
+                    print("action scores: \n", action_scores)
                     # print("log softmaxed scores: ", logSoftmaxedActionScores)
 
                     legal_action_scores = logSoftmax(self.legal_action_scores(legal_actions, action_scores))
-                    print("legal act scores: ", legal_action_scores)
-                    label_scores = logSoftmax(self.label_classifier(state_features))
-                    print("label scores: ", label_scores)
-                    direction_scores = logSoftmax(self.direction_classifier(state_features))
-                    print("dir scores: ", direction_scores)
+                    print("legal act scores logged: \n", legal_action_scores)
+
+                    label_scores_no_log = self.label_classifier(state_features)
+                    print("label scores: \n", label_scores_no_log)
+                    label_scores = logSoftmax(label_scores_no_log)
+                    print("label scores logged: \n", label_scores)
+                    direction_scores_no_log = self.direction_classifier(state_features)
+                    print("direction scores: \n", direction_scores_no_log)
+                    direction_scores = logSoftmax(direction_scores_no_log)
+                    print("dir scores logged: \n", direction_scores)
      
                     
                     combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns tuples of ((indices of action/label/direction), score for the combo)
-                    # print(combo_scores)
+                    print(combo_scores)
                     #print("combo scores shape: ", combo_scores.shape)
                     #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
@@ -330,11 +349,11 @@ class DiscoBertModel(nn.Module):
                                 #the steps should apply to the copies of the previous parser
 
                                 action=self.id_to_action[i]
-                                print("action: ", action)
+                                #print("action: ", action)
                                 label=self.id_to_label[j]
-                                print("label: ", label)
+                                #print("label: ", label)
                                 direction=self.id_to_direction[k]
-                                print("direction: ", direction)
+                                #print("direction: ", direction)
 
                                 
                                 
@@ -350,7 +369,7 @@ class DiscoBertModel(nn.Module):
 
                                 #print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
                                 # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
-                                
+                                print("parser cand and score: ", parser_cand, " ", score + combo_score)
                                 # if len(parser_cand.stack) > 0:
                                 #     print("parser cand stack after action: ", parser_cand.stack)
 
@@ -417,10 +436,14 @@ class DiscoBertModel(nn.Module):
 
 
         predicted_tree = parser.get_result()
+
+        if train == False:
+            print("predicted tree: ")
+            for 
         outputs = (predicted_tree,)
 
         # are we training?
-        if gold_tree is not None:
+        if train:
             loss = sum(losses) / len(losses)
             outputs = (loss,) + outputs
 

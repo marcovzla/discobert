@@ -58,6 +58,17 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
+    #sorting validation set for debugging (want to look at the smallest document first---could be easier to debug)
+
+    valid_ids_by_length = {}
+    for item in valid_ds:
+        valid_ids_by_length.setdefault(len(item.edus), []).append(item)
+
+    valid_ds = []
+    for n in sorted(valid_ids_by_length):
+        for ann in valid_ids_by_length[n]:
+            valid_ds.append(ann)
+
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
@@ -89,7 +100,7 @@ def main(experiment_dir_path):
         print("-----------")
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
         print("START DEV")
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds[:1], model, device) #ATTN: only doing three shortest docs for now #todo:make sure to undo the partitioning here
         p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')
