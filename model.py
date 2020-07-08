@@ -133,15 +133,15 @@ class DiscoBertModel(nn.Module):
     def getScoreCombinations(self, action_scores, label_scores, direction_scores):
         combos = []
         #todo: update shapes from hardcoded to shapes of args
-        summable_action_scores = torch.cat([action_scores.squeeze(0)[i].repeat(19*3) for i in range(action_scores.squeeze(0).shape[0])]) 
-        #print("summable action scores: ", summable_action_scores)
-        summable_label_scores = label_scores.squeeze(dim=0).repeat(2*3)
-        #print("summable_label_scores: ", summable_label_scores)
-        direction_scores_summable_with_labels = torch.cat([direction_scores.squeeze(dim=0)[i].repeat(19) for i in range(direction_scores.squeeze(dim=0).shape[0])])
-        summable_direction_scores = torch.cat([direction_scores_summable_with_labels, direction_scores_summable_with_labels]) 
-        #print("summable direction scores: ", summable_direction_scores)
+        summable_action_scores = (torch.cat([action_scores.squeeze(0)[i].repeat(19*3) for i in range(action_scores.squeeze(0).shape[0])])).view(2,19,3)
+        print("summable action scores: ", summable_action_scores)
+        label_scores_half = torch.cat([label_scores.squeeze(0)[i].repeat(3) for i in range(label_scores.squeeze(0).shape[0])])
+        summable_label_scores = torch.cat([label_scores_half, label_scores_half]).view(2,19,3)
+        print("summable_label_scores: ", summable_label_scores)
+        summable_direction_scores = direction_scores.squeeze(0).repeat(2*19).view(2,19,3)
+        print("summable direction scores: ", summable_direction_scores)
 
-        all_scores = (summable_action_scores + summable_label_scores + summable_direction_scores).view(2,19,3)
+        all_scores = summable_action_scores + summable_label_scores + summable_direction_scores
         #print("all scores: ", all_scores)
         return all_scores
 
@@ -271,7 +271,7 @@ class DiscoBertModel(nn.Module):
             #OR
             # for every combo of action/label/dir (maybe also choose top k?), calc scores with previous parsers, then take action and store the parser and cur score
             parsers_done = []
-            parsers = [[parser, 0.0, 1]] #for us, it's parsers (?) [[parser, score:Float, stepsTaken:Int]] and the parser is not gonna be an actual list---we are not storing a sequence
+            parsers = [[parser, 0.0, 1, "init_step"]] #for us, it's parsers (?) [[parser, score:Float, stepsTaken:Int, [seq of transition scores that led to this]]] and the parser is not gonna be an actual list---we are not storing a sequence
             
             # print("parser buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[-1])
             
@@ -285,7 +285,11 @@ class DiscoBertModel(nn.Module):
                 for i in range(len(parsers)):
                     
                     # for every parser from last step, get the parser and its score (we'll update them with new scores)
-                    parser, score, steps = parsers[i] #this is one previous parser
+                    print("cur parser: ", parsers[i])
+                    
+                    parser, score, steps, tr_scores_str = parsers[i] #this is one previous parser
+
+                    print("tr scores: ", tr_scores_str , type(tr_scores_str))
                     #we want to get top k parsers that highest scored action-label-direction combinations will produce
                     
                     print("-------------------\nStarting a parser, step:", steps)
@@ -372,27 +376,30 @@ class DiscoBertModel(nn.Module):
                                 print("parser cand and score: ", parser_cand, " ", score + combo_score)
                                 # if len(parser_cand.stack) > 0:
                                 #     print("parser cand stack after action: ", parser_cand.stack)
-
-                                all_candidates.append([parser_cand, score + combo_score, steps + 1]) #this is the new parser after the action has been taken with the score updated
+                                
+                                all_candidates.append([parser_cand, score + combo_score, steps + 1, tr_scores_str + "+" + str(combo_score) + "_act:" + str(i) + "-label:" + str(j) + "-dir:" + str(k)]) #this is the new parser after the action has been taken with the score updated
 
                 #now we have several parse/score candidates
                 #get top scoring parsers (remember to incorporate previous score)
                 #should we normalize at every step? - no
-                #print("all candidates: ", all_candidates)
+                # print("all candidates: ", all_candidates)
 
                 #sort candidates by score
 
                 sorted_candidates = sorted(all_candidates, key = lambda x: x[1], reverse=True)
-                print("sorted candidates: ", sorted_candidates)
+                print("------------\nsorted candidates: \n-------------")
+                for cand in sorted_candidates:
+                    print(cand)
+                print("+++++++++")
                 #now top n candidates are the new parsers
 
                 parsers = sorted_candidates[:self.beam_size]
 
-                print("sorted parsers: ", parsers)
-
+                
                 # print("parsers: ", parsers, " ", len(parsers))
+                print("sorted parsers:")
                 for parser in parsers:
-                    # print("one parser: ", parser)
+                    print("one parser: ", parser)
                     # print("par stack: ", parser[0].stack[0].embedding)
                     # print("parser stack: ", parser[0].stack)
                     # print("parser buffer: ", len(parser[0].buffer))
@@ -431,16 +438,21 @@ class DiscoBertModel(nn.Module):
                 normalized_parsers.append((parser[0], score))
 
             #print("normalized parsers: ", normalized_parsers)
-            parser = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0][0] #call max, not sort - easier to decipher when reading
-            #print(parser)
+            parser_with_scores = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0] #call max, not sort - easier to decipher when reading
+            parser = parser_with_scores[0] 
+            print("final parser (with scores): ", parser_with_scores)
 
 
         predicted_tree = parser.get_result()
+        predicted_step_sequence = parser.gold_path(predicted_tree)
+
 
         if train == False:
-            print("predicted tree: ")
-            for 
+            print("predicted tree: ", predicted_step_sequence)
+            for step in predicted_step_sequence: #make sure it's okay to use this method on the predicted tree
+                print("step: ", step)
         outputs = (predicted_tree,)
+        # print("outputs: ", outputs)
 
         # are we training?
         if train:
