@@ -6,6 +6,7 @@ from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
 import torch.nn.functional as F
+from transformers import RobertaTokenizer, RobertaModel
 
 inf = float('inf')
 
@@ -33,6 +34,10 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.bert = BertModel.from_pretrained(self.bert_path)
+
+        self.roberta_tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+        self.roberta_model = RobertaModel.from_pretrained('roberta-base')
+
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
@@ -100,20 +105,53 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
+    def pad_sequences(self, tensor_list, max_len=70):
+        padded = []
+        
+        for tensor in tensor_list:
+            tensor_shape = tensor_list[0].shape
+            zeros = torch.zeros(tensor_shape[0], max_len - tensor_shape[1], tensor_shape[-1]).to(self.device)
+            print("tensor shape", tensor_shape)
+            print("zeros shape: ", zeros.shape)
+            padded_tensor = torch.cat((tensor, zeros), dim=1)
+            print("padded tensor shape: ", padded_tensor.shape)
+            padded.append(padded_tensor)
+        return padded
+
     def forward(self, edus, gold_tree=None):
 
-        # tokenize edus
+
+        sequences_not_padded = []
+        max_length = 0
+        for edu in edus:
+            # print("edu: ", edu, " ", type(edu))
+            encoded_input = self.roberta_tokenizer(edu, return_tensors='pt').to(self.device)
+            # print(encoded_input)
+            seq, pooled = self.roberta_model(**encoded_input)
+            if seq.shape[1] > max_length:
+                max_length = seq.shape[1]
+            print(seq.shape, " ", seq.shape[1])
+            sequences_not_padded.append(seq)
+
+        print("max len: ", max_length)
+        roberta_sequence_output = self.pad_sequences(sequences_not_padded, max_length)
+
+        # print(roberta_sequence_output.shape)
+        # # tokenize edus
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
         attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
         token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
 
-        # encode edus
+        # # encode edus
         sequence_output, pooled_output = self.bert( #sequence_output: [edu, tok, emb]
             ids,
             attention_mask=attention_mask,
             token_type_ids=token_type_ids,
         )
+
+        print("seq output shape: ", sequence_output.shape)
+        print("seq output: ", sequence_output)
 
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 

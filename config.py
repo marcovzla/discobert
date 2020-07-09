@@ -1,6 +1,7 @@
 from pathlib import Path
 import tokenizers
 
+
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 1
 EXPERIMENT_DESCRIPTION = "OriginalRun" # enter a brief description that will make the experiment easy to identify
@@ -18,8 +19,8 @@ DIRECTION_HIDDEN_SIZE = 20
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False
-USE_ATTENTION = True
-DROP_CLS = True
+USE_ATTENTION = False
+DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
@@ -64,3 +65,5 @@ BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
 TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
 TOKENIZER.enable_padding() #max_length=MAX_LEN)
 
+# BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
+# TOKENIZER = RobertaTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
