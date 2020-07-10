@@ -31,12 +31,11 @@ class DiscoBertModel(nn.Module):
         self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
         self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
+        self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
         if self.encoding == 'bert':
-            self.tokenizer = config.TOKENIZER
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == "roberta":
-            self.tokenizer = config.TOKENIZER
             self.encoder = RobertaModel.from_pretrained('roberta-base')
 
         # for param in self.bert.parameters():
@@ -130,11 +129,10 @@ class DiscoBertModel(nn.Module):
             # encode edus
             sequence_output, pooled_output = self.encoder(ids, attention_mask)
 
+        # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 
             attention_mask = attention_mask[:, 1:]
-        
-        # print("seq output shape after drop cls: ", sequence_output.shape)
         
         if config.USE_ATTENTION == True:
             after1stAttn = self.attn1(sequence_output)
