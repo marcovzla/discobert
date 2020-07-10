@@ -1,5 +1,7 @@
 from pathlib import Path
 import tokenizers
+from tokenizers import Tokenizer 
+from transformers import RobertaTokenizer
 
 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
@@ -19,8 +21,8 @@ DIRECTION_HIDDEN_SIZE = 20
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False
-USE_ATTENTION = False
-DROP_CLS = False
+USE_ATTENTION = True
+DROP_CLS = True
 SORT_INPUT = False #simplified curriculum learning
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
@@ -61,9 +63,14 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
-TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
-TOKENIZER.enable_padding() #max_length=MAX_LEN)
+ENCODING = 'roberta' # also available bert; todo: add a glove emb versiob
 
-# BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
-# TOKENIZER = RobertaTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
+if ENCODING == "bert":
+    BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
+    TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
+    TOKENIZER.enable_padding() #max_length=MAX_LEN)
+elif ENCODING == "roberta":
+    BERT_PATH = DISCOBERT_PATH/('roberta-base')
+    TOKENIZER = RobertaTokenizer.from_pretrained('roberta-base')
+
+
