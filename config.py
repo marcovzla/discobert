@@ -5,9 +5,9 @@ from transformers import RobertaTokenizer
 import torchtext
 from torchtext.data import get_tokenizer
 
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 1
-EXPERIMENT_DESCRIPTION = "OriginalRun" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_DESCRIPTION = "OriginalRun-Roberta-base" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -64,7 +64,8 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'bert' # also available 'bert'; todo: add a glove emb versiob
+BERT_LESS = False
+ENCODING = 'roberta' # also available 'bert'; todo: add a glove emb versiob
 
 if ENCODING == "bert":
     BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
@@ -74,5 +75,7 @@ elif ENCODING == "roberta":
     BERT_PATH = DISCOBERT_PATH/('roberta-base')
     TOKENIZER = RobertaTokenizer.from_pretrained(str(BERT_PATH))
 elif ENCODING == "glove":
+    BERT_PATH = None
+    GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
     TOKENIZER = get_tokenizer("basic_english")
 

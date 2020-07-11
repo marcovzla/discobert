@@ -1,3 +1,6 @@
+import config
+import numpy as np
+
 class CumulativeMovingAverage:
     # https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
 
@@ -120,3 +123,40 @@ def extractrelation(s):
     else:
         rela = items[0]
     return fg_to_coarse[rela]
+
+# def load_glove(path):
+#     glove = {}
+#     emb_size = 0
+#     with open(path, 'rb') as f:
+#         for l in f:
+#             if list(f).index(l) == 0:
+#                 emb_size = int(l.decode().split("")[-1]
+#             else:
+#             # split lines
+#                 line = l.decode().split()
+#                 # first part is word
+#                 word = line[0]
+#                 # the rest is the embeddings
+#                 vec = np.array(line[1:]).astype(float)
+#                 # feed dict
+#                 glove[word] = vec
+#     return glove, emb_size
+
+# def make_vocabulary_and_emb(edus):
+#     """make word vocabulary from a list of sentences"""
+#     glove, emb_size = load_glove(config.GLOVE_PATH)
+#     print("emb size: ", emb_size)
+#     tokenizer = config.TOKENIZER
+#     vocab = {}
+#     for edu in edus:
+#         words = tokenizer(edu.raw)
+#         for word in words:
+#             if not word in vocab:
+#                 if word in glove:
+#                     vocab[word] = glove(word)
+#     vocab["<UNK>"] = np.random.normal(scale=0.6, size=emb_size)
+#     print("vocab: ", vocab)
+#     print("vocab length: ", len(vocab))
+#     return vocab
+
+
