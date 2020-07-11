@@ -129,6 +129,10 @@ class DiscoBertModel(nn.Module):
             # encode edus
             sequence_output, pooled_output = self.encoder(ids, attention_mask)
 
+        elif self.encoding == "glove":
+            # tokenize edus
+            encodings = self.tokenizer(edus)
+
         # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 

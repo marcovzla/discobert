@@ -2,7 +2,8 @@ from pathlib import Path
 import tokenizers
 from tokenizers import Tokenizer 
 from transformers import RobertaTokenizer
-
+import torchtext
+from torchtext.data import get_tokenizer
 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 1
@@ -72,5 +73,6 @@ if ENCODING == "bert":
 elif ENCODING == "roberta":
     BERT_PATH = DISCOBERT_PATH/('roberta-base')
     TOKENIZER = RobertaTokenizer.from_pretrained(str(BERT_PATH))
-
+elif ENCODING == "glove":
+    TOKENIZER = get_tokenizer("basic_english")
 
