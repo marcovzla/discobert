@@ -1,4 +1,5 @@
 import config
+import torch
 import numpy as np
 
 class CumulativeMovingAverage:
@@ -124,39 +125,68 @@ def extractrelation(s):
         rela = items[0]
     return fg_to_coarse[rela]
 
-# def load_glove(path):
-#     glove = {}
-#     emb_size = 0
-#     with open(path, 'rb') as f:
-#         for l in f:
-#             if list(f).index(l) == 0:
-#                 emb_size = int(l.decode().split("")[-1]
-#             else:
-#             # split lines
-#                 line = l.decode().split()
-#                 # first part is word
-#                 word = line[0]
-#                 # the rest is the embeddings
-#                 vec = np.array(line[1:]).astype(float)
-#                 # feed dict
-#                 glove[word] = vec
-#     return glove, emb_size
+def load_glove(path):
+    print("loading glove")
+    glove = {}
+    with open(path, 'rb') as f:
+        for l in f:
+            # split lines
+            line = l.decode().split()
+            # first part is word
+            word = line[0]
+            # the rest is the embeddings
+            if len(line[1:]) > 2:
+                vec = np.array(line[1:]).astype(float)
+                # feed dict
+                glove[word] = vec
+    return glove
 
-# def make_vocabulary_and_emb(edus):
-#     """make word vocabulary from a list of sentences"""
-#     glove, emb_size = load_glove(config.GLOVE_PATH)
-#     print("emb size: ", emb_size)
-#     tokenizer = config.TOKENIZER
-#     vocab = {}
-#     for edu in edus:
-#         words = tokenizer(edu.raw)
-#         for word in words:
-#             if not word in vocab:
-#                 if word in glove:
-#                     vocab[word] = glove(word)
-#     vocab["<UNK>"] = np.random.normal(scale=0.6, size=emb_size)
-#     print("vocab: ", vocab)
-#     print("vocab length: ", len(vocab))
-#     return vocab
+
+def make_word2index(edus):
+    """make word vocabulary from a list of sentences"""
+    tokenizer = config.TOKENIZER
+    vocab = {}
+    vocab['<pad>'] = 0
+    vocab['<unk>'] = 1
+    current_word_count = 2 #after adding pad and unk
+    for edu in edus:
+        words = tokenizer(edu.raw)
+        for word in words:
+            if not word in vocab:
+                vocab[word] = current_word_count
+                current_word_count += 1
+    
+    # vocab["<UNK>"] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
+    # print("vocab: ", vocab)
+    # print("vocab length: ", len(vocab))
+
+    # for i in vocab:
+    #     print("i voc: ", i, " ", vocab[i])
+    return vocab
+
+def make_index2word(word2index):
+    index2word = {}
+    for word in word2index:
+        index2word[word2index[word]] = word
+    print("should be furloughs: ", index2word[12921])
+    return index2word
+
+def make_embedding_matrix(index2word, glove):
+    
+    emb_matrix = np.zeros((len(index2word.values()), config.EMBEDDING_SIZE))
+    
+    for index in index2word.keys():
+        if index2word[index] in glove:
+            emb_matrix[index] = glove[index2word[index]]
+        else:
+            # even if the word is not in glove, we hope to learn an emb for it (bsh, mve?)
+            emb_matrix[index] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
+
+    # update the values for pad and unk #todo: read somewhere that glove happens to have the word <unk>---double-check
+    emb_matrix[0] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # pad
+    emb_matrix[1] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # unk
+    
+
+    return torch.from_numpy(emb_matrix)
 
 

@@ -17,7 +17,7 @@ import sys
 import shutil
 from datetime import date
 import time
-# from utils import make_vocabulary_and_emb
+from utils import make_word2index
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -43,9 +43,6 @@ def main(experiment_dir_path):
         model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
         print("path to model: ", model_path)
 
-    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    model = DiscoBertModel()
-    model.to(device)
     
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
@@ -60,7 +57,14 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    # vocab = make_vocabulary_and_emb(train_ds + valid_ds)
+    # we don't include valid set in vocab, do we? 
+    word2index = make_word2index(train_ds)
+    # print("vocab keys: ", word2index.keys())
+
+    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    model = DiscoBertModel(word2index)
+    model.to(device)
+
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(

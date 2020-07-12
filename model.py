@@ -7,6 +7,8 @@ from treelstm import TreeLstm
 # from bilstm import BiLSTM
 import config
 import torch.nn.functional as F
+from utils import make_embedding_matrix, make_index2word, load_glove
+import numpy as np
 
 inf = float('inf')
 
@@ -15,7 +17,7 @@ def loss_fn(outputs, targets):
 
 class DiscoBertModel(nn.Module):
     
-    def __init__(self):
+    def __init__(self, word2index):
         super().__init__()
         # config
         self.dropout = config.DROPOUT
@@ -37,8 +39,18 @@ class DiscoBertModel(nn.Module):
         if self.encoding == 'bert':
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
-            self.encoder = RobertaModel.from_pretrained('roberta-base')
-        # elif self.encoding == 'glove':
+            self.encoder = RobertaModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'glove':
+            self.glove = load_glove(config.GLOVE_PATH)
+            self.word2index = word2index
+            self.index2word = make_index2word(word2index)
+            self.embedding_matrix = make_embedding_matrix(self.index2word, self.glove)
+            self.word_embedding = nn.Embedding(
+                num_embeddings=len(self.word2index.keys()),
+                embedding_dim=config.EMBEDDING_SIZE
+            )
+            self.word_embedding.load_state_dict({'weight': self.embedding_matrix})
+
         #     self.glove = nn.Embedding.from_pretrained("/home/alexeeva/data/glove/vectors.txt")
         # for param in self.bert.parameters():
         #     param.requires_grad = False
@@ -50,7 +62,7 @@ class DiscoBertModel(nn.Module):
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         if config.BERT_LESS == True:
-            self.project = nn.Linear(200, self.hidden_size)
+            self.project = nn.Linear(200, self.hidden_size) #below, I just made this optional for bert
         else:
             self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
@@ -59,7 +71,7 @@ class DiscoBertModel(nn.Module):
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        # self.bilstm = BiLSTM()
+        self.bilstm = nn.LSTM(config.EMBEDDING_SIZE, 100, bidirectional=True)
         self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
@@ -114,7 +126,33 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
+    # def average_embeddings(self, edu):
+    #     emb_sum = torch.zeros(1, config.EMBEDDING_SIZE)
+    #     for word in edu:
+    #         if word in self.word2index.keys():
+    #             print("word in vocab:", word)
+                
+    #             emb = self.word_embedding(self.word2index[word])
+    #             print(emb)
+    #             if word == "furloughs":
+    #                 print("word and index: ", word, " ", self.word2index[word])
+    #                 print("emb: ", emb)
+                
+    #             # print("emb: ", emb)
+    #         else:
+    #             # print("word not in vocab")
+    #             emb = self.embedding_matrix[1] #unk emb 
+    #         emb_sum += emb
+    #     return emb_sum/len(edu) 
+    # 
+    # def pad_encodings(self, edus):
+    #     max_length = max([len(edu) for edu in edus])
+            
+    #     return max_length
+
     def forward(self, edus, gold_tree=None):
+
+        # print("emb matrix shape: ", self.embedding_matrix.shape)
 
         if self.encoding == "bert":
             # tokenize edus
@@ -138,13 +176,30 @@ class DiscoBertModel(nn.Module):
             # encode edus
             sequence_output, pooled_output = self.encoder(ids, attention_mask)
 
-        # elif self.encoding == "glove":
-        #     # tokenize edus
-        #     encodings = [self.tokenizer(edu) for edu in edus]
-        #     for enc in encodings:
-        #         print("enc: ", enc)
-        #         vec = self.glove(enc)
-        #         print(vec)
+        elif self.encoding == "glove":
+            # tokenize edus
+            encodings_variable_size_tokens = [self.tokenizer(edu) for edu in edus]
+            encodings_variable_size_ids = []
+
+            # for enc in encodings_variable_size:
+            #     print(enc, " ", len(enc))
+            # padded_encodings = self.pad_encodings(encodings_variable_size)
+            # print("pad enc: ", padded_encodings)
+            lengths = [len(enc) for enc in encodings_variable_size]
+            encodings = torch.nn.utils.rnn.pack_padded_sequence(encodings_variable_size, lengths)
+            print("encodings: ", encodings)
+            # encoding_glove_vectors = torch.stack([self.average_embeddings(edu) for edu in encodings]).to(self.device)
+            encoding_glove_vectors = self.word_embedding(encodings)
+            print(encoding_glove_vectors)
+            # print("encodings shape: ", encoding_glove_vectors.shape)
+            sequence_output, pooled_output = self.bilstm(encoding_glove_vectors)
+            # print("output: ", output[0])
+            # sequence_output = output
+            # print("seq output shape: ", sequence_output.shape)
+
+            # for edu in encodings:
+            #     avgeraged_emb = self.average_embeddings(edu)
+
 
         # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
@@ -165,7 +220,8 @@ class DiscoBertModel(nn.Module):
         else:
             enc_edus = self.bert_drop(sequence_output[:,0,:])
 
-        enc_edus = self.project(enc_edus) 
+        if config.BERT_LESS == False:
+            enc_edus = self.project(enc_edus) 
 
         # make treenodes
         buffer = []
