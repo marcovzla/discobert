@@ -2,6 +2,8 @@ from copy import deepcopy
 from collections import namedtuple
 from rst import TreeNode
 import config
+import torch
+import numpy
 
 if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
     Step = namedtuple('Step', 'action label direction')
@@ -40,10 +42,12 @@ class TransitionSystem:
         node = self.buffer.pop(0)
         self.stack.append(node)
 
-    def reduce(self, label=None, direction=None, reduce_fn=None):
+    def reduce(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
-        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
+        emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_embedding) 
+        # print(emb)
+
         node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
         node.calc_span()
         self.stack.append(node)
