@@ -13,13 +13,13 @@ TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_PATH = DISCOBERT_PATH/'discobert.model'
 
-COMBINE_ACTION_AND_DIRECTION = False
+SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = True
 
-if COMBINE_ACTION_AND_DIRECTION == True:
-    ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
-else:
+if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
     ID_TO_ACTION = ['shift', 'reduce']
-
+else:
+    ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
+ 
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 
 ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']

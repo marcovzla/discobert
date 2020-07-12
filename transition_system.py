@@ -3,7 +3,7 @@ from collections import namedtuple
 from rst import TreeNode
 import config
 
-if config.COMBINE_ACTION_AND_DIRECTION==False:
+if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
     Step = namedtuple('Step', 'action label direction')
 else:
     Step = namedtuple('Step', 'action label')
@@ -57,10 +57,10 @@ class TransitionSystem:
  
     @staticmethod
     def all_actions():
-        if config.COMBINE_ACTION_AND_DIRECTION==True:
-            return ['shift', 'reduceL', 'reduceR', 'reduce']
-        else:
+        if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
             return ['shift', 'reduce']
+        else:
+            return ['shift', 'reduceL', 'reduceR', 'reduce']
 
     def all_legal_actions(self):
         actions = []
@@ -68,7 +68,7 @@ class TransitionSystem:
             actions.append('shift')
         if self.can_reduce():
             actions.append('reduce')
-            if config.COMBINE_ACTION_AND_DIRECTION==True:
+            if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==False:
                 actions.append('reduceL')
                 actions.append('reduceR')
             
@@ -104,7 +104,7 @@ class TransitionSystem:
 
             for n in gold_tree.iter_nodes():
                 if n.span == new_span:
-                    if config.COMBINE_ACTION_AND_DIRECTION==False:
+                    if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
                         correct_steps.append(Step('reduce', n.label, n.direction))
                         break
                     else:
@@ -118,7 +118,7 @@ class TransitionSystem:
                     
             else:
                 if self.can_shift():
-                    if config.COMBINE_ACTION_AND_DIRECTION==False:
+                    if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
                         correct_steps.append(Step('shift', 'None', 'None'))
                     else:
                         correct_steps.append(Step('shift', 'None'))
@@ -128,7 +128,7 @@ class TransitionSystem:
                     #     print("\t", s)
                     raise Exception("There is no correct action given the current state of the parser.")
         elif self.can_shift():
-            if config.COMBINE_ACTION_AND_DIRECTION==False:
+            if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
                 correct_steps.append(Step('shift', 'None', 'None'))
             else:
                 correct_steps.append(Step('shift', 'None'))
