@@ -1,8 +1,12 @@
 from copy import deepcopy
 from collections import namedtuple
 from rst import TreeNode
+import config
 
-Step = namedtuple('Step', 'action label')
+if config.COMBINE_ACTION_AND_DIRECTION==False:
+    Step = namedtuple('Step', 'action label direction')
+else:
+    Step = namedtuple('Step', 'action label')
 
 class TransitionSystem:
 
@@ -24,7 +28,6 @@ class TransitionSystem:
 
     def take_action(self, action, *args, **kwargs):
         if action == 'shift':
-            # print("action == shift, line 27 in transition system")
             self.shift()
         elif action == 'reduceL':
             self.reduceL(*args, **kwargs)
@@ -48,50 +51,31 @@ class TransitionSystem:
 
     def reduceL(self, label=None, direction=None, reduce_fn=None):
         self.reduce(label, 'RightToLeft', reduce_fn)
-        # rhs = self.stack.pop()
-        # lhs = self.stack.pop()
-        # emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
-        # node = TreeNode(children=[lhs, rhs], label=label, direction='RightToLeft', embedding=emb)
-        # node.calc_span()
-        # self.stack.append(node)
 
     def reduceR(self, label=None, direction=None, reduce_fn=None):
         self.reduce(label, 'LeftToRight', reduce_fn)
-        # rhs = self.stack.pop()
-        # lhs = self.stack.pop()
-        # emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding)
-        # node = TreeNode(children=[lhs, rhs], label=label, direction='LeftToRight', embedding=emb)
-        # node.calc_span()
-        # self.stack.append(node)
-
-    #todo:
-    #keep actions as shift and reduce
-    #in take action, call reduce, and pass direction as an arg
-    #arcRight = LeftToRight
-    
-
-
+ 
     @staticmethod
     def all_actions():
-        return ['shift', 'reduceL', 'reduceR', 'reduce']
+        if config.COMBINE_ACTION_AND_DIRECTION==True:
+            return ['shift', 'reduceL', 'reduceR', 'reduce']
+        else:
+            return ['shift', 'reduce']
 
     def all_legal_actions(self):
         actions = []
         if self.can_shift():
             actions.append('shift')
         if self.can_reduce():
-            actions.append('reduceL')
-            actions.append('reduceR')
             actions.append('reduce')
-        # print("all legal actions: ", actions)
+            if config.COMBINE_ACTION_AND_DIRECTION==True:
+                actions.append('reduceL')
+                actions.append('reduceR')
+            
         return actions
 
     def can_shift(self):
-        # print("buffer: ", self.buffer)
-        # print("len buffer: ", len(self.buffer))
-        if len(self.buffer) >= 1:
-            # print("can shift")
-            return True
+        return len(self.buffer) >= 1
 
     def can_reduce(self):
         return len(self.stack) >= 2
@@ -119,28 +103,33 @@ class TransitionSystem:
             new_span = range(lhs.span.start, rhs.span.stop)
 
             for n in gold_tree.iter_nodes():
-                # print("gold node: ", n.span)
                 if n.span == new_span:
-                    # print("n span == new span: ", n.span, " ", new_span)
-                    if n.direction == 'LeftToRight':
-                        # print(n.direction)
-                        correct_steps.append(Step('reduceR', n.label))
-                        # break
-                    elif n.direction == 'RightToLeft':
-                        correct_steps.append(Step('reduceL', n.label))
+                    if config.COMBINE_ACTION_AND_DIRECTION==False:
+                        correct_steps.append(Step('reduce', n.label, n.direction))
+                        break
                     else:
-                       correct_steps.append(Step('reduce', n.label))
-                    break
+                        if n.direction == 'LeftToRight':
+                            correct_steps.append(Step('reduceR', n.label))
+                        elif n.direction == 'RightToLeft':
+                            correct_steps.append(Step('reduceL', n.label))
+                        else:
+                            correct_steps.append(Step('reduce', n.label))
+                        break
                     
             else:
-                # print("shift")
                 if self.can_shift():
-                    correct_steps.append(Step('shift', 'None'))
+                    if config.COMBINE_ACTION_AND_DIRECTION==False:
+                        correct_steps.append(Step('shift', 'None', 'None'))
+                    else:
+                        correct_steps.append(Step('shift', 'None'))
                 else:
                     # print("all spans:")
                     # for s in [x.span for x in list(gold_tree.iter_nodes())]:
                     #     print("\t", s)
                     raise Exception("There is no correct action given the current state of the parser.")
         elif self.can_shift():
-            correct_steps.append(Step('shift', 'None'))
+            if config.COMBINE_ACTION_AND_DIRECTION==False:
+                correct_steps.append(Step('shift', 'None', 'None'))
+            else:
+                correct_steps.append(Step('shift', 'None'))
         return correct_steps

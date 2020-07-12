@@ -33,9 +33,11 @@ class DiscoBertModel(nn.Module):
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
+        self.combine_action_and_dir_classifiers = config.COMBINE_ACTION_AND_DIRECTION
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
-        self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
+        if self.combine_action_and_dir_classifiers==False:
+            self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2)
         self.relu = nn.ReLU()
@@ -73,40 +75,18 @@ class DiscoBertModel(nn.Module):
         """Gets a list of legal actions w.r.t the current state of the parser
         and the predicted scores for all possible actions. Returns the legal action
         with the highest score."""
-        # print("=====================\nlegal actions: ", actions)
-        # print("scores: ", scores)
         if len(actions) == 1:
             # only one legal action available
-            # print("len actions = 1: ", self.action_to_id[actions[0]])
             return self.action_to_id[actions[0]]
         elif len(actions) == scores.shape[1]:
             # all actions are legal
-            # print("len legal actions = len scores: ", torch.argmax(scores))
             return torch.argmax(scores)
         else:
-            # some actions are illegal, beware
-            
+            # some actions are illegal, beware 
             action_ids = [self.action_to_id[a] for a in actions]
-            # print("scores: ", scores)
-            # print("action ids:", action_ids)
             mask = torch.ones_like(scores) * -inf
-            # mask[action_ids] = 0
-            # print("mask: ", mask)
-
-            for i in action_ids:
-                mask[0][i] = 0
-            # print("mask with zeros for valid action ids:", mask)
-            # scores:  tensor([[ 0.1267, -0.1348,  0.3190]], device='cuda:0')
-            # this is what happens to the scores with this way of masking
-            # action ids: [1, 2]
-            # mask:  tensor([[-inf, -inf, -inf]], device='cuda:0')
-            # mask with zeros for valid action ids: tensor([[-inf, 0., 0.]], device='cuda:0')
-            # masked scores:  tensor([[   -inf, -0.1850,  0.0953]], device='cuda:0')
-            # arg max score:  tensor(2, device='cuda:0')
+            mask[:, action_ids] = 0
             masked_scores = scores + mask
-            # print("masked scores: ", masked_scores)
-            # print("arg max score: ", torch.argmax(masked_scores))
-            # print("need masking: ", torch.argmax(masked_scores))
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None):
@@ -143,41 +123,46 @@ class DiscoBertModel(nn.Module):
             state_features = self.make_features(parser)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
-            # print("legal actions in model line 124: ", legal_actions)
-            # predict next action, label, and direction
+            # predict next action, label, and, if predicting actions and directions separately, direction
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
             label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-            # direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+            if self.combine_action_and_dir_classifiers==False:
+                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
             # are we training?
             if gold_tree is not None:
                 gold_step = parser.gold_step(gold_tree)
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-                # gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+                if self.combine_action_and_dir_classifiers==False:
+                    gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
-                loss_1 = loss_fn(action_scores, gold_action)
-                loss_2 = loss_fn(label_scores, gold_label)
-                # loss_3 = loss_fn(direction_scores, gold_direction)
-                loss = loss_1 + loss_2 #+ loss_3
+                loss_on_actions = loss_fn(action_scores, gold_action)
+                loss_on_labels = loss_fn(label_scores, gold_label)
+                if self.combine_action_and_dir_classifiers==True:
+                
+                    loss = loss_on_actions + loss_on_labels 
+                else:
+                    loss_on_direction = loss_fn(direction_scores, gold_direction)
+                    loss = loss_on_actions + loss_on_labels + loss_on_direction
                 # store loss for later
                 losses.append(loss)
                 # teacher forcing
                 next_action = gold_action
                 next_label = gold_label
-                # next_direction = gold_direction
+                if self.combine_action_and_dir_classifiers==False:
+                    next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                # print("next action: ", self.id_to_action[next_action])
-                
                 next_label = label_scores.argmax()
-                # next_direction = direction_scores.argmax()
+                if self.combine_action_and_dir_classifiers==False:
+                    next_direction = direction_scores.argmax()
 
             # take the next parser step
             parser.take_action(
                 action=self.id_to_action[next_action],
                 label=self.id_to_label[next_label],
-                # direction=self.id_to_direction[next_direction],
+                direction=self.id_to_direction[next_direction] if self.combine_action_and_dir_classifiers==False else None,
                 reduce_fn=self.merge_embeddings,
             )
 

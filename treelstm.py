@@ -17,16 +17,10 @@ class TreeLstm(nn.Module):
         pos = i * size
         return gates[:,pos:pos+size]
 
-    def forward(self, lhs, rhs): #there will be a new vector here for rel+ dir
+    def forward(self, lhs, rhs): 
         l_h, l_c = torch.split(lhs, self.hidden_size, dim=1)
         r_h, r_c = torch.split(rhs, self.hidden_size, dim=1)
-        gates = self.W_l(l_h) + self.W_r(r_h) #there should be e here
-        #need new input vector with relation and direction 
-        #there would be a new W
-        #the output should be the same as these
-        #the input size might change
-        #add new W
-        #
+        gates = self.W_l(l_h) + self.W_r(r_h) 
         i   = torch.sigmoid(self.slice_gate(gates, 0))
         f_l = torch.sigmoid(self.slice_gate(gates, 1))
         f_r = torch.sigmoid(self.slice_gate(gates, 2))
