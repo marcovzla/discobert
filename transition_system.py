@@ -53,11 +53,11 @@ class TransitionSystem:
         self.stack.append(node)
 
 
-    def reduceL(self, label=None, direction=None, reduce_fn=None):
-        self.reduce(label, 'RightToLeft', reduce_fn)
+    def reduceL(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
+        self.reduce(label, 'RightToLeft', reduce_fn, rel_embedding)
 
-    def reduceR(self, label=None, direction=None, reduce_fn=None):
-        self.reduce(label, 'LeftToRight', reduce_fn)
+    def reduceR(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
+        self.reduce(label, 'LeftToRight', reduce_fn, rel_embedding)
  
     @staticmethod
     def all_actions():

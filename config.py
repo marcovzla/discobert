@@ -18,8 +18,8 @@ DIRECTION_HIDDEN_SIZE = 20
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False
-USE_ATTENTION = True
-DROP_CLS = True
+USE_ATTENTION = False
+DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 

@@ -53,14 +53,10 @@ def main(experiment_dir_path):
         for item in train_ds:
             train_ids_by_length.setdefault(len(item.edus), []).append(item)
 
-<<<<<<< HEAD
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)))#, train_size = 20)
-=======
         train_ds = []
         for n in sorted(train_ids_by_length):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
->>>>>>> master
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)

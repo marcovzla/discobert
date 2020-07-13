@@ -26,12 +26,10 @@ class DiscoBertModel(nn.Module):
         self.id_to_label = config.ID_TO_LABEL
         self.label_to_id = config.LABEL_TO_ID
         self.hidden_size = config.HIDDEN_SIZE
-        self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         self.relation_label_hidden_size = config.RELATION_LABEL_HIDDEN_SIZE
         self.direction_hidden_size = config.DIRECTION_HIDDEN_SIZE
         self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
-        if self.separate_action_and_dir_classifiers==True:
-            self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
+        self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
         self.tokenizer = config.TOKENIZER
         self.bert = BertModel.from_pretrained(self.bert_path)
@@ -43,6 +41,7 @@ class DiscoBertModel(nn.Module):
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
+        self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         if self.separate_action_and_dir_classifiers==True:
