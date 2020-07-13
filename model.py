@@ -134,12 +134,12 @@ class DiscoBertModel(nn.Module):
         combos = []
         #todo: update shapes from hardcoded to shapes of args
         summable_action_scores = (torch.cat([action_scores.squeeze(0)[i].repeat(19*3) for i in range(action_scores.squeeze(0).shape[0])])).view(2,19,3)
-        print("summable action scores: ", summable_action_scores)
+        # print("summable action scores: ", summable_action_scores)
         label_scores_half = torch.cat([label_scores.squeeze(0)[i].repeat(3) for i in range(label_scores.squeeze(0).shape[0])])
         summable_label_scores = torch.cat([label_scores_half, label_scores_half]).view(2,19,3)
-        print("summable_label_scores: ", summable_label_scores)
+        # print("summable_label_scores: ", summable_label_scores)
         summable_direction_scores = direction_scores.squeeze(0).repeat(2*19).view(2,19,3)
-        print("summable direction scores: ", summable_direction_scores)
+        # print("summable direction scores: ", summable_direction_scores)
 
         all_scores = summable_action_scores + summable_label_scores + summable_direction_scores
         #print("all scores: ", all_scores)
@@ -277,7 +277,7 @@ class DiscoBertModel(nn.Module):
             
             # walk over each step in sequence 
             # for i in range(0, 20):
-            while len(parsers_done) < self.beam_size:
+            while len(parsers_done) < self.beam_size and len(parsers) > 0:
                
                 all_candidates = list() #here will be all parser candidates (previous parser updated with current steps)
 		        # expand each current parser and store all candidates in all_candidates (to later pick top k to append to parsers for next step)
@@ -336,9 +336,9 @@ class DiscoBertModel(nn.Module):
                     for i in action_ids:
                         for j in range(len(label_scores)):
                             for k in range(len(direction_scores)):
-                                print(i, " ", j, " ", k)
+                                # print(i, " ", j, " ", k)
                                 combo_score = combo_scores[i][j][k]
-                                print("combo score: ", combo_score)
+                                # print("combo score: ", combo_score)
                                 # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
                                 #print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
                                 # parser_cand = deepcopy(parser)
@@ -373,7 +373,7 @@ class DiscoBertModel(nn.Module):
 
                                 #print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
                                 # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
-                                print("parser cand and score: ", parser_cand, " ", score + combo_score)
+                                # print("parser cand and score: ", parser_cand, " ", score + combo_score)
                                 # if len(parser_cand.stack) > 0:
                                 #     print("parser cand stack after action: ", parser_cand.stack)
                                 
@@ -404,9 +404,9 @@ class DiscoBertModel(nn.Module):
                     # print("parser stack: ", parser[0].stack)
                     # print("parser buffer: ", len(parser[0].buffer))
                     if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1: #maybe this will work now with is_done
-                        print("parser done")
+                        print("parser done; num of remaining parsers: ", len(parsers))
                         parsers_done.append(parser)
-                        parsers.remove(parser)
+                        parsers.remove(parser) 
                         # self.beam_size = self.beam_size - 1 - let's not do this
 
                 #out of all the top scoring parsers, check if any are done? make sure this is in the right place
