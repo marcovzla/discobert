@@ -143,7 +143,7 @@ def load_glove(path):
 
 
 def make_word2index(edus):
-    """make word vocabulary from a list of sentences"""
+    """make word vocabulary from a list of edus"""
     tokenizer = config.TOKENIZER
     vocab = {}
     vocab['<pad>'] = 0
@@ -178,9 +178,11 @@ def make_embedding_matrix(index2word, glove):
     for index in index2word.keys():
         if index2word[index] in glove:
             emb_matrix[index] = glove[index2word[index]]
-        else:
-            # even if the word is not in glove, we hope to learn an emb for it (bsh, mve?)
-            emb_matrix[index] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
+
+        # the rest will be unknown words?
+        # else:
+        #     # even if the word is not in glove, we still hope to learn an emb for it (bsh, mve?)
+        #     emb_matrix[index] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
 
     # update the values for pad and unk #todo: read somewhere that glove happens to have the word <unk>---double-check
     emb_matrix[0] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # pad

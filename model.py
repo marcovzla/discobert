@@ -71,7 +71,8 @@ class DiscoBertModel(nn.Module):
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        self.bilstm = nn.LSTM(config.EMBEDDING_SIZE, 100, bidirectional=True)
+        if config.BERT_LESS == True:
+            self.bilstm = nn.LSTM(input_size=config.EMBEDDING_SIZE, hidden_size=100, num_layers=2, bidirectional=True) #check if need other args 
         self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
@@ -150,9 +151,30 @@ class DiscoBertModel(nn.Module):
             
     #     return max_length
 
-    def forward(self, edus, gold_tree=None):
 
-        # print("emb matrix shape: ", self.embedding_matrix.shape)
+    def prepare(self, edus, word2index):
+        x = [torch.tensor([word2index[word] if word in word2index else word2index["<unk>"] for word in edu]).to(self.device) for edu in edus]
+        x_length = np.array([len(edu) for edu in x])
+        padded_x = torch.nn.utils.rnn.pad_sequence(x, batch_first=True)
+        return padded_x, x_length
+
+    def edus2padded_sequences(self, edus, tokenizer):
+        w = [[word for word in tokenizer(edu)] for edu in edus]
+        # print(w)
+        w, x_lengths = self.prepare(w, self.word2index)
+        
+        return w, x_lengths
+
+    def indexAndPad(self, token_sequences, max_length):
+        encodings_padded_ids = []
+        for edu in token_sequences:
+            ids = [self.word2index[word] if word in self.word2index.keys() else self.word2index['<unk>'] for word in edu]
+            if len(ids) < max_length:
+                ids.extend([0] * (max_length - len(ids) ))
+            encodings_padded_ids.append(ids)
+        return encodings_padded_ids
+
+    def forward(self, edus, gold_tree=None):
 
         if self.encoding == "bert":
             # tokenize edus
@@ -177,29 +199,23 @@ class DiscoBertModel(nn.Module):
             sequence_output, pooled_output = self.encoder(ids, attention_mask)
 
         elif self.encoding == "glove":
-            # tokenize edus
-            encodings_variable_size_tokens = [self.tokenizer(edu) for edu in edus]
-            encodings_variable_size_ids = []
 
-            # for enc in encodings_variable_size:
-            #     print(enc, " ", len(enc))
-            # padded_encodings = self.pad_encodings(encodings_variable_size)
-            # print("pad enc: ", padded_encodings)
-            lengths = [len(enc) for enc in encodings_variable_size]
-            encodings = torch.nn.utils.rnn.pack_padded_sequence(encodings_variable_size, lengths)
-            print("encodings: ", encodings)
-            # encoding_glove_vectors = torch.stack([self.average_embeddings(edu) for edu in encodings]).to(self.device)
-            encoding_glove_vectors = self.word_embedding(encodings)
-            print(encoding_glove_vectors)
-            # print("encodings shape: ", encoding_glove_vectors.shape)
-            sequence_output, pooled_output = self.bilstm(encoding_glove_vectors)
-            # print("output: ", output[0])
-            # sequence_output = output
-            # print("seq output shape: ", sequence_output.shape)
+            w, x_length = self.edus2padded_sequences(edus, self.tokenizer)
+            we = self.word_embedding(w)
+            sequence_output, _ = self.bilstm(we)
 
-            # for edu in encodings:
-            #     avgeraged_emb = self.average_embeddings(edu)
+    
 
+
+            # # tokenize edus
+            # encodings_variable_size_tokens = [self.tokenizer(edu) for edu in edus]
+            # lengths = [len(enc) for enc in encodings_variable_size_tokens]         
+            # max_length = max(lengths)
+            # encodings_padded_ids = self.indexAndPad(encodings_variable_size_tokens, max_length)
+            # encoding_glove_vectors = self.word_embedding(torch.LongTensor(encodings_padded_ids).to(self.device))
+            # print("enc shape: ", encoding_glove_vectors.shape)
+            # sequence_output, _ = self.bilstm(encoding_glove_vectors)
+            
 
         # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
