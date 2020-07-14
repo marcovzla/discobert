@@ -145,30 +145,23 @@ def load_glove(path):
 def make_word2index(edus):
     """make word vocabulary from a list of edus"""
     tokenizer = config.TOKENIZER
-    vocab = {}
-    vocab['<pad>'] = 0
-    vocab['<unk>'] = 1
-    current_word_count = 2 #after adding pad and unk
+    word2index = {}
+    word2index['<pad>'] = 0
+    word2index['<unk>'] = 1
+    current_word_count = 2 #after adding pad and unk, this is where actual word indices will start
     for edu in edus:
         words = tokenizer(edu.raw)
         for word in words:
-            if not word in vocab:
-                vocab[word] = current_word_count
+            if not word in word2index:
+                word2index[word] = current_word_count
                 current_word_count += 1
-    
-    # vocab["<UNK>"] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
-    # print("vocab: ", vocab)
-    # print("vocab length: ", len(vocab))
 
-    # for i in vocab:
-    #     print("i voc: ", i, " ", vocab[i])
-    return vocab
+    return word2index
 
 def make_index2word(word2index):
     index2word = {}
     for word in word2index:
         index2word[word2index[word]] = word
-    print("should be furloughs: ", index2word[12921])
     return index2word
 
 def make_embedding_matrix(index2word, glove):
@@ -184,9 +177,9 @@ def make_embedding_matrix(index2word, glove):
         #     # even if the word is not in glove, we still hope to learn an emb for it (bsh, mve?)
         #     emb_matrix[index] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
 
-    # update the values for pad and unk #todo: read somewhere that glove happens to have the word <unk>---double-check
+    # update the values for pad and unk 
     emb_matrix[0] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # pad
-    emb_matrix[1] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # unk
+    emb_matrix[1] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # <unk>
     
 
     return torch.from_numpy(emb_matrix)

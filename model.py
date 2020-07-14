@@ -51,7 +51,8 @@ class DiscoBertModel(nn.Module):
             )
             self.word_embedding.load_state_dict({'weight': self.embedding_matrix})
 
-        #     self.glove = nn.Embedding.from_pretrained("/home/alexeeva/data/glove/vectors.txt")
+        if config.BERT_LESS == True:
+            self.bilstm = nn.LSTM(input_size=config.EMBEDDING_SIZE, hidden_size=100, num_layers=2, bidirectional=True) 
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         if config.BERT_LESS == True:
@@ -71,8 +72,6 @@ class DiscoBertModel(nn.Module):
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        if config.BERT_LESS == True:
-            self.bilstm = nn.LSTM(input_size=config.EMBEDDING_SIZE, hidden_size=100, num_layers=2, bidirectional=True) #check if need other args 
         self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
@@ -127,37 +126,14 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    # def average_embeddings(self, edu):
-    #     emb_sum = torch.zeros(1, config.EMBEDDING_SIZE)
-    #     for word in edu:
-    #         if word in self.word2index.keys():
-    #             print("word in vocab:", word)
-                
-    #             emb = self.word_embedding(self.word2index[word])
-    #             print(emb)
-    #             if word == "furloughs":
-    #                 print("word and index: ", word, " ", self.word2index[word])
-    #                 print("emb: ", emb)
-                
-    #             # print("emb: ", emb)
-    #         else:
-    #             # print("word not in vocab")
-    #             emb = self.embedding_matrix[1] #unk emb 
-    #         emb_sum += emb
-    #     return emb_sum/len(edu) 
-    # 
-    # def pad_encodings(self, edus):
-    #     max_length = max([len(edu) for edu in edus])
-            
-    #     return max_length
-
-
+    # adapted from pat
     def prepare(self, edus, word2index):
         x = [torch.tensor([word2index[word] if word in word2index else word2index["<unk>"] for word in edu]).to(self.device) for edu in edus]
         x_length = np.array([len(edu) for edu in x])
         padded_x = torch.nn.utils.rnn.pad_sequence(x, batch_first=True)
         return padded_x, x_length
 
+    # adapted from pat
     def edus2padded_sequences(self, edus, tokenizer):
         w = [[word for word in tokenizer(edu)] for edu in edus]
         # print(w)
@@ -165,6 +141,7 @@ class DiscoBertModel(nn.Module):
         
         return w, x_lengths
 
+    # my version of padding
     def indexAndPad(self, token_sequences, max_length):
         encodings_padded_ids = []
         for edu in token_sequences:
@@ -200,21 +177,21 @@ class DiscoBertModel(nn.Module):
 
         elif self.encoding == "glove":
 
+            # version 1: adapted from pat
             w, x_length = self.edus2padded_sequences(edus, self.tokenizer)
             we = self.word_embedding(w)
             sequence_output, _ = self.bilstm(we)
 
     
 
-
+            # version 2:
             # # tokenize edus
             # encodings_variable_size_tokens = [self.tokenizer(edu) for edu in edus]
             # lengths = [len(enc) for enc in encodings_variable_size_tokens]         
             # max_length = max(lengths)
             # encodings_padded_ids = self.indexAndPad(encodings_variable_size_tokens, max_length)
             # encoding_glove_vectors = self.word_embedding(torch.LongTensor(encodings_padded_ids).to(self.device))
-            # print("enc shape: ", encoding_glove_vectors.shape)
-            # sequence_output, _ = self.bilstm(encoding_glove_vectors)
+            # sequence_output, _ = self.bilstm(encoding_glove_vectors) # the first part of the tuple is 'output', second is a tuple with hidden state and cell state (https://pytorch.org/docs/master/generated/torch.nn.LSTM.html)
             
 
         # whether or not drop the classification token in bert-like models

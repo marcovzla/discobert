@@ -57,7 +57,7 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    # we don't include valid set in vocab, do we? 
+    # we don't include valid set in vocab, do we? if yes, what happens when you run this on test?
     word2index = make_word2index(train_ds)
     # print("vocab keys: ", word2index.keys())
 
