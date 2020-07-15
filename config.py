@@ -2,15 +2,15 @@ from pathlib import Path
 import tokenizers
 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 100
-EXPERIMENT_DESCRIPTION = "OriginalRun" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 6
+EXPERIMENT_DESCRIPTION = "BeamSearch-beamsize3" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
-EPOCHS = 1
+EPOCHS = 30
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
 LR = 3e-5 #default 3e-5
-BEAM_SIZE = 2
+BEAM_SIZE = 3
 RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 50
@@ -21,6 +21,7 @@ INCLUDE_DIRECTION_EMBEDDING = False
 USE_ATTENTION = False
 DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
+SORT_VALIDATION_SET = False #useful for debugging---see results on shorter sentences
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
 DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
