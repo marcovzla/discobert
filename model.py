@@ -121,13 +121,18 @@ class DiscoBertModel(nn.Module):
     def legal_action_scores(self, actions, scores):
         """Gets a list of legal actions w.r.t the current state of the parser
         and the predicted scores for all possible actions. Returns only the scores for the legal actions."""
-        # print("scores  in legal action scores: ", scores)
+
+        print("legal actions: ", actions)
+        print("scores  in legal action scores: ", scores)
         # some actions are illegal, beware
+
         action_ids = [self.action_to_id[a] for a in actions]
+        print("action ids: ", action_ids)
         mask = torch.ones_like(scores) * -inf
         mask[action_ids] = 0
 
         masked_scores = scores + mask
+        print("masked scores: ", masked_scores)
         return masked_scores
 
     def getScoreCombinations(self, action_scores, label_scores, direction_scores):
@@ -145,7 +150,20 @@ class DiscoBertModel(nn.Module):
         #print("all scores: ", all_scores)
         return all_scores
 
-    
+    #based on https://discuss.pytorch.org/t/return-indexes-of-top-k-maximum-values-in-a-matrix/54698
+    def top_k_in_3d_matrix(self, three_d_torch_tensor, k):
+        D, H, W = three_d_torch_tensor.shape
+        #1D tensor that topk can be used on to get overall max instead of per dimension
+        three_d_torch_tensor = three_d_torch_tensor.view(-1)
+        #get the indices of top k values
+        _, indices = three_d_torch_tensor.topk(k, sorted=True)
+        #get a tensor containing the position of each max value in the original vector, e.g., 
+        # tensor([[0, 2, 3],
+        #         [1, 1, 2]])
+        # means k = 2, with the first max value at position three_d_torch_tensor[0][2][3] and the second max value at position [1][1][2]
+        topk_positions = torch.cat(((indices // (W*H)).unsqueeze(1), (indices % (W * H) // W).unsqueeze(1), (indices % (W * H)  % W).unsqueeze(1)), dim=1)
+        return topk_positions
+
 
     def forward(self, train, edus, gold_tree=None):
         # print("ONE TREE")
@@ -285,11 +303,10 @@ class DiscoBertModel(nn.Module):
                 for i in range(len(parsers)):
                     
                     # for every parser from last step, get the parser and its score (we'll update them with new scores)
-                    print("cur parser: ", parsers[i])
+                    print("\n=======next parser===========\ncur parser: ", parsers[i])
                     
                     parser, score, steps, tr_scores_str = parsers[i] #this is one previous parser
 
-                    print("tr scores: ", tr_scores_str , type(tr_scores_str))
                     #we want to get top k parsers that highest scored action-label-direction combinations will produce
                     
                     print("-------------------\nStarting a parser, step:", steps)
@@ -297,11 +314,15 @@ class DiscoBertModel(nn.Module):
                     state_features = self.make_features(parser)
                     # legal actions for current parser
                     legal_actions = parser.all_legal_actions()
+                    print("legal actions: ", legal_actions)
+                    if len(legal_actions) == 0:
+                        print(parser.stack)
+                        print(parser.buffer)
                     
                     # get next action, label, and direction scores
                     # we will want to get top k action/label/dir combos and their scores to decide which steps to take
 
-                    
+                    softmax = nn.Softmax(dim=0)
                     # marco: get softmax scores for all of those classifier scores, convert scores to log probabilities, and then sum up
                     #be careful: keep track of how many steps i took--> bc need to normalize at the end (normalizing during doesnt make sense bc by then, they have taken the same# of steps)
                     
@@ -313,71 +334,98 @@ class DiscoBertModel(nn.Module):
                     print("action scores: \n", action_scores)
                     # print("log softmaxed scores: ", logSoftmaxedActionScores)
 
-                    legal_action_scores = logSoftmax(self.legal_action_scores(legal_actions, action_scores))
+                    # legal_action_scores = logSoftmax(self.legal_action_scores(legal_actions, action_scores))
+                    legal_action_scores_before_softmax = self.legal_action_scores(legal_actions, action_scores)
+                    print("legal before softmax, ", legal_action_scores_before_softmax)
+                    legal_action_scores = softmax(legal_action_scores_before_softmax)
                     print("legal act scores logged: \n", legal_action_scores)
 
                     label_scores_no_log = self.label_classifier(state_features)
                     print("label scores: \n", label_scores_no_log)
-                    label_scores = logSoftmax(label_scores_no_log)
+                    # label_scores = logSoftmax(label_scores_no_log)
+                    label_scores = softmax(label_scores_no_log)
                     print("label scores logged: \n", label_scores)
                     direction_scores_no_log = self.direction_classifier(state_features)
                     print("direction scores: \n", direction_scores_no_log)
-                    direction_scores = logSoftmax(direction_scores_no_log)
+                    # direction_scores = logSoftmax(direction_scores_no_log)
+                    direction_scores = softmax(direction_scores_no_log)
                     print("dir scores logged: \n", direction_scores)
      
                     
                     combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns tuples of ((indices of action/label/direction), score for the combo)
-                    print(combo_scores)
+                    print("combo scores: ", combo_scores)
+                    print("combo scores shape: ", combo_scores.shape)
+                    top_k_combos = self.top_k_in_3d_matrix(combo_scores, 4) # tensor of shape [beam_size, 3], with 3 being the three classifier classes (action, label, dir)
+                    print("top k combos: ", top_k_combos)
                     #print("combo scores shape: ", combo_scores.shape)
                     #make sure choosing new top parsers from ALL previous ones, not keeping n from each previous parser
 
-                    action_ids = [self.action_to_id[a] for a in legal_actions]
+                    # action_ids = [self.action_to_id[a] for a in legal_actions]
                     #todo: read on pass by value/reference
-                    for i in action_ids:
-                        for j in range(len(label_scores)):
-                            for k in range(len(direction_scores)):
-                                # print(i, " ", j, " ", k)
-                                combo_score = combo_scores[i][j][k]
-                                # print("combo score: ", combo_score)
-                                # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
-                                #print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
-                                # parser_cand = deepcopy(parser)
-                                # new_buffer = list(parser.buffer)
-                                # new_stack = list(parser.stack)
-                                parser_cand = TransitionSystem(parser.buffer, parser.stack) #need to send a copy, grab them as list
-                                #print("parser cand: ", parser_cand)
-                                #print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
-                                # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
-                                # take the next parser step
-                                #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
-                                #the steps should apply to the copies of the previous parser
 
-                                action=self.id_to_action[i]
-                                #print("action: ", action)
-                                label=self.id_to_label[j]
-                                #print("label: ", label)
-                                direction=self.id_to_direction[k]
-                                #print("direction: ", direction)
+                    for combo in top_k_combos:
+                        print(combo)
+                        action_idx = combo[0].item()
+                        label_idx = combo[1].item()
+                        dir_idx = combo[2].item()
+                        combo_score = combo_scores[action_idx][label_idx][dir_idx]
+                        parser_cand = TransitionSystem(parser.buffer, parser.stack) #need to send a copy, grab them as list
+                        action=self.id_to_action[action_idx]
+                        #print("action: ", action)
+                        label=self.id_to_label[label_idx]
+                        #print("label: ", label)
+                        direction=self.id_to_direction[dir_idx]
+                        #print("direction: ", direction)
 
-                                
-                                
-
-
-                                # print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
-                                parser_cand.take_action(
+                        parser_cand.take_action(
                                     action=action,
                                     label=label,
                                     direction=direction,
                                     reduce_fn=self.merge_embeddings,
                                 )
 
-                                #print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
-                                # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
+                        all_candidates.append([parser_cand, score + combo_score, steps + 1, tr_scores_str + "+" + str(combo_score) + "_act:" + str(action_idx) + "-label:" + str(label_idx) + "-dir:" + str(dir_idx)]) #this is the new parser after the action has been taken with the score updated
+
+                    # for i in action_ids:
+                    #     for j in range(len(label_scores)):
+                    #         for k in range(len(direction_scores)):
+                    #             # print(i, " ", j, " ", k)
+                    #             combo_score = combo_scores[i][j][k]
+                    #             # print("combo score: ", combo_score)
+                    #             # print("parser before deepcopy buffer 0th el and -1th element: ", parser.buffer[0], " ", parser.buffer[0].embedding, " ", parser.buffer[-1])
+                    #             #print("parser before deepcopy, bufffer and stack len: ", len(parser.buffer), " ", len(parser.stack)) 
+                    #             # parser_cand = deepcopy(parser)
+                    #             # new_buffer = list(parser.buffer)
+                    #             # new_stack = list(parser.stack)
+                    #             parser_cand = TransitionSystem(parser.buffer, parser.stack) #need to send a copy, grab them as list
+                    #             #print("parser cand: ", parser_cand)
+                    #             #print("parser cand bufffer and stack len before action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
+                    #             # print("parser cand buffer 0th el and -1th element: ", parser_cand.buffer[0].embedding, " ", parser_cand.buffer[-1])
+                    #             # take the next parser step
+                    #             #clone current parser and apply the step to the clone(copy) ---use deepcopy, so that we don't apply all the candidate steps to the same parser
+                    #             #the steps should apply to the copies of the previous parser
+
+                                
+
+                                
+                                
+
+
+                    #             # print("parser cand buffer before action: ", parser_cand.buffer[0].embedding)
+                                # parser_cand.take_action(
+                                #     action=action,
+                                #     label=label,
+                                #     direction=direction,
+                                #     reduce_fn=self.merge_embeddings,
+                                # )
+
+                    #             #print("parser cand bufffer and stack len after action: ", len(parser_cand.buffer), " ", len(parser_cand.stack))
+                    #             # print("parser cand buffer 0th el and -1th element after action: ", parser_cand.buffer[0], " ", parser_cand.buffer[-1])
                                 # print("parser cand and score: ", parser_cand, " ", score + combo_score)
                                 # if len(parser_cand.stack) > 0:
                                 #     print("parser cand stack after action: ", parser_cand.stack)
                                 
-                                all_candidates.append([parser_cand, score + combo_score, steps + 1, tr_scores_str + "+" + str(combo_score) + "_act:" + str(i) + "-label:" + str(j) + "-dir:" + str(k)]) #this is the new parser after the action has been taken with the score updated
+                                # all_candidates.append([parser_cand, score + combo_score, steps + 1, tr_scores_str + "+" + str(combo_score) + "_act:" + str(i) + "-label:" + str(j) + "-dir:" + str(k)]) #this is the new parser after the action has been taken with the score updated
 
                 #now we have several parse/score candidates
                 #get top scoring parsers (remember to incorporate previous score)
@@ -397,16 +445,24 @@ class DiscoBertModel(nn.Module):
 
                 
                 # print("parsers: ", parsers, " ", len(parsers))
-                print("sorted parsers:")
+                print("sorted parsers: ", len(parsers))
+                to_remove = []
                 for parser in parsers:
                     print("one parser: ", parser)
                     # print("par stack: ", parser[0].stack[0].embedding)
                     # print("parser stack: ", parser[0].stack)
                     # print("parser buffer: ", len(parser[0].buffer))
                     if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1: #maybe this will work now with is_done
-                        print("parser done; num of remaining parsers: ", len(parsers))
+                        print("\nparser done; num of remaining parsers: ", len(parsers), ". \nParsers before removal: ", parsers, "\n")
                         parsers_done.append(parser)
-                        parsers.remove(parser) 
+                        to_remove.append(parser)
+
+
+                for parser in to_remove:
+                    parsers.remove(parser) 
+                    print("Parsers after removal: ")
+                    for parser in parsers:
+                        print("parser remaining: ", parser, " len stack: ", len(parser[0].stack), "; buffer: ", len(parser[0].buffer))
                         # self.beam_size = self.beam_size - 1 - let's not do this
 
                 #out of all the top scoring parsers, check if any are done? make sure this is in the right place
