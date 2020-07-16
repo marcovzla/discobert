@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import torch
-import torchtext
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
@@ -17,7 +16,7 @@ import sys
 import shutil
 from datetime import date
 import time
-# from utils import make_vocabulary_and_emb
+
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -60,7 +59,6 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    # vocab = make_vocabulary_and_emb(train_ds + valid_ds)
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(

@@ -4,7 +4,6 @@ from transformers import *
 from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
-# from bilstm import BiLSTM
 import config
 import torch.nn.functional as F
 
@@ -38,28 +37,19 @@ class DiscoBertModel(nn.Module):
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
             self.encoder = RobertaModel.from_pretrained('roberta-base')
-        # elif self.encoding == 'glove':
-        #     self.glove = nn.Embedding.from_pretrained("/home/alexeeva/data/glove/vectors.txt")
         # for param in self.bert.parameters():
         #     param.requires_grad = False
-        if config.BERT_LESS == True:
-            self.attn1 = nn.Linear(200, 100) #todo: will depend on the output of bilstm? same as self.project
-        else:
-            self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
+        self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
         self.attn2 = nn.Linear(100, 1)
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
-        if config.BERT_LESS == True:
-            self.project = nn.Linear(200, self.hidden_size)
-        else:
-            self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
+        self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        # self.bilstm = BiLSTM()
         self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
@@ -137,14 +127,6 @@ class DiscoBertModel(nn.Module):
             attention_mask = batched_encodings['attention_mask']
             # encode edus
             sequence_output, pooled_output = self.encoder(ids, attention_mask)
-
-        # elif self.encoding == "glove":
-        #     # tokenize edus
-        #     encodings = [self.tokenizer(edu) for edu in edus]
-        #     for enc in encodings:
-        #         print("enc: ", enc)
-        #         vec = self.glove(enc)
-        #         print(vec)
 
         # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
