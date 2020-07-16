@@ -33,10 +33,7 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
-        if self.encoding == 'bert':
-            self.encoder = BertModel.from_pretrained(self.bert_path)
-        elif self.encoding == 'roberta':
-            self.encoder = RobertaModel.from_pretrained('roberta-base')
+        self.encoder = config.MODEL
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
@@ -106,6 +103,7 @@ class DiscoBertModel(nn.Module):
 
     def forward(self, edus, gold_tree=None):
 
+        # BERT model returns both sequence and pooled output
         if self.encoding == "bert":
             # tokenize edus
             encodings = self.tokenizer.encode_batch(edus)
@@ -120,13 +118,17 @@ class DiscoBertModel(nn.Module):
                 token_type_ids=token_type_ids,
             )
 
-        elif self.encoding == "roberta":
+        # the other models we test, do not have a pooled output
+        else:
             # tokenize edus 
             batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
             ids = batched_encodings['input_ids']
             attention_mask = batched_encodings['attention_mask']
             # encode edus
-            sequence_output, pooled_output = self.encoder(ids, attention_mask)
+            sequence_output = self.encoder(ids, attention_mask, output_hidden_states=True)[0]
+
+
+        # print(sequence_output.shape)
 
         # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
