@@ -106,7 +106,7 @@ elif ENCODING == "albert":
 elif ENCODING == "ctrl":
     # "CTRL was trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. Leveraging this feature allows CTRL to generate syntactically coherent text" (https://huggingface.co/transformers/model_doc/ctrl.html#ctrltokenizer)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
-    BERT_PATH = DISCOBERT_PATH/('albert-base-v2')
+    BERT_PATH = DISCOBERT_PATH/('ctrl')
     TOKENIZER = CTRLTokenizer.from_pretrained(str(BERT_PATH))
     MODEL = CTRLModel.from_pretrained(str(BERT_PATH))
 
