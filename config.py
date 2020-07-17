@@ -6,7 +6,7 @@ from transformers import *
 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 100
-EXPERIMENT_DESCRIPTION = "OriginalRun-xlnet" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_DESCRIPTION = "" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -63,7 +63,7 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'albert' # also available 'bert'; todo: add a glove emb versiob
+ENCODING = 'ctrl' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
@@ -82,7 +82,7 @@ elif ENCODING == "openai-gpt":
     # "pre-trained using language modeling on a large corpus will long range dependencies. [...] trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. " (https://huggingface.co/transformers/model_doc/gpt.html)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('openai-gpt')
-    TOKENIZER = AutoTokenizer.from_pretrained(str(BERT_PATH))
+    TOKENIZER = OpenAIGPTTokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
     MODEL = OpenAIGPTModel.from_pretrained(str(BERT_PATH))
 elif ENCODING == "xlnet":
@@ -98,14 +98,16 @@ elif ENCODING == "distilbert":
     TOKENIZER = DistilBertTokenizer.from_pretrained(str(BERT_PATH))
     MODEL = DistilBertModel.from_pretrained(str(BERT_PATH))
 elif ENCODING == "albert":
-    # "trained by distilling Bert base." "Knowledge distillation [...] is a compression technique in which a compact model - the student - is trained to reproduce the behaviour of a larger model - the teacher -or an ensemble of models" (https://arxiv.org/abs/1910.01108).
+    # "similar to bert, but with a few tweaks [...] Next sentence prediction is replaced by a sentence ordering prediction" (https://huggingface.co/transformers/model_summary.html#albert)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('albert-base-v2')
     TOKENIZER = AlbertTokenizer.from_pretrained(str(BERT_PATH))
     MODEL = AlbertModel.from_pretrained(str(BERT_PATH))
-
-
-# openai gpt2 [...] predict the next word, given all of the previous words within some text. 
-
+elif ENCODING == "ctrl":
+    # "CTRL was trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. Leveraging this feature allows CTRL to generate syntactically coherent text" (https://huggingface.co/transformers/model_doc/ctrl.html#ctrltokenizer)
+    # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    BERT_PATH = DISCOBERT_PATH/('albert-base-v2')
+    TOKENIZER = CTRLTokenizer.from_pretrained(str(BERT_PATH))
+    MODEL = CTRLModel.from_pretrained(str(BERT_PATH))
 
 
