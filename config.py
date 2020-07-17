@@ -6,7 +6,7 @@ from transformers import *
 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 100
-EXPERIMENT_DESCRIPTION = "OriginalRun-Roberta-base" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_DESCRIPTION = "OriginalRun-xlnet" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -63,7 +63,7 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'roberta' # also available 'bert'; todo: add a glove emb versiob
+ENCODING = 'albert' # also available 'bert'; todo: add a glove emb versiob
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
@@ -79,13 +79,33 @@ elif ENCODING == "roberta":
     TOKENIZER = RobertaTokenizer.from_pretrained(str(BERT_PATH))
     MODEL = RobertaModel.from_pretrained(str(BERT_PATH))
 elif ENCODING == "openai-gpt":
-    # "pre-trained using language modeling on a large corpus will long range dependencies" (https://huggingface.co/transformers/model_doc/gpt.html)
+    # "pre-trained using language modeling on a large corpus will long range dependencies. [...] trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. " (https://huggingface.co/transformers/model_doc/gpt.html)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('openai-gpt')
     TOKENIZER = AutoTokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
     MODEL = OpenAIGPTModel.from_pretrained(str(BERT_PATH))
+elif ENCODING == "xlnet":
+    # "pre-trained using an autoregressive method to learn bidirectional contexts by maximizing the expected likelihood over all permutations of the input sequence factorization order" (https://huggingface.co/transformers/model_doc/xlnet.html)
+    # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    BERT_PATH = DISCOBERT_PATH/('xlnet-base-cased')
+    TOKENIZER = XLNetTokenizer.from_pretrained(str(BERT_PATH))
+    MODEL = XLNetModel.from_pretrained(str(BERT_PATH))
+elif ENCODING == "distilbert":
+    # "trained by distilling Bert base." "Knowledge distillation [...] is a compression technique in which a compact model - the student - is trained to reproduce the behaviour of a larger model - the teacher -or an ensemble of models" (https://arxiv.org/abs/1910.01108).
+    # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    BERT_PATH = DISCOBERT_PATH/('distilbert-base-uncased')
+    TOKENIZER = DistilBertTokenizer.from_pretrained(str(BERT_PATH))
+    MODEL = DistilBertModel.from_pretrained(str(BERT_PATH))
+elif ENCODING == "albert":
+    # "trained by distilling Bert base." "Knowledge distillation [...] is a compression technique in which a compact model - the student - is trained to reproduce the behaviour of a larger model - the teacher -or an ensemble of models" (https://arxiv.org/abs/1910.01108).
+    # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    BERT_PATH = DISCOBERT_PATH/('albert-base-v2')
+    TOKENIZER = AlbertTokenizer.from_pretrained(str(BERT_PATH))
+    MODEL = AlbertModel.from_pretrained(str(BERT_PATH))
 
+
+# openai gpt2 [...] predict the next word, given all of the previous words within some text. 
 
 
 
