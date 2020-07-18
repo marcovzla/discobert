@@ -31,7 +31,16 @@ DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
 OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
-MODEL_FILENAME = 'discobert.model'
+
+MODEL = "discobert-glove"
+if MODEL == "discobert":
+    MODEL_FILENAME = 'discobert.model'
+elif MODEL == "discobert-glove":
+    MODEL_FILENAME = 'discobert.model_glove'
+    EMBEDDING_SIZE = 50
+    GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
+    GLOVE_TOKENIZER = get_tokenizer("basic_english")
+
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
 ID_TO_ACTION = ['shift', 'reduce']
@@ -63,9 +72,7 @@ ID_TO_LABEL = [
 ]
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
-
-BERT_LESS = True
-ENCODING = 'glove' # also available 'bert'; todo: add a glove emb versiob
+ENCODING = 'bert' # also available 'bert'; todo: add a glove emb versiob
 
 if ENCODING == "bert":
     BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
@@ -74,9 +81,5 @@ if ENCODING == "bert":
 elif ENCODING == "roberta":
     BERT_PATH = DISCOBERT_PATH/('roberta-base')
     TOKENIZER = RobertaTokenizer.from_pretrained(str(BERT_PATH))
-elif ENCODING == "glove":
-    BERT_PATH = None
-    EMBEDDING_SIZE = 50
-    GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
-    TOKENIZER = get_tokenizer("basic_english")
+
 

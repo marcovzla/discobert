@@ -15,9 +15,9 @@ inf = float('inf')
 def loss_fn(outputs, targets):
     return nn.CrossEntropyLoss()(outputs, targets)
 
-class DiscoBertModel(nn.Module):
+class DiscoBertModelGlove(nn.Module):
     
-    def __init__(self):
+    def __init__(self, word2index):
         super().__init__()
         # config
         self.dropout = config.DROPOUT
@@ -34,19 +34,24 @@ class DiscoBertModel(nn.Module):
         self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
         self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
-        self.tokenizer = config.TOKENIZER
-        self.encoding = config.ENCODING
-        if self.encoding == 'bert':
-            self.encoder = BertModel.from_pretrained(self.bert_path)
-        elif self.encoding == 'roberta':
-            self.encoder = RobertaModel.from_pretrained(self.bert_path)
+        self.tokenizer = config.GLOVE_TOKENIZER
+
+        self.glove = load_glove(config.GLOVE_PATH)
+        self.word2index = word2index
+        self.index2word = make_index2word(word2index)
+        self.embedding_matrix = make_embedding_matrix(self.index2word, self.glove)
+        self.word_embedding = nn.Embedding(
+                num_embeddings=len(self.word2index.keys()),
+                embedding_dim=config.EMBEDDING_SIZE
+            )
+        self.word_embedding.load_state_dict({'weight': self.embedding_matrix})
+
+        self.bilstm = nn.LSTM(input_size=config.EMBEDDING_SIZE, hidden_size=100, num_layers=3, batch_first=True, bidirectional=True) 
         # for param in self.bert.parameters():
         #     param.requires_grad = False
-        self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
-        self.attn2 = nn.Linear(100, 1)
-        self.betweenAttention = nn.Tanh()
+
         self.bert_drop = nn.Dropout(self.dropout)
-        self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
+        # self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
@@ -116,8 +121,8 @@ class DiscoBertModel(nn.Module):
 
     # adapted from pat
     def edus2padded_sequences(self, edus, tokenizer):
+
         w = [[word for word in tokenizer(edu)] for edu in edus]
-        # print(w)
         w, x_lengths = self.prepare(w, self.word2index)
         
         return w, x_lengths
@@ -132,52 +137,43 @@ class DiscoBertModel(nn.Module):
             encodings_padded_ids.append(ids)
         return encodings_padded_ids
 
+    def average_without_padding(self, padded_input, input_lengths):
+        avg_without_padding = torch.stack([torch.mean(padded_input[i][:input_lengths[i]], dim=0) for i in range(padded_input.shape[0])])
+        return avg_without_padding
+
     def forward(self, edus, gold_tree=None):
 
-        if self.encoding == "bert":
-            # tokenize edus
-            encodings = self.tokenizer.encode_batch(edus)
-            ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
-            attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
-            token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
+        # version 1: adapted from pat
+        w, x_length = self.edus2padded_sequences(edus, self.tokenizer)
+        we = self.word_embedding(w)
+        packed = torch.nn.utils.rnn.pack_padded_sequence(we, x_length, batch_first=True, enforce_sorted=False)
+        # print(packed)
+        after_bilstm, _ = self.bilstm(packed)
+        sequence_output, _ = torch.nn.utils.rnn.pad_packed_sequence(after_bilstm, batch_first=True)
 
-            # encode edus
-            sequence_output, pooled_output = self.encoder( #sequence_output: [edu, tok, emb]
-                ids,
-                attention_mask=attention_mask,
-                token_type_ids=token_type_ids,
-            )
-
-        elif self.encoding == "roberta":
-            # tokenize edus 
-            batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
-            ids = batched_encodings['input_ids']
-            attention_mask = batched_encodings['attention_mask']
-            # encode edus
-            sequence_output, pooled_output = self.encoder(ids, attention_mask)
-
+        #todo: set pad to zeros
+        # unk to avg
+        # the output of bilstm, needs to be pooled in some way and pads shouldnt be included 
         
-        # whether or not drop the classification token in bert-like models
-        if config.DROP_CLS == True:
-            sequence_output = sequence_output[:, 1:, :] 
-            attention_mask = attention_mask[:, 1:]
+        # version 2:
+        # # tokenize edus
+        # encodings_variable_size_tokens = [self.tokenizer(edu) for edu in edus]
+        # lengths = [len(enc) for enc in encodings_variable_size_tokens]         
+        # max_length = max(lengths)
+        # encodings_padded_ids = self.indexAndPad(encodings_variable_size_tokens, max_length)
+        # encoding_glove_vectors = self.word_embedding(torch.LongTensor(encodings_padded_ids).to(self.device))
+        # sequence_output, _ = self.bilstm(encoding_glove_vectors) # the first part of the tuple is 'output', second is a tuple with hidden state and cell state (https://pytorch.org/docs/master/generated/torch.nn.LSTM.html)
         
-        if config.USE_ATTENTION == True:
-            after1stAttn = self.attn1(sequence_output)
-            nonLinearity = self.betweenAttention(after1stAttn)
-            after2ndAttn = self.attn2(nonLinearity)
-            attention_mask = attention_mask.unsqueeze(dim=-1)
-            masked_att = after2ndAttn * attention_mask
-            attn_weights = F.softmax(masked_att, dim=1)
-            attn_applied =  sequence_output * attn_weights #[9, 17, 768] [9, 17, 1] 
-            summed_up = torch.sum(attn_applied, dim=1)
-            enc_edus = self.bert_drop(summed_up)
-
-        else:
-            enc_edus = self.bert_drop(sequence_output[:,0,:])
+        # print(sequence_output)
+        # print(sequence_output.shape)
+        # enc_edus = torch.mean(sequence_output, dim=1)
+        enc_edus = self.average_without_padding(sequence_output, x_length)
+        # enc_edus = self.bert_drop(edc_edus)
+        # print(sequence_output.shape)
+        # print("enc edus shape: ", enc_edus.shape)
 
 
-        enc_edus = self.project(enc_edus) 
+        # enc_edus = self.project(enc_edus) 
 
         # make treenodes
         buffer = []

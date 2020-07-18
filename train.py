@@ -7,6 +7,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
+from model_glove import DiscoBertModelGlove
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
 from utils import prf1
 import config
@@ -57,12 +58,13 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    # we don't include valid set in vocab, do we? if yes, what happens when you run this on test?
-    word2index = make_word2index(train_ds)
-    # print("vocab keys: ", word2index.keys())
-
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    model = DiscoBertModel(word2index)
+    if config.MODEL == 'discobert':
+        model = DiscoBertModel()
+    elif config.MODEL == 'discobert-glove':
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove(word2index)
+    
     model.to(device)
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)

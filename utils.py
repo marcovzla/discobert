@@ -144,7 +144,7 @@ def load_glove(path):
 
 def make_word2index(edus):
     """make word vocabulary from a list of edus"""
-    tokenizer = config.TOKENIZER
+    tokenizer = config.GLOVE_TOKENIZER
     word2index = {}
     word2index['<pad>'] = 0
     word2index['<unk>'] = 1
@@ -178,8 +178,8 @@ def make_embedding_matrix(index2word, glove):
         #     emb_matrix[index] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
 
     # update the values for pad and unk 
-    emb_matrix[0] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # pad
-    emb_matrix[1] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE) # <unk>
+    emb_matrix[0] = np.zeros((1, config.EMBEDDING_SIZE)) # pad
+    emb_matrix[1] = np.mean(emb_matrix) # <unk>
     
 
     return torch.from_numpy(emb_matrix)
