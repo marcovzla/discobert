@@ -103,11 +103,12 @@ elif ENCODING == "albert":
     BERT_PATH = DISCOBERT_PATH/('albert-base-v2')
     TOKENIZER = AlbertTokenizer.from_pretrained(str(BERT_PATH))
     MODEL = AlbertModel.from_pretrained(str(BERT_PATH))
-elif ENCODING == "ctrl":
+elif ENCODING == "ctrl": # does not work: returns None for some (unk?) tokens
     # "CTRL was trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. Leveraging this feature allows CTRL to generate syntactically coherent text" (https://huggingface.co/transformers/model_doc/ctrl.html#ctrltokenizer)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('ctrl')
     TOKENIZER = CTRLTokenizer.from_pretrained(str(BERT_PATH))
+    TOKENIZER.add_special_tokens({'bos_token': '<s>', 'eos_token': '</s>', 'unk_token': '<unk>', 'sep_token': '</s>', 'pad_token': '<pad>', 'cls_token': '<s>', 'mask_token': '<mask>'})
     MODEL = CTRLModel.from_pretrained(str(BERT_PATH))
 
 
