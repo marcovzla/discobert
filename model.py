@@ -160,11 +160,10 @@ class DiscoBertModel(nn.Module):
             
             
 
-            if gold_step != None:
-                # unpack step
-                gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
-                gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-                gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+            # unpack step
+            gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
+            gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
+            gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
 
             
             # are we training?
@@ -183,28 +182,15 @@ class DiscoBertModel(nn.Module):
                 next_direction = gold_direction
             else:
                 if config.ACTION_FORCING:
-                    if gold_step != None:
-                        next_action = gold_action
-                    else:
-                        print("no gold action")
-                        next_action = self.best_legal_action(legal_actions, action_scores)
+                    next_action = gold_action
                 else:
                     next_action = self.best_legal_action(legal_actions, action_scores)
                 if config.LABEL_FORCING:
-                    if gold_step != None:
-                        # print("yes gold label")
-                        next_label = gold_label
-                    else:
-                        print("no gold label")
-                        next_label = label_scores.argmax().unsqueeze(0)
+                    next_label = gold_label
                 else:
                     next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
                 if config.DIRECTION_FORCING:
-                    if gold_step != None:
-                        next_direction = gold_direction
-                    else:
-                        print("no gold direction")
-                        next_direction = direction_scores.argmax().unsqueeze(0)
+                    next_direction = gold_direction
                 else:
                     next_direction = direction_scores.argmax().unsqueeze(0)
             

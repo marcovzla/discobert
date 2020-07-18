@@ -21,9 +21,9 @@ INCLUDE_DIRECTION_EMBEDDING = False
 USE_ATTENTION = False
 DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
-ACTION_FORCING = False
+ACTION_FORCING = False # has to be true if label or direction forcing is to be used
 LABEL_FORCING = False
-DIRECTION_FORCING = True
+DIRECTION_FORCING = False
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
 DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
