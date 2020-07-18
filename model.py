@@ -313,7 +313,7 @@ class DiscoBertModel(nn.Module):
                 to_remove = []
                 for parser in parsers:
                     #todo: see if the is_done method works now
-                    if len(parser[0].buffer) == 0 and len(parser[0].stack) == 1: #maybe this will work now with is_done
+                    if parser[0].is_done(): #maybe this will work now with is_done
                         parsers_done.append(parser)
                         to_remove.append(parser)
 
