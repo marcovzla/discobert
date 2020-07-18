@@ -119,18 +119,18 @@ class DiscoBertModel(nn.Module):
 
     def getScoreCombinations(self, action_scores, label_scores, direction_scores):
         combos = []
-        #todo: update shapes from hardcoded to shapes of args
-        summable_action_scores = (torch.cat([action_scores.squeeze(0)[i].repeat(19*3) for i in range(action_scores.squeeze(0).shape[0])])).view(2,19,3)
-        # print("summable action scores: ", summable_action_scores)
-        label_scores_half = torch.cat([label_scores.squeeze(0)[i].repeat(3) for i in range(label_scores.squeeze(0).shape[0])])
-        summable_label_scores = torch.cat([label_scores_half, label_scores_half]).view(2,19,3)
-        # print("summable_label_scores: ", summable_label_scores)
-        summable_direction_scores = direction_scores.squeeze(0).repeat(2*19).view(2,19,3)
-        # print("summable direction scores: ", summable_direction_scores)
+        num_of_actions = len(action_scores)
+        num_of_labels = len(label_scores)
+        num_of_directions = len(direction_scores)
+        summable_action_scores = (torch.cat([action_scores.squeeze(0)[i].repeat(num_of_labels * num_of_directions) for i in range(action_scores.squeeze(0).shape[0])])).view(num_of_actions, num_of_labels, num_of_directions)
+        label_scores_half = torch.cat([label_scores.squeeze(0)[i].repeat(num_of_directions) for i in range(label_scores.squeeze(0).shape[0])])
+        summable_label_scores = torch.cat([label_scores_half, label_scores_half]).view(num_of_actions, num_of_labels, num_of_directions)
+        summable_direction_scores = direction_scores.squeeze(0).repeat(num_of_actions * num_of_labels).view(num_of_actions, num_of_labels, num_of_directions)
 
         all_scores = summable_action_scores + summable_label_scores + summable_direction_scores
-        return all_scores
+        return all_scores   
 
+   
     #based on https://discuss.pytorch.org/t/return-indexes-of-top-k-maximum-values-in-a-matrix/54698
     def top_k_in_3d_matrix(self, three_d_torch_tensor, k):
         D, H, W = three_d_torch_tensor.shape
