@@ -179,8 +179,7 @@ def make_embedding_matrix(index2word, glove):
 
     # update the values for pad and unk 
     emb_matrix[0] = np.zeros((1, config.EMBEDDING_SIZE)) # pad
-    emb_matrix[1] = np.mean(emb_matrix) # <unk>
-    
+    emb_matrix[1] = np.mean(emb_matrix, axis=0) # <unk>  
 
     return torch.from_numpy(emb_matrix)
 
