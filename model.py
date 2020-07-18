@@ -255,9 +255,9 @@ class DiscoBertModel(nn.Module):
             # continue until we have beam_size done parsers to choose the best one from or until there are no parsers left to expand
             while len(parsers_done) < self.beam_size and len(parsers) > 0: 
                
-                all_candidates = list() #here will be all parser candidates (previous parser updated with current steps)
-		        # expand each current parser and store all candidates in all_candidates (to later pick top k to append to parsers for next step)
-                
+                all_candidates = list() # this will store all parser candidates (i.e. all the parsers that are the result of applying current steps to the parsers produced during previous steps)
+		        
+                # expand each parser produced and stored during last step and store all resulting parser candidates in all_candidates (to later pick top k to append to parsers for next step)
                 for i in range(len(parsers)):
                     
                     # for every parser from last step, get the parser and its score (we'll update them with new transition scores after taking an action)
@@ -269,51 +269,56 @@ class DiscoBertModel(nn.Module):
                     
                     # get next action, label, and direction scores
                     action_scores = self.action_classifier(state_features)
+                    # we will only need the scores for legal actions, so the illegal actions will be set to 'inf'
                     legal_action_scores = self.logSoftmax(self.legal_action_scores(legal_actions, action_scores))
                     label_scores_no_log = self.label_classifier(state_features)
                     label_scores = self.logSoftmax(label_scores_no_log)
                     direction_scores_no_log = self.direction_classifier(state_features)
                     direction_scores = self.logSoftmax(direction_scores_no_log)
                     
-                    combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns tuples of ((indices of action/label/direction), score for the combo)
+                    combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns a matrix of shape [len(action_scores), len(label_scores), len(direction_scores)]
                     
                     #we want to get top k parsers that highest scored action-label-direction combinations will produce
                     top_k_combos = self.top_k_in_3d_matrix(combo_scores, 4) #todo: beam size or some other # of score combos? # tensor of shape [beam_size, 3], with 3 being the three classifier classes (action, label, dir)
+                    # for every top action/label/direction combo, get its score from the combo_scores matrix
                     for combo in top_k_combos:
                         action_idx = combo[0].item()
                         label_idx = combo[1].item()
                         dir_idx = combo[2].item()
                         combo_score = combo_scores[action_idx][label_idx][dir_idx]
                         parser_cand = TransitionSystem(parser.buffer, parser.stack) 
+                        # get the action/label/direction from the combo
                         action=self.id_to_action[action_idx]
                         label=self.id_to_label[label_idx]
                         direction=self.id_to_direction[dir_idx]
 
-
+                        # take the corresponding step
                         parser_cand.take_action(
                                     action=action,
                                     label=label,
                                     direction=direction,
                                     reduce_fn=self.merge_embeddings,
                                 )
-
+                        
+                        # append the resulting parser to all candidates
+                        # update the score (previous score for this parser + new transition score, i.e., the combo score)
+                        # update the step (steps will be used for normalizing the score for done parsers at the end)
+                        # the rest is added for debugging (can be deleted once the code is solidified)
                         all_candidates.append([parser_cand, score + combo_score, steps + 1, tr_scores_str + "+" + str(combo_score) + "_act:" + str(action_idx) + "-label:" + str(label_idx) + "-dir:" + str(dir_idx)]) #this is the new parser after the action has been taken with the score updated
 
                               
-
-                #now we have several parse/score candidates
-                #get top scoring parsers (remember to incorporate previous score)
+                # now, for this step, we have several parser/score candidates
+                # get top k scoring parsers
                 
                 #sort candidates by score
                 sorted_candidates = sorted(all_candidates, key = lambda x: x[1], reverse=True)
-                #now top n candidates are the new parsers
+                #now top k candidates are the new parsers (discarding the parsers from last steps because those have been expanded during this step)
                 parsers = sorted_candidates[:self.beam_size]
 
-                # remove the parsers that are done
+                # check if any of the parsers are done and remove the ones that are
                 to_remove = []
                 for parser in parsers:
-                    #todo: see if the is_done method works now
-                    if parser[0].is_done(): #maybe this will work now with is_done
+                    if parser[0].is_done(): 
                         parsers_done.append(parser)
                         to_remove.append(parser)
 
@@ -321,21 +326,17 @@ class DiscoBertModel(nn.Module):
                 for parser in to_remove:
                     parsers.remove(parser) 
                     
-            #out of done parsers (normalize scores by length of corresponding sequence---the number of actions), choose the highest prob one (NORMALIZE)
-
-            #normalize done parsers
+            # after we have reached a set number of done parsers OR there are no more parsers to expand,
+            # normalize the done parsers (divide the score for the parser by the number of steps that have been taken)
             normalized_parsers = []
-            
             for parser in parsers_done:
-                score = float(parser[1])/parser[2] 
-                normalized_parsers.append((parser[0], score))
+                score = float(parser[1])/parser[2] # parser[0] is the parser itself, parser[1] is its score, parser[2] is the # of steps
+                normalized_parsers.append((parser[0], score)) # at this point, it's safe to just store the parser and its normalized score
 
-            parser_with_scores = sorted(normalized_parsers, key = lambda x: x[1], reverse=True)[0] #todo: call max, not sort - easier to decipher when reading
-            parser = parser_with_scores[0] 
+            parser = max(normalized_parsers, key = lambda x: x[1])[0]
 
         predicted_tree = parser.get_result()
         predicted_step_sequence = parser.gold_path(predicted_tree)
-
 
         outputs = (predicted_tree,)
 
