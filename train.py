@@ -6,6 +6,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
+from model_with_beam import DiscoBertModelWithBeamSearch
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
 from utils import prf1
 import config
@@ -42,7 +43,11 @@ def main(experiment_dir_path):
         print("path to model: ", model_path)
 
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    model = DiscoBertModel()
+    if config.MODEL == 'discobert':
+        print("regular discobert")
+        model = DiscoBertModel()
+    elif config.MODEL == 'discobert-beam-search':
+        model = DiscoBertModelWithBeamSearch()
     model.to(device)
     
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)

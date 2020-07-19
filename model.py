@@ -4,7 +4,6 @@ from transformers import *
 from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
-from copy import deepcopy
 import config
 import torch.nn.functional as F
 
@@ -26,7 +25,6 @@ class DiscoBertModel(nn.Module):
         self.direction_to_id = config.DIRECTION_TO_ID
         self.id_to_label = config.ID_TO_LABEL
         self.label_to_id = config.LABEL_TO_ID
-        self.beam_size = config.BEAM_SIZE
         self.hidden_size = config.HIDDEN_SIZE
         self.relation_label_hidden_size = config.RELATION_LABEL_HIDDEN_SIZE
         self.direction_hidden_size = config.DIRECTION_HIDDEN_SIZE
@@ -53,7 +51,6 @@ class DiscoBertModel(nn.Module):
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
             self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
-        self.logSoftmax = nn.LogSoftmax(dim=0)
 
     @property
     def device(self):
@@ -81,11 +78,7 @@ class DiscoBertModel(nn.Module):
         to the two nodes on the top of the stack and the next node in the buffer.
         """
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
-        if len(parser.stack) < 1:
-            s0 = self.missing_node 
-        else:
-            tens = parser.stack[-1]
-            s0 = tens.embedding
+        s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
         b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
         return torch.cat([s1, s0, b])
 
@@ -106,48 +99,9 @@ class DiscoBertModel(nn.Module):
             mask[:, action_ids] = 0
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
-    
-    def legal_action_scores(self, actions, scores):
-        """Gets a list of legal actions w.r.t the current state of the parser
-        and the predicted scores for all possible actions. Returns only the scores for the legal actions."""
-        # some actions are illegal, beware
-        action_ids = [self.action_to_id[a] for a in actions]
-        mask = torch.ones_like(scores) * -inf
-        mask[action_ids] = 0
-        masked_scores = scores + mask
-        return masked_scores
-
-    def getScoreCombinations(self, action_scores, label_scores, direction_scores):
-        combos = []
-        num_of_actions = len(action_scores)
-        num_of_labels = len(label_scores)
-        num_of_directions = len(direction_scores)
-        summable_action_scores = (torch.cat([action_scores.squeeze(0)[i].repeat(num_of_labels * num_of_directions) for i in range(action_scores.squeeze(0).shape[0])])).view(num_of_actions, num_of_labels, num_of_directions)
-        label_scores_half = torch.cat([label_scores.squeeze(0)[i].repeat(num_of_directions) for i in range(label_scores.squeeze(0).shape[0])])
-        summable_label_scores = torch.cat([label_scores_half, label_scores_half]).view(num_of_actions, num_of_labels, num_of_directions)
-        summable_direction_scores = direction_scores.squeeze(0).repeat(num_of_actions * num_of_labels).view(num_of_actions, num_of_labels, num_of_directions)
-
-        all_scores = summable_action_scores + summable_label_scores + summable_direction_scores
-        return all_scores   
-
-   
-    #based on https://discuss.pytorch.org/t/return-indexes-of-top-k-maximum-values-in-a-matrix/54698
-    def top_k_in_3d_matrix(self, three_d_torch_tensor, k):
-        D, H, W = three_d_torch_tensor.shape
-        #1D tensor that topk can be used on to get overall max instead of per dimension
-        three_d_torch_tensor = three_d_torch_tensor.view(-1)
-        #get the indices of top k values
-        _, indices = three_d_torch_tensor.topk(k, sorted=True)
-        #get a tensor containing the position of each max value in the original vector, e.g., 
-        # tensor([[0, 2, 3],
-        #         [1, 1, 2]])
-        # means k = 2, with the first max value at position three_d_torch_tensor[0][2][3] and the second max value at position [1][1][2]
-        topk_positions = torch.cat(((indices // (W*H)).unsqueeze(1), (indices % (W * H) // W).unsqueeze(1), (indices % (W * H)  % W).unsqueeze(1)), dim=1)
-        return topk_positions
-
 
     def forward(self, train, edus, gold_tree=None):
-        
+
         # tokenize edus
         encodings = self.tokenizer.encode_batch(edus)
         ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
@@ -188,25 +142,20 @@ class DiscoBertModel(nn.Module):
             buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
 
         # initialize automata
-        parser = TransitionSystem(buffer, None)
-       
-        if train==False:
+        parser = TransitionSystem(buffer)
 
-            gold_sequence = parser.gold_path(gold_tree)
-            
-        losses = []    
-        
-        #diverge train and eval here
-        if train==True:         
-            while not parser.is_done():
-                state_features = self.make_features(parser)
-                # legal actions for current parser
-                legal_actions = parser.all_legal_actions()
-                # predict next action, label, and direction
-                action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+        losses = []
 
+        while not parser.is_done():
+            state_features = self.make_features(parser)
+            # legal actions for current parser
+            legal_actions = parser.all_legal_actions()
+            # predict next action, label, and direction
+            action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+            label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+            direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+            # are we training?
+            if train==True:
                 gold_step = parser.gold_step(gold_tree)
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
@@ -223,125 +172,35 @@ class DiscoBertModel(nn.Module):
                 next_action = gold_action
                 next_label = gold_label
                 next_direction = gold_direction
-
-                #TODO: add this during eval as well! Omitting this now to not overcrowd the already crowded code draft
-                if self.include_relation_embedding:
-                    rel_emb = self.relation_embeddings(next_label)
-                    if self.include_direction_embedding:
-                        dir_emb = self.direction_embedding(next_direction)
-                        rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
-                    else:
-                        rel_dir_emb = rel_emb
+            else:
+                next_action = self.best_legal_action(legal_actions, action_scores)
+                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                next_direction = direction_scores.argmax().unsqueeze(0)
+            
+            if self.include_relation_embedding:
+                rel_emb = self.relation_embeddings(next_label)
+                if self.include_direction_embedding:
+                    dir_emb = self.direction_embedding(next_direction)
+                    rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
                 else:
-                    rel_dir_emb = None
+                    rel_dir_emb = rel_emb
+            else:
+                rel_dir_emb = None  
 
-                parser.take_action(
-                    action=self.id_to_action[next_action],
-                    label=self.id_to_label[next_label],
-                    direction=self.id_to_direction[next_direction],
-                    reduce_fn=self.merge_embeddings,
-                    rel_embedding = rel_dir_emb
-                )
+            parser.take_action(
+                action=self.id_to_action[next_action],
+                label=self.id_to_label[next_label],
+                direction=self.id_to_direction[next_direction],
+                reduce_fn=self.merge_embeddings,
+                rel_embedding = rel_dir_emb
+            )
 
-
-        else:
-
-            
-            # storage for done parsers
-            parsers_done = []
-            parsers = [[parser, 0.0, 1, "init_step"]]  #[[parser, score:Float, stepsTaken:Int, [seq of transition scores that led to this]]] 
-            
-            # go through each current parser
-            # continue until we have beam_size done parsers to choose the best one from or until there are no parsers left to expand
-            while len(parsers_done) < self.beam_size and len(parsers) > 0: 
-               
-                all_candidates = list() # this will store all parser candidates (i.e. all the parsers that are the result of applying current steps to the parsers produced during previous steps)
-		        
-                # expand each parser produced and stored during last step and store all resulting parser candidates in all_candidates (to later pick top k to append to parsers for next step)
-                for i in range(len(parsers)):
-                    
-                    # for every parser from last step, get the parser and its score (we'll update them with new transition scores after taking an action)
-                    parser, score, steps, tr_scores_str = parsers[i] #this is one previously stored parser (either the first one initialized or a parser we got by taking an action during previous step)
-
-                    state_features = self.make_features(parser)
-                    # legal actions for current parser
-                    legal_actions = parser.all_legal_actions()
-                    
-                    # get next action, label, and direction scores
-                    action_scores = self.action_classifier(state_features)
-                    # we will only need the scores for legal actions, so the illegal actions will be set to 'inf'
-                    legal_action_scores = self.logSoftmax(self.legal_action_scores(legal_actions, action_scores))
-                    label_scores_no_log = self.label_classifier(state_features)
-                    label_scores = self.logSoftmax(label_scores_no_log)
-                    direction_scores_no_log = self.direction_classifier(state_features)
-                    direction_scores = self.logSoftmax(direction_scores_no_log)
-                    
-                    combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns a matrix of shape [len(action_scores), len(label_scores), len(direction_scores)]
-                    
-                    #we want to get top k parsers that highest scored action-label-direction combinations will produce
-                    top_k_combos = self.top_k_in_3d_matrix(combo_scores, 4) #todo: beam size or some other # of score combos? # tensor of shape [beam_size, 3], with 3 being the three classifier classes (action, label, dir)
-                    # for every top action/label/direction combo, get its score from the combo_scores matrix
-                    for combo in top_k_combos:
-                        action_idx = combo[0].item()
-                        label_idx = combo[1].item()
-                        dir_idx = combo[2].item()
-                        combo_score = combo_scores[action_idx][label_idx][dir_idx]
-                        parser_cand = TransitionSystem(parser.buffer, parser.stack) 
-                        # get the action/label/direction from the combo
-                        action=self.id_to_action[action_idx]
-                        label=self.id_to_label[label_idx]
-                        direction=self.id_to_direction[dir_idx]
-
-                        # take the corresponding step
-                        parser_cand.take_action(
-                                    action=action,
-                                    label=label,
-                                    direction=direction,
-                                    reduce_fn=self.merge_embeddings,
-                                )
-                        
-                        # append the resulting parser to all candidates
-                        # update the score (previous score for this parser + new transition score, i.e., the combo score)
-                        # update the step (steps will be used for normalizing the score for done parsers at the end)
-                        # the rest is added for debugging (can be deleted once the code is solidified)
-                        all_candidates.append([parser_cand, score + combo_score, steps + 1, tr_scores_str + "+" + str(combo_score) + "_act:" + str(action_idx) + "-label:" + str(label_idx) + "-dir:" + str(dir_idx)]) #this is the new parser after the action has been taken with the score updated
-
-                              
-                # now, for this step, we have several parser/score candidates
-                # get top k scoring parsers
-                
-                #sort candidates by score
-                sorted_candidates = sorted(all_candidates, key = lambda x: x[1], reverse=True)
-                #now top k candidates are the new parsers (discarding the parsers from last steps because those have been expanded during this step)
-                parsers = sorted_candidates[:self.beam_size]
-
-                # check if any of the parsers are done and remove the ones that are
-                to_remove = []
-                for parser in parsers:
-                    if parser[0].is_done(): 
-                        parsers_done.append(parser)
-                        to_remove.append(parser)
-
-
-                for parser in to_remove:
-                    parsers.remove(parser) 
-                    
-            # after we have reached a set number of done parsers OR there are no more parsers to expand,
-            # normalize the done parsers (divide the score for the parser by the number of steps that have been taken)
-            normalized_parsers = []
-            for parser in parsers_done:
-                score = float(parser[1])/parser[2] # parser[0] is the parser itself, parser[1] is its score, parser[2] is the # of steps
-                normalized_parsers.append((parser[0], score)) # at this point, it's safe to just store the parser and its normalized score
-
-            parser = max(normalized_parsers, key = lambda x: x[1])[0]
-
+        # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
-        predicted_step_sequence = parser.gold_path(predicted_tree)
-
         outputs = (predicted_tree,)
 
         # are we training?
-        if train:
+        if train==True: 
             loss = sum(losses) / len(losses)
             outputs = (loss,) + outputs
 
