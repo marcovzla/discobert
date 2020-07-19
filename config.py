@@ -10,7 +10,7 @@ elif MODEL == "discobert-beam-search":
     MODEL_FILENAME = 'discobert.model_with_beam'
 
 EXPERIMENT_ID = 6
-EXPERIMENT_DESCRIPTION = "BeamSearch-beamsize3" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_DESCRIPTION = "" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -23,8 +23,8 @@ HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 50
 DIRECTION_HIDDEN_SIZE = 20
 
-INCLUDE_RELATION_EMBEDDING = False
-INCLUDE_DIRECTION_EMBEDDING = False
+INCLUDE_RELATION_EMBEDDING = False # not compatible with beam search
+INCLUDE_DIRECTION_EMBEDDING = False # not compatible with beam search
 USE_ATTENTION = False
 DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
