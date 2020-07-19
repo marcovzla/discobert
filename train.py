@@ -104,7 +104,7 @@ def main(experiment_dir_path):
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         print("-----------")
         engine.train_fn(train_ds, model, optimizer, device, scheduler)
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device) #ATTN: only doing three shortest docs for now #todo:make sure to undo the partitioning here
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device) 
         p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')

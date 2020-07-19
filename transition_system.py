@@ -20,12 +20,6 @@ class TransitionSystem:
         self.buffer = []
         self.stack = []
 
-    def fill_out(self, buffer, stack):
-        # new_parser = deepcopy(self)
-        self.buffer = buffer
-        self.stack = stack
-        return self
-
     def is_done(self):
         return len(self.buffer) == 0 and len(self.stack) == 1
 
@@ -34,7 +28,6 @@ class TransitionSystem:
             return deepcopy(self.stack[0])
 
     def take_action(self, action, *args, **kwargs):
-        # print("parser inside take action: ", self)
         if action == 'shift':
             self.shift()
         elif action == 'reduce':
@@ -46,20 +39,8 @@ class TransitionSystem:
 
     def reduce(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
         rhs = self.stack.pop()
-        lhs = self.stack.pop()
-
-        # print("label: ", lhs.label)
-        # relation_one_hot = torch.FloatTensor(1, len(config.ID_TO_LABEL))
-        # print(relation_one_hot)
-        # relation_one_hot(1, config.LABEL_TO_ID[label]) = 1.0
-        # print(relation_one_hot)
-        # print("lhs shape: ", )
-        
-
-        
+        lhs = self.stack.pop()        
         emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_embedding) 
-        # print(emb)
-
         node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
         node.calc_span()
         self.stack.append(node)
