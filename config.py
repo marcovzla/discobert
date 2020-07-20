@@ -1,9 +1,9 @@
 from pathlib import Path
 import tokenizers
 
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 
-MODEL = "discobert"
+MODEL = "discobert-beam-search"
 if MODEL == "discobert":
     MODEL_FILENAME = 'discobert.model'
 elif MODEL == "discobert-beam-search":
@@ -11,13 +11,13 @@ elif MODEL == "discobert-beam-search":
 
 EXPERIMENT_ID = 6
 EXPERIMENT_DESCRIPTION = "" # enter a brief description that will make the experiment easy to identify
-TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
+TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
 LR = 3e-5 #default 3e-5
-BEAM_SIZE = 1
+BEAM_SIZE = 10
 RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 50

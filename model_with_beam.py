@@ -259,7 +259,7 @@ class DiscoBertModelWithBeamSearch(nn.Module):
                     combo_scores = self.getScoreCombinations(legal_action_scores, label_scores, direction_scores) #returns a matrix of shape [len(action_scores), len(label_scores), len(direction_scores)]
                     
                     #we want to get top k parsers that highest scored action-label-direction combinations will produce
-                    top_k_combos = self.top_k_in_3d_matrix(combo_scores, 4) #todo: beam size or some other # of score combos? # tensor of shape [beam_size, 3], with 3 being the three classifier classes (action, label, dir)
+                    top_k_combos = self.top_k_in_3d_matrix(combo_scores, self.beam_size) #todo: beam size or some other # of score combos? # tensor of shape [beam_size, 3], with 3 being the three classifier classes (action, label, dir)
                     # for every top action/label/direction combo, get its score from the combo_scores matrix
                     for combo in top_k_combos:
                         action_idx = combo[0].item()
