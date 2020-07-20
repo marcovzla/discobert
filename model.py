@@ -107,31 +107,6 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    # adapted from pat
-    def prepare(self, edus, word2index):
-        x = [torch.tensor([word2index[word] if word in word2index else word2index["<unk>"] for word in edu]).to(self.device) for edu in edus]
-        x_length = np.array([len(edu) for edu in x])
-        padded_x = torch.nn.utils.rnn.pad_sequence(x, batch_first=True)
-        return padded_x, x_length
-
-    # adapted from pat
-    def edus2padded_sequences(self, edus, tokenizer):
-        w = [[word for word in tokenizer(edu)] for edu in edus]
-        # print(w)
-        w, x_lengths = self.prepare(w, self.word2index)
-        
-        return w, x_lengths
-
-    # my version of padding
-    def indexAndPad(self, token_sequences, max_length):
-        encodings_padded_ids = []
-        for edu in token_sequences:
-            ids = [self.word2index[word] if word in self.word2index.keys() else self.word2index['<unk>'] for word in edu]
-            if len(ids) < max_length:
-                ids.extend([0] * (max_length - len(ids) ))
-            encodings_padded_ids.append(ids)
-        return encodings_padded_ids
-
     def forward(self, edus, gold_tree=None):
 
         if self.encoding == "bert":
