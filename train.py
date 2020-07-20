@@ -34,6 +34,16 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def main(experiment_dir_path):
+    print("Printing out config settings:")
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
         # print("model dir path: ", model_dir_path)
@@ -48,16 +58,16 @@ def main(experiment_dir_path):
     
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    if config.SORT_INPUT == True:
-        # construct new train_ds
-        train_ids_by_length = {}
-        for item in train_ds:
-            train_ids_by_length.setdefault(len(item.edus), []).append(item)
+    # if config.SORT_INPUT == True:
+    #     # construct new train_ds
+    #     train_ids_by_length = {}
+    #     for item in train_ds:
+    #         train_ids_by_length.setdefault(len(item.edus), []).append(item)
 
-        train_ds = []
-        for n in sorted(train_ids_by_length):
-            for ann in train_ids_by_length[n]:
-                train_ds.append(ann)
+    #     train_ds = []
+    #     for n in sorted(train_ids_by_length):
+    #         for ann in train_ids_by_length[n]:
+    #             train_ds.append(ann)
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)

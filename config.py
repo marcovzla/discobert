@@ -4,7 +4,7 @@ from tokenizers import Tokenizer
 from transformers import *
 # from transformers import AutoTokenizer, AutoModelWithLMHead
 
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 11
 EXPERIMENT_DESCRIPTION = "bert-25-percent-dev-default-settings" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
