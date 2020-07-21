@@ -38,7 +38,7 @@ def main(experiment_dir_path):
     print("debug: ", config.DEBUG)
     print("encoding: ", config.ENCODING)
     print("tokenizer: ", config.TOKENIZER)
-    print("model: ", config.MODEL)
+    # print("model: ", config.MODEL)
     print("use attention", config.USE_ATTENTION)
     print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
     print("sort input: ", config.SORT_INPUT)
