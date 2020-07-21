@@ -5,9 +5,9 @@ from transformers import *
 # from transformers import AutoTokenizer, AutoModelWithLMHead
 
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 13
-EXPERIMENT_DESCRIPTION = "bert-rerun-after-removing-model-from-config" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
-LATEST_COMMIT = ""
+EXPERIMENT_ID = 14
+EXPERIMENT_DESCRIPTION = "xlnet-rerun-after-removing-model-from-config" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
+LATEST_COMMIT = "eb1338c27a197befccf532a9093ab7143476cabd"
 TEST_SIZE = 0.25 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -64,7 +64,7 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'bert' 
+ENCODING = 'xlnet' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
