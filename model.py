@@ -33,17 +33,17 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
-        if self.encoding == 'bert':
-            self.tokenizer = config.TOKENIZER
-            self.encoder = BertModel.from_pretrained(self.bert_path)
-        # elif self.encoding == "roberta":
+        # if self.encoding == 'bert':
         #     self.tokenizer = config.TOKENIZER
-        #     self.encoder = RobertaModel.from_pretrained('roberta-base')
-        if self.encoding == 'xlnet':
-            self.tokenizer = config.TOKENIZER
-            self.encoder = XLNetModel.from_pretrained(self.bert_path)
+        #     self.encoder = BertModel.from_pretrained(self.bert_path)
+        # # elif self.encoding == "roberta":
+        # #     self.tokenizer = config.TOKENIZER
+        # #     self.encoder = RobertaModel.from_pretrained('roberta-base')
+        # if self.encoding == 'xlnet':
+        #     self.tokenizer = config.TOKENIZER
+        #     self.encoder = XLNetModel.from_pretrained(self.bert_path)
         # self.encoding = config.ENCODING
-        # self.encoder = config.MODEL
+        self.encoder = config.MODEL
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
