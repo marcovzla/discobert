@@ -30,14 +30,16 @@ class DiscoBertModel(nn.Module):
         self.direction_hidden_size = config.DIRECTION_HIDDEN_SIZE
         self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
         self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
+        self.use_attention = config.USE_ATTENTION
         # init model
         self.tokenizer = config.TOKENIZER
         self.bert = BertModel.from_pretrained(self.bert_path)
         # for param in self.bert.parameters():
         #     param.requires_grad = False
-        self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
-        self.attn2 = nn.Linear(100, 1)
-        self.betweenAttention = nn.Tanh()
+        if self.use_attention:
+            self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
+            self.attn2 = nn.Linear(100, 1)
+            self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
@@ -120,7 +122,7 @@ class DiscoBertModel(nn.Module):
             attention_mask = attention_mask[:, 1:]
         
         
-        if config.USE_ATTENTION == True:
+        if self.use_attention == True:
             after1stAttn = self.attn1(sequence_output)
             nonLinearity = self.betweenAttention(after1stAttn)
             after2ndAttn = self.attn2(nonLinearity)
