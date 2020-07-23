@@ -138,6 +138,7 @@ class DiscoBertModelGlove(nn.Module):
         return encodings_padded_ids
 
     def average_without_padding(self, padded_input, input_lengths):
+
         avg_without_padding = torch.stack([torch.mean(padded_input[i][:input_lengths[i]], dim=0) for i in range(padded_input.shape[0])])
         return avg_without_padding
 
@@ -168,10 +169,16 @@ class DiscoBertModelGlove(nn.Module):
         # print(sequence_output.shape)
         # enc_edus = torch.mean(sequence_output, dim=1)
         enc_edus = self.average_without_padding(sequence_output, x_length)
-        # enc_edus = self.bert_drop(edc_edus)
+        enc_edus = self.bert_drop(enc_edus) 
         # print(sequence_output.shape)
         # print("enc edus shape: ", enc_edus.shape)
 
+        #TODO: try larger batches
+        #TODO: get someone else's implementation
+        #TODO: try with attention
+        #TODO: try other glove/ other emb
+        #TODO: double-check the averaging 
+        #TODO: have both dev and test with the 5 models from 5 diff random seeds - add code for that
 
         # enc_edus = self.project(enc_edus) 
 
