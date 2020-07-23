@@ -33,7 +33,7 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
 
-def main(experiment_dir_path):
+def main(experiment_dir_path, train_ds, valid_ds):
     print("Printing out config settings:")
     print("debug: ", config.DEBUG)
     print("encoding: ", config.ENCODING)
@@ -46,7 +46,7 @@ def main(experiment_dir_path):
 
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
-        # print("model dir path: ", model_dir_path)
+        print("model dir path: ", model_dir_path)
         if not os.path.exists(model_dir_path):
             os.makedirs(model_dir_path)
         model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
@@ -56,18 +56,16 @@ def main(experiment_dir_path):
     model = DiscoBertModel()
     model.to(device)
     
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    if config.SORT_INPUT == True:
+        # construct new train_ds
+        train_ids_by_length = {}
+        for item in train_ds:
+            train_ids_by_length.setdefault(len(item.edus), []).append(item)
 
-    # if config.SORT_INPUT == True:
-    #     # construct new train_ds
-    #     train_ids_by_length = {}
-    #     for item in train_ds:
-    #         train_ids_by_length.setdefault(len(item.edus), []).append(item)
-
-    #     train_ds = []
-    #     for n in sorted(train_ids_by_length):
-    #         for ann in train_ids_by_length[n]:
-    #             train_ds.append(ann)
+        train_ds = []
+        for n in sorted(train_ids_by_length):
+            for ann in train_ids_by_length[n]:
+                train_ds.append(ann)
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
@@ -165,6 +163,10 @@ def main(experiment_dir_path):
 if __name__ == '__main__':
 
     start_time = time.time()
+
+    # load data and split in train and validation sets
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
     random_seeds = config.RANDOM_SEEDS
     if config.DEBUG == True:
         r_seed = random_seeds[0]
@@ -172,7 +174,7 @@ if __name__ == '__main__':
         torch.manual_seed(r_seed)
         torch.cuda.manual_seed(r_seed)
         np.random.seed(r_seed)
-        main(None)
+        main(None, train_ds, valid_ds)
 
     else:
 
@@ -207,7 +209,7 @@ if __name__ == '__main__':
                 torch.cuda.manual_seed(r_seed)
                 np.random.seed(r_seed)
 
-                rs_results = main(experiment_dir_path)
+                rs_results = main(experiment_dir_path, train_ds, valid_ds)
 
                 span_scores[i] = rs_results[0]
                 nuclearity_scores[i] = rs_results[1]
