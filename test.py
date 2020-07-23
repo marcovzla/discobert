@@ -39,8 +39,6 @@ def main(path_to_model, test_ds):
     model = DiscoBertModel.load(path_to_model)
     model.to(device)
     
-    # train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
-    
     pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
     p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
     # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
@@ -79,7 +77,7 @@ if __name__ == '__main__':
         for i in range(len(random_seeds)):
             rs = random_seeds[i]
             path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(rs), config.MODEL_FILENAME)
-            print(path_to_model)
+            print("model path: ", path_to_model)
             rs_results = main(path_to_model, test_ds)
             span_scores[i] = rs_results[0]
             nuclearity_scores[i] = rs_results[1]
