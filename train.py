@@ -163,17 +163,19 @@ def main(experiment_dir_path, train_ds, valid_ds):
 if __name__ == '__main__':
 
     start_time = time.time()
-
+    random_seeds = config.RANDOM_SEEDS
+    #set random seed for train/dev split
+    train_test_rs = random_seeds[0]
+    random.seed(train_test_rs)
+    torch.manual_seed(train_test_rs)
+    torch.cuda.manual_seed(train_test_rs)
+    np.random.seed(train_test_rs)
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    random_seeds = config.RANDOM_SEEDS
+    
     if config.DEBUG == True:
-        r_seed = random_seeds[0]
-        random.seed(r_seed)
-        torch.manual_seed(r_seed)
-        torch.cuda.manual_seed(r_seed)
-        np.random.seed(r_seed)
+        # for debug, random seed has already been set before slitting the dataset
         main(None, train_ds, valid_ds)
 
     else:
