@@ -33,13 +33,24 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
-        # if self.encoding == 'bert':
-        #     self.tokenizer = config.TOKENIZER
-        #     self.encoder = BertModel.from_pretrained(self.bert_path)
-        # elif self.encoding == 'xlnet':
-        #     self.tokenizer = config.TOKENIZER
-        #     self.encoder = XLNetModel.from_pretrained(self.bert_path)
-        self.encoder = config.MODEL
+        if self.encoding == 'bert':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = BertModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'roberta':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = RobertaModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'openai-gpt':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = OpenAIGPTModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'xlnet':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = XLNetModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'distilbert':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = DistilBertModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'albert':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = AlbertModel.from_pretrained(self.bert_path)
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         if config.USE_ATTENTION:
@@ -54,7 +65,7 @@ class DiscoBertModel(nn.Module):
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        self.relu = nn.ReLU()
+        # self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
