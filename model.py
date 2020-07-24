@@ -47,7 +47,7 @@ class DiscoBertModel(nn.Module):
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        self.relu = nn.ReLU()
+        # self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
