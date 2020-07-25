@@ -35,8 +35,9 @@ class DiscoBertModel(nn.Module):
         self.bert = BertModel.from_pretrained(self.bert_path)
         # for param in self.bert.parameters():
         #     param.requires_grad = False
-        self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
-        self.attn2 = nn.Linear(100, 1)
+        if config.USE_ATTENTION:
+            self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
+            self.attn2 = nn.Linear(100, 1)
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
@@ -48,7 +49,7 @@ class DiscoBertModel(nn.Module):
             self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
-        self.relu = nn.ReLU()
+        # self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
