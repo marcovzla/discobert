@@ -42,6 +42,9 @@ class DiscoBertModel(nn.Module):
         elif self.encoding == 'openai-gpt':
             self.tokenizer = config.TOKENIZER
             self.encoder = OpenAIGPTModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'gpt2':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = GPT2Model.from_pretrained(self.bert_path)
         elif self.encoding == 'xlnet':
             self.tokenizer = config.TOKENIZER
             self.encoder = XLNetModel.from_pretrained(self.bert_path)
