@@ -4,7 +4,7 @@ from tokenizers import Tokenizer
 from transformers import *
 # from transformers import AutoTokenizer, AutoModelWithLMHead
 
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 5
 EXPERIMENT_DESCRIPTION = "albert-default-settings-15-percent-dev" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
 LATEST_COMMIT = ""
@@ -64,7 +64,7 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'albert' 
+ENCODING = 'gpt2' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
@@ -81,13 +81,13 @@ elif ENCODING == "openai-gpt":
     # "pre-trained using language modeling on a large corpus will long range dependencies. [...] trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. " (https://huggingface.co/transformers/model_doc/gpt.html)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('openai-gpt2')
-    TOKENIZER = GPT2Tokenizer.from_pretrained(str(BERT_PATH))
+    TOKENIZER = OpenAIGPTTokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
 elif ENCODING == "gpt2":
     # "pre-trained using language modeling on a large corpus will long range dependencies. [...] trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. " (https://huggingface.co/transformers/model_doc/gpt.html)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('gpt2')
-    TOKENIZER = OpenAIGPTTokenizer.from_pretrained(str(BERT_PATH))
+    TOKENIZER = GPT2Tokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
 elif ENCODING == "xlnet":
     # "pre-trained using an autoregressive method to learn bidirectional contexts by maximizing the expected likelihood over all permutations of the input sequence factorization order" (https://huggingface.co/transformers/model_doc/xlnet.html)

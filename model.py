@@ -45,6 +45,7 @@ class DiscoBertModel(nn.Module):
         elif self.encoding == 'gpt2':
             self.tokenizer = config.TOKENIZER
             self.encoder = GPT2Model.from_pretrained(self.bert_path)
+            self.encoder.resize_token_embeddings(len(self.tokenizer))
         elif self.encoding == 'xlnet':
             self.tokenizer = config.TOKENIZER
             self.encoder = XLNetModel.from_pretrained(self.bert_path)
@@ -54,6 +55,10 @@ class DiscoBertModel(nn.Module):
         elif self.encoding == 'albert':
             self.tokenizer = config.TOKENIZER
             self.encoder = AlbertModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'ctrl':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = CTRLModel.from_pretrained(self.bert_path)
+            self.encoder.resize_token_embeddings(len(self.tokenizer))
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         if config.USE_ATTENTION:
@@ -139,6 +144,8 @@ class DiscoBertModel(nn.Module):
                 token_type_ids=token_type_ids,
             )
 
+            
+
         # the other models we test, do not have a pooled output
         else:
             # tokenize edus 
@@ -146,10 +153,7 @@ class DiscoBertModel(nn.Module):
             ids = batched_encodings['input_ids']
             attention_mask = batched_encodings['attention_mask']
             # encode edus
-            sequence_output = self.encoder(ids, attention_mask, output_hidden_states=True)[0]
-
-
-        # print(sequence_output.shape)
+            sequence_output = self.encoder(ids, attention_mask=attention_mask, output_hidden_states=True)[0]
 
         # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
