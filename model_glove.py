@@ -138,12 +138,12 @@ class DiscoBertModelGlove(nn.Module):
         return encodings_padded_ids
 
     def average_without_padding(self, padded_input, input_lengths):
-
+        # for every padded input, take the mean of the token vectors that are not pads---we know that from the corresponding input lengths
+        # stack the resulting mean vectors
         avg_without_padding = torch.stack([torch.mean(padded_input[i][:input_lengths[i]], dim=0) for i in range(padded_input.shape[0])])
         return avg_without_padding
 
     def forward(self, edus, gold_tree=None):
-
         # version 1: adapted from pat
         w, x_length = self.edus2padded_sequences(edus, self.tokenizer)
         we = self.word_embedding(w)

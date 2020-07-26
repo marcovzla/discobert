@@ -42,8 +42,9 @@ class DiscoBertModel(nn.Module):
             self.encoder = RobertaModel.from_pretrained(self.bert_path)
         # for param in self.bert.parameters():
         #     param.requires_grad = False
-        self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
-        self.attn2 = nn.Linear(100, 1)
+        if config.USE_ATTENTION:
+            self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
+            self.attn2 = nn.Linear(100, 1)
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
