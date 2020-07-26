@@ -144,7 +144,7 @@ def load_glove(path):
 
 def make_word2index(edus):
     """make word vocabulary from a list of edus"""
-    tokenizer = config.GLOVE_TOKENIZER
+    tokenizer = config.TOKENIZER
     word2index = {}
     word2index['<pad>'] = 0
     word2index['<unk>'] = 1

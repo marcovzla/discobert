@@ -34,7 +34,7 @@ class DiscoBertModelGlove(nn.Module):
         self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
         self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
-        self.tokenizer = config.GLOVE_TOKENIZER
+        self.tokenizer = config.TOKENIZER
 
         self.glove = load_glove(config.GLOVE_PATH)
         self.word2index = word2index

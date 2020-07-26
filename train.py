@@ -36,6 +36,16 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def main(experiment_dir_path):
+
+    print("Printing out config settings:")
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
         # print("model dir path: ", model_dir_path)
@@ -59,11 +69,12 @@ def main(experiment_dir_path):
                 train_ds.append(ann)
 
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    if config.MODEL == 'discobert':
-        model = DiscoBertModel()
-    elif config.MODEL == 'discobert-glove':
+    if config.ENCODING == 'glove':
         word2index = make_word2index(train_ds)   
         model = DiscoBertModelGlove(word2index)
+    else:
+        model = DiscoBertModel()
+        
     
     model.to(device)
 
