@@ -34,17 +34,16 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
 
-def main(path_to_model, test_ds):
+def main(path_to_model, test_ds, random_seed):
+    #set random seed here because the vocab will be built based on the train set
+    random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    np.random.seed(random_seed)
     
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     if config.ENCODING == "glove":
-        random_seeds = config.RANDOM_SEEDS
-        #set random seed for train/dev split
-        train_test_rs = random_seeds[0]
-        random.seed(train_test_rs)
-        torch.manual_seed(train_test_rs)
-        torch.cuda.manual_seed(train_test_rs)
-        np.random.seed(train_test_rs)
+        
         # load data and split in train and validation sets
         train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
@@ -94,7 +93,7 @@ if __name__ == '__main__':
             rs = random_seeds[i]
             path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(rs), config.MODEL_FILENAME)
             print("model path: ", path_to_model)
-            rs_results = main(path_to_model, test_ds)
+            rs_results = main(path_to_model, test_ds, rs)
             span_scores[i] = rs_results[0]
             nuclearity_scores[i] = rs_results[1]
             relations_scores[i] = rs_results[2]

@@ -35,7 +35,7 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
 
-def main(experiment_dir_path, train_ds, valid_ds):
+def main(experiment_dir_path):
 
     print("Printing out config settings:")
     print("debug: ", config.DEBUG)
@@ -46,6 +46,10 @@ def main(experiment_dir_path, train_ds, valid_ds):
     print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
     print("sort input: ", config.SORT_INPUT)
     print("test size: ", config.TEST_SIZE)
+
+    # load data and split in train and validation sets
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
 
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
@@ -174,23 +178,14 @@ if __name__ == '__main__':
 
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
-    #set random seed for train/dev split
-    train_test_rs = random_seeds[0]
-    random.seed(train_test_rs)
-    torch.manual_seed(train_test_rs)
-    torch.cuda.manual_seed(train_test_rs)
-    np.random.seed(train_test_rs)
-    # load data and split in train and validation sets
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    random_seeds = config.RANDOM_SEEDS
     if config.DEBUG == True:
         r_seed = random_seeds[0]
         random.seed(r_seed)
         torch.manual_seed(r_seed)
         torch.cuda.manual_seed(r_seed)
         np.random.seed(r_seed)
-        main(None, train_ds, valid_ds)
+        main(None)
 
     else:
 
@@ -225,7 +220,7 @@ if __name__ == '__main__':
                 torch.cuda.manual_seed(r_seed)
                 np.random.seed(r_seed)
 
-                rs_results = main(experiment_dir_path, train_ds, valid_ds)
+                rs_results = main(experiment_dir_path)
 
                 span_scores[i] = rs_results[0]
                 nuclearity_scores[i] = rs_results[1]
