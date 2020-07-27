@@ -33,7 +33,7 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
 
-def main(experiment_dir_path, train_ds, valid_ds):
+def main(experiment_dir_path):
     print("Printing out config settings:")
     print("debug: ", config.DEBUG)
     print("encoding: ", config.ENCODING)
@@ -56,6 +56,9 @@ def main(experiment_dir_path, train_ds, valid_ds):
     model = DiscoBertModel()
     model.to(device)
     
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    print("train ds 0: ", train_ds[0])
+
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -164,19 +167,10 @@ if __name__ == '__main__':
 
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
-    #set random seed for train/dev split
-    train_test_rs = random_seeds[0]
-    random.seed(train_test_rs)
-    torch.manual_seed(train_test_rs)
-    torch.cuda.manual_seed(train_test_rs)
-    np.random.seed(train_test_rs)
-    # load data and split in train and validation sets
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
-
     
     if config.DEBUG == True:
         # for debug, random seed has already been set before slitting the dataset
-        main(None, train_ds, valid_ds)
+        main(None)
 
     else:
 
@@ -211,7 +205,7 @@ if __name__ == '__main__':
                 torch.cuda.manual_seed(r_seed)
                 np.random.seed(r_seed)
 
-                rs_results = main(experiment_dir_path, train_ds, valid_ds)
+                rs_results = main(experiment_dir_path)
 
                 span_scores[i] = rs_results[0]
                 nuclearity_scores[i] = rs_results[1]
@@ -228,10 +222,10 @@ if __name__ == '__main__':
             print("\n========================================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
             print("--------------------------------------------------------")
-            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
-            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
-            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
-            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
+            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=3), "±", np.around(np.std(span_scores), decimals=3))
+            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=3), "±", np.around(np.std(nuclearity_scores), decimals=3))
+            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=3), "±", np.around(np.std(relations_scores), decimals=3))
+            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=3), "±", np.around(np.std(full_scores), decimals=3))
             print("Best random seed:\t", best_seed)
             print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 
