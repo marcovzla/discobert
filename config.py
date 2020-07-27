@@ -6,7 +6,7 @@ from transformers import *
 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 5
-EXPERIMENT_DESCRIPTION = "albert-default-settings-15-percent-dev" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
+EXPERIMENT_DESCRIPTION = "experiment7-gpt2-default-settings-15-percent-dev-2020-07-26" # enter a brief description that will make the experiment easy to identify, e.g., "Original-run" means with the default settings before any tweaks, e.g., attention or relation embedding, were added 
 LATEST_COMMIT = ""
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
@@ -24,7 +24,8 @@ INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False
 USE_ATTENTION = False
 DROP_CLS = False
-SORT_INPUT = False #simplified curriculum learning #this is now just commented out in train.py
+SORT_INPUT = False #simplified curriculum learning
+
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
 DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
@@ -80,7 +81,7 @@ elif ENCODING == "roberta":
 elif ENCODING == "openai-gpt":
     # "pre-trained using language modeling on a large corpus will long range dependencies. [...] trained with a causal language modeling (CLM) objective and is therefore powerful at predicting the next token in a sequence. " (https://huggingface.co/transformers/model_doc/gpt.html)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
-    BERT_PATH = DISCOBERT_PATH/('openai-gpt2')
+    BERT_PATH = DISCOBERT_PATH/('openai-gpt')
     TOKENIZER = OpenAIGPTTokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
 elif ENCODING == "gpt2":
