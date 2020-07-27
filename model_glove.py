@@ -69,8 +69,8 @@ class DiscoBertModelGlove(nn.Module):
         return self.missing_node.device
 
     @classmethod
-    def load(cls, path):
-        model = cls()
+    def load(cls, path, word2index):
+        model = cls(word2index)
         model.load_state_dict(torch.load(path))
         model.eval()
         return model
