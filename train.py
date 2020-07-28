@@ -178,7 +178,6 @@ if __name__ == '__main__':
 
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
-
     if config.DEBUG == True:
         r_seed = random_seeds[0]
         random.seed(r_seed)
