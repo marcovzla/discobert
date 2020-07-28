@@ -55,6 +55,10 @@ def main(experiment_dir_path):
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel()
     model.to(device)
+
+    # load data and split in train and validation sets
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
     
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
     print("train ds 0: ", train_ds[0])
@@ -167,9 +171,12 @@ if __name__ == '__main__':
 
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
-    
     if config.DEBUG == True:
-        # for debug, random seed has already been set before slitting the dataset
+        r_seed = random_seeds[0]
+        random.seed(r_seed)
+        torch.manual_seed(r_seed)
+        torch.cuda.manual_seed(r_seed)
+        np.random.seed(r_seed)
         main(None)
 
     else:
