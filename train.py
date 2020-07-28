@@ -155,6 +155,16 @@ def main(experiment_dir_path):
 
 if __name__ == '__main__':
 
+    print("Printing out config settings:")
+    print("debug: ", config.DEBUG)
+    # print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
     if config.DEBUG == True:
