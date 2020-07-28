@@ -31,7 +31,7 @@ VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_FILENAME = 'discobert.model'
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
-SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = True #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
+SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = False #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
 
 if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
     ID_TO_ACTION = ['shift', 'reduce']
