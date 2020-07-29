@@ -17,6 +17,7 @@ import shutil
 from datetime import date
 import time
 
+
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
     named_params = list(model.named_parameters())
@@ -33,9 +34,19 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def main(experiment_dir_path):
+    print("Printing out config settings:")
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
-        # print("model dir path: ", model_dir_path)
+        print("model dir path: ", model_dir_path)
         if not os.path.exists(model_dir_path):
             os.makedirs(model_dir_path)
         model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
@@ -48,7 +59,6 @@ def main(experiment_dir_path):
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -215,10 +225,10 @@ if __name__ == '__main__':
             print("\n========================================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
             print("--------------------------------------------------------")
-            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
-            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
-            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
-            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
+            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=3), "±", np.around(np.std(span_scores), decimals=3))
+            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=3), "±", np.around(np.std(nuclearity_scores), decimals=3))
+            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=3), "±", np.around(np.std(relations_scores), decimals=3))
+            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=3), "±", np.around(np.std(full_scores), decimals=3))
             print("Best random seed:\t", best_seed)
             print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 

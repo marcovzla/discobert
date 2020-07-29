@@ -32,27 +32,53 @@ class DiscoBertModel(nn.Module):
         self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
         # init model
         self.tokenizer = config.TOKENIZER
-        self.bert = BertModel.from_pretrained(self.bert_path)
+        self.encoding = config.ENCODING
+        if self.encoding == 'bert':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = BertModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'roberta':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = RobertaModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'openai-gpt':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = OpenAIGPTModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'gpt2':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = GPT2Model.from_pretrained(self.bert_path)
+            self.encoder.resize_token_embeddings(len(self.tokenizer))
+        elif self.encoding == 'xlnet':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = XLNetModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'distilbert':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = DistilBertModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'albert':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = AlbertModel.from_pretrained(self.bert_path)
+        elif self.encoding == 'ctrl':
+            self.tokenizer = config.TOKENIZER
+            self.encoder = CTRLModel.from_pretrained(self.bert_path)
+            self.encoder.resize_token_embeddings(len(self.tokenizer))
         # for param in self.bert.parameters():
         #     param.requires_grad = False
         if config.USE_ATTENTION:
-            self.attn1 = nn.Linear(self.bert.config.hidden_size, 100)
+            self.attn1 = nn.Linear(self.encoder.config.hidden_size, 100)
             self.attn2 = nn.Linear(100, 1)
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
-        self.project = nn.Linear(self.bert.config.hidden_size, self.hidden_size)
+        self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
-        # self.merge_layer = nn.Linear(2 * self.bert.config.hidden_size, self.bert.config.hidden_size)
+        # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
             self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
-
+        
     @property
     def device(self):
         return self.missing_node.device
@@ -103,23 +129,36 @@ class DiscoBertModel(nn.Module):
 
     def forward(self, edus, gold_tree=None):
 
-        # tokenize edus
-        encodings = self.tokenizer.encode_batch(edus)
-        ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
-        attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
-        token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
+        # BERT model returns both sequence and pooled output
+        if self.encoding == "bert":
+            # tokenize edus
+            encodings = self.tokenizer.encode_batch(edus)
+            ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
+            attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
+            token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
 
-        # encode edus
-        sequence_output, pooled_output = self.bert( #sequence_output: [edu, tok, emb]
-            ids,
-            attention_mask=attention_mask,
-            token_type_ids=token_type_ids,
-        )
+            # encode edus
+            sequence_output, pooled_output = self.encoder( #sequence_output: [edu, tok, emb]
+                ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+            )
 
+            
+
+        # the other models we test, do not have a pooled output
+        else:
+            # tokenize edus 
+            batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
+            ids = batched_encodings['input_ids']
+            attention_mask = batched_encodings['attention_mask']
+            # encode edus
+            sequence_output = self.encoder(ids, attention_mask=attention_mask, output_hidden_states=True)[0]
+
+        # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 
             attention_mask = attention_mask[:, 1:]
-        
         
         if config.USE_ATTENTION == True:
             after1stAttn = self.attn1(sequence_output)
