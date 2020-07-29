@@ -156,8 +156,9 @@ def main(experiment_dir_path):
 if __name__ == '__main__':
 
     print("Printing out config settings:")
+    print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
     print("debug: ", config.DEBUG)
-    # print("encoding: ", config.ENCODING)
+    print("encoding: ", config.ENCODING)
     print("tokenizer: ", config.TOKENIZER)
     # print("model: ", config.MODEL)
     print("use attention", config.USE_ATTENTION)
@@ -187,7 +188,16 @@ if __name__ == '__main__':
 
         with open(os.path.join(experiment_dir_path, "log"), "w") as f:
             sys.stdout = f
-        
+            print("Printing out config settings:")
+            print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+            print("debug: ", config.DEBUG)
+            print("encoding: ", config.ENCODING)
+            print("tokenizer: ", config.TOKENIZER)
+            # print("model: ", config.MODEL)
+            print("use attention", config.USE_ATTENTION)
+            print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+            print("sort input: ", config.SORT_INPUT)
+            print("test size: ", config.TEST_SIZE)
             span_scores = np.zeros(len(random_seeds))
             nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
             relations_scores = np.zeros(len(random_seeds)) # span + relation label
