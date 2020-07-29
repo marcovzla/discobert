@@ -1,7 +1,7 @@
 from pathlib import Path
 import tokenizers
 
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 1
 EXPERIMENT_DESCRIPTION = "bert-two-classifier-train-dev-based-on-rs-15-percent-dev" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
@@ -64,6 +64,11 @@ ID_TO_LABEL = [
     "topic_change",
     "topic_comment",
 ]
+
+CONNECTIVES =  ["accordingly","additionally","after","afterward","also","alternatively","although","and","as","as a result","as an alternative","as if","as long as","as soon as","as though","as well","because","before","before and after","besides","but","by comparison","by contrast","by then","consequently","conversely","earlier","either", "or","else","except","finally","for","for example","for instance","further","furthermore","hence","however","if","if and when","in addition","in contrast","in fact","in other words","in particular","in short","in sum","in the end","in turn","indeed","insofar as","instead","later","lest","likewise","meantime","meanwhile","moreover","much as","neither", "nevertheless","next","nonetheless","nor","now that","on the contrary","on the one hand", "on the other hand","on the other hand","once","or","otherwise","overall","plus","previously","rather","regardless","separately","similarly","simultaneously","since","so","so that","specifically","still","then","thereafter","thereby","therefore","though","thus","till","ultimately","unless","until","when","when and if","whereas","while","yet"]
+
+
+ORIGINAL_CONNECTIVES =  ["accordingly","additionally","after","afterward","also","alternatively","although","and","as","as a result","as an alternative","as if","as long as","as soon as","as though","as well","because","before","before and after","besides","but","by comparison","by contrast","by then","consequently","conversely","earlier","either..or","else","except","finally","for","for example","for instance","further","furthermore","hence","however","if","if and when","if..then","in addition","in contrast","in fact","in other words","in particular","in short","in sum","in the end","in turn","indeed","insofar as","instead","later","lest","likewise","meantime","meanwhile","moreover","much as","neither..nor","nevertheless","next","nonetheless","nor","now that","on the contrary","on the one hand..on the other hand","on the other hand","once","or","otherwise","overall","plus","previously","rather","regardless","separately","similarly","simultaneously","since","so","so that","specifically","still","then","thereafter","thereby","therefore","though","thus","till","ultimately","unless","until","when","when and if","whereas","while","yet"]
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 

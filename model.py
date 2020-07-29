@@ -6,6 +6,7 @@ from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
 import torch.nn.functional as F
+import re
 
 inf = float('inf')
 
@@ -128,13 +129,31 @@ class DiscoBertModel(nn.Module):
             mask[:, action_ids] = 0
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
+    
+    def replace_connectives(self, string, connectives):
+        for conn in connectives:
+            string = re.sub(r'\b(' + conn + r'|' + conn.capitalize()  + r')\b', "[UNK]", string)
+        return string
 
     def forward(self, edus, gold_tree=None):
-
+        connectives = config.CONNECTIVES
+        new_edus = [self.replace_connectives(edu, connectives) for edu in edus]
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert":
             # tokenize edus
-            encodings = self.tokenizer.encode_batch(edus)
+            # old_encodings = self.tokenizer.encode_batch(edus)
+            # for edu in new_edus:
+            #     print(edu)
+            
+            encodings = self.tokenizer.encode_batch(new_edus)
+
+            # for i in range(len(encodings)):
+                
+            #     print("=========\ntokens: ", old_encodings[i].tokens)
+            #     print("new tokens: ", encodings[i].tokens)
+            #     print("ids: ", old_encodings[i].ids)
+            #     print("new ids: ", encodings[i].ids)
+
             ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
             attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
             token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
@@ -151,7 +170,7 @@ class DiscoBertModel(nn.Module):
         # the other models we test, do not have a pooled output
         else:
             # tokenize edus 
-            batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
+            batched_encodings = self.tokenizer(new_edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
             ids = batched_encodings['input_ids']
             attention_mask = batched_encodings['attention_mask']
             # encode edus
