@@ -5,18 +5,18 @@ from transformers import RobertaTokenizer
 import torchtext
 from torchtext.data import get_tokenizer
 
-ENCODING = 'glove' #other options in this branch: "glove-2-class", "bert", and "roberta"
+ENCODING = 'glove-2-class' #other options in this branch: "glove-2-class", "bert", and "roberta"
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 0
-EXPERIMENT_DESCRIPTION = "GloveEmbedding-3-class-after-adding-2class-option" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-train-dev-based-on-rs-15-percent-dev-default-settings" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
-EPOCHS = 3
+EPOCHS = 30
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
 LR = .01 #default for bert: 3e-5; default for glove: .01
 
-RANDOM_SEEDS = [22, 42, 137]#, 198, 202]
+RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 50
 DIRECTION_HIDDEN_SIZE = 20
