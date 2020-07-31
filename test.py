@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
 from model_glove import DiscoBertModelGlove
+from model_glove_2_class import DiscoBertModelGlove2Class
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
 from utils import prf1
 import config
@@ -49,7 +50,13 @@ def main(path_to_model, test_ds, random_seed):
 
         word2index = make_word2index(train_ds)   
         model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
+    elif config.ENCODING == "glove-2-class":
         
+        # load data and split in train and validation sets
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
     else:
         model = DiscoBertModel.load(path_to_model)
     model.to(device)

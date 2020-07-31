@@ -5,17 +5,18 @@ from transformers import RobertaTokenizer
 import torchtext
 from torchtext.data import get_tokenizer
 
+ENCODING = 'glove' #other options in this branch: "glove-2-class", "bert", and "roberta"
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 8
-EXPERIMENT_DESCRIPTION = "GloveEmbedding-rerun-same-train-set-every-time" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 0
+EXPERIMENT_DESCRIPTION = "GloveEmbedding-3-class-after-adding-2class-option" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
-EPOCHS = 30
+EPOCHS = 3
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
 LR = .01 #default for bert: 3e-5; default for glove: .01
 
-RANDOM_SEEDS = [22, 42, 137, 198, 202]
+RANDOM_SEEDS = [22, 42, 137]#, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 50
 DIRECTION_HIDDEN_SIZE = 20
@@ -37,7 +38,11 @@ MODEL_FILENAME = 'discobert.model'
 
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
-ID_TO_ACTION = ['shift', 'reduce']
+if ENCODING == "glove-2-class":
+    ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
+else:
+    ID_TO_ACTION = ['shift', 'reduce']
+
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 
 ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']
@@ -66,7 +71,7 @@ ID_TO_LABEL = [
 ]
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
-ENCODING = 'glove' # also available 'bert'; todo: add a glove emb versiob
+
 
 if ENCODING == "bert":
     BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
@@ -75,7 +80,7 @@ if ENCODING == "bert":
 elif ENCODING == "roberta":
     BERT_PATH = DISCOBERT_PATH/('roberta-base')
     TOKENIZER = RobertaTokenizer.from_pretrained(str(BERT_PATH))
-elif ENCODING == "glove":
+elif ENCODING == "glove" or ENCODING == "glove-2-class":
     BERT_PATH = None
     EMBEDDING_SIZE = 50
     GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
