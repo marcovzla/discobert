@@ -33,6 +33,21 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def main(experiment_dir_path):
+
+    print("Printing out config settings:")
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+    print("action forcing (for forcing experiments, has to be true): ", config.ACTION_FORCING)
+    print("label forcing: ", config.LABEL_FORCING)
+    print("dir forcing: ", config.DIRECTION_FORCING)
+    
+    
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
         # print("model dir path: ", model_dir_path)
@@ -213,10 +228,10 @@ if __name__ == '__main__':
             print("\n========================================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
             print("--------------------------------------------------------")
-            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
-            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
-            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
-            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
+            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=3), "±", np.around(np.std(span_scores), decimals=3))
+            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=3), "±", np.around(np.std(nuclearity_scores), decimals=3))
+            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=3), "±", np.around(np.std(relations_scores), decimals=3))
+            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=3), "±", np.around(np.std(full_scores), decimals=3))
             print("Best random seed:\t", best_seed)
             print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 
