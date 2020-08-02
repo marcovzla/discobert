@@ -1,9 +1,9 @@
 from pathlib import Path
 import tokenizers
 
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 0
-EXPERIMENT_DESCRIPTION = "bert-action-forcing" # enter a brief description that will make the experiment easy to identify
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+EXPERIMENT_ID = 2
+EXPERIMENT_DESCRIPTION = "bert-action-and-label-forcing" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -22,7 +22,7 @@ USE_ATTENTION = False
 DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
 ACTION_FORCING = True # has to be true if label or direction forcing is to be used
-LABEL_FORCING = False
+LABEL_FORCING = True
 DIRECTION_FORCING = False
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
