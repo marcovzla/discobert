@@ -2,7 +2,7 @@ from pathlib import Path
 import tokenizers
 from transformers import *
 
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 1
 EXPERIMENT_DESCRIPTION = "roberta-three-classifier-train-dev-based-on-rs-15-percent-dev-default-settings" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
@@ -20,7 +20,7 @@ DIRECTION_HIDDEN_SIZE = 10
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
 USE_ATTENTION = False
-DROP_CLS = False
+DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
 SORT_INPUT = False #simplified curriculum learning
 
 
@@ -68,11 +68,12 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'roberta' 
+ENCODING = 'gpt2' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
     # outputs last hidden state and pooled output
+    # has CLS (bos_token) token
     BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
     TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
     TOKENIZER.enable_padding() #max_length=MAX_LEN)
@@ -92,20 +93,23 @@ elif ENCODING == "gpt2":
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     BERT_PATH = DISCOBERT_PATH/('gpt2')
     TOKENIZER = GPT2Tokenizer.from_pretrained(str(BERT_PATH))
-    TOKENIZER.add_special_tokens({'pad_token': '[PAD]'})
+    TOKENIZER.add_special_tokens({'pad_token': '[PAD]', 'cls_token': '[CLS]'})
 elif ENCODING == "xlnet":
     # "pre-trained using an autoregressive method to learn bidirectional contexts by maximizing the expected likelihood over all permutations of the input sequence factorization order" (https://huggingface.co/transformers/model_doc/xlnet.html)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    # has CLS (bos_token) token
     BERT_PATH = DISCOBERT_PATH/('xlnet-base-cased')
     TOKENIZER = XLNetTokenizer.from_pretrained(str(BERT_PATH))
 elif ENCODING == "distilbert":
     # "trained by distilling Bert base." "Knowledge distillation [...] is a compression technique in which a compact model - the student - is trained to reproduce the behaviour of a larger model - the teacher -or an ensemble of models" (https://arxiv.org/abs/1910.01108).
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    # pretty sure this has a cls token
     BERT_PATH = DISCOBERT_PATH/('distilbert-base-uncased')
     TOKENIZER = DistilBertTokenizer.from_pretrained(str(BERT_PATH))
 elif ENCODING == "albert":
     # "similar to bert, but with a few tweaks [...] Next sentence prediction is replaced by a sentence ordering prediction" (https://huggingface.co/transformers/model_summary.html#albert)
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
+    # has CLS token
     BERT_PATH = DISCOBERT_PATH/('albert-base-v2')
     TOKENIZER = AlbertTokenizer.from_pretrained(str(BERT_PATH))
 elif ENCODING == "ctrl": # does not work: returns None for some (unk?) tokens
