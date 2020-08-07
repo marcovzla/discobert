@@ -45,7 +45,7 @@ ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']
 DIRECTION_TO_ID = {direction:i for i,direction in enumerate(ID_TO_DIRECTION)}
 
 ID_TO_LABEL = [
-    # "None",
+    "None",
     "attribution",
     "background",
     "cause",
@@ -66,11 +66,11 @@ ID_TO_LABEL = [
     "topic_comment",
 ]
 
-ID_TO_LABEL_FOR_REDUCE = ID_TO_LABEL[1:]
-LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
-LABEL_TO_ID_FOR_REDUCE = {relation:i for i,relation in enumerate(ID_TO_LABEL_FOR_REDUCE)}
 
-ENCODING = 'openai-gpt' 
+LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
+
+
+ENCODING = 'bert' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
