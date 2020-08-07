@@ -2,9 +2,9 @@ from pathlib import Path
 import tokenizers
 from transformers import *
 
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 1
-EXPERIMENT_DESCRIPTION = "roberta-three-classifier-train-dev-based-on-rs-15-percent-dev-default-settings" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+EXPERIMENT_ID = 18
+EXPERIMENT_DESCRIPTION = "bert-two-classifier-train-dev-based-on-rs-15-percent-dev-with-att-drop-cls" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -32,7 +32,7 @@ VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_FILENAME = 'discobert.model'
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
-SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = True #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
+SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = False #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
 
 if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
     ID_TO_ACTION = ['shift', 'reduce']
@@ -45,7 +45,7 @@ ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']
 DIRECTION_TO_ID = {direction:i for i,direction in enumerate(ID_TO_DIRECTION)}
 
 ID_TO_LABEL = [
-    "None",
+    # "None",
     "attribution",
     "background",
     "cause",
@@ -66,9 +66,11 @@ ID_TO_LABEL = [
     "topic_comment",
 ]
 
+ID_TO_LABEL_FOR_REDUCE = ID_TO_LABEL[1:]
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
+LABEL_TO_ID_FOR_REDUCE = {relation:i for i,relation in enumerate(ID_TO_LABEL_FOR_REDUCE)}
 
-ENCODING = 'roberta' 
+ENCODING = 'openai-gpt' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
