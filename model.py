@@ -70,7 +70,7 @@ class DiscoBertModel(nn.Module):
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
-        self.label_classifier = nn.Linear(3 * self.hidden_size, len(config.ID_TO_LABEL))
+        self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         if self.separate_action_and_dir_classifiers==True:
             self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
@@ -217,14 +217,11 @@ class DiscoBertModel(nn.Module):
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-
                 if self.separate_action_and_dir_classifiers==True:
                     gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
-
                 loss_on_labels = loss_fn(label_scores, gold_label) 
-
                 if self.separate_action_and_dir_classifiers==True:
                     loss_on_direction = loss_fn(direction_scores, gold_direction)
                     loss = loss_on_actions + loss_on_labels + loss_on_direction
@@ -258,15 +255,8 @@ class DiscoBertModel(nn.Module):
             else:
                 rel_dir_emb = None  
             action=self.id_to_action[next_action]
-            # print("action: ", action)
-            # print("next label: ", next_label)
-            # if gold_tree is not None:
-            #     label = self.id_to_label[next_label]
-            # else:
-
-
             parser.take_action(
-                action=self.id_to_action[next_action],
+                action=action,
                 label=self.id_to_label[next_label] if action.startswith("reduce") else "None",
                 direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
                 reduce_fn=self.merge_embeddings,
