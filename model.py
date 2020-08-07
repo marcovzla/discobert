@@ -175,7 +175,11 @@ class DiscoBertModel(nn.Module):
             enc_edus = self.bert_drop(summed_up)
 
         else:
-            enc_edus = self.bert_drop(sequence_output[:,0,:])
+            if self.encoding == "openai-gpt" or self.encoding == "gpt2":
+                enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
+            else:
+                enc_edus = self.bert_drop(sequence_output[:,0,:])
+            
 
         enc_edus = self.project(enc_edus) 
 
