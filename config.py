@@ -6,9 +6,10 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 ENCODING = 'glove-2-class' #other options in this branch: "glove-2-class", "bert", and "roberta"
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 0
-EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-train-dev-based-on-rs-15-percent-dev-default-settings" # enter a brief description that will make the experiment easy to identify
+NO_CONNECTIVES = True # to mask discourse markers (full list below), set to True; only implemented for 2 class version
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+EXPERIMENT_ID = 27
+EXPERIMENT_DESCRIPTION = "experiment27-GloveEmbedding-two-classifier-train-dev-based-on-rs-15-percent-dev-default-settings-no-connectives-2020-08-09" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -26,6 +27,8 @@ INCLUDE_DIRECTION_EMBEDDING = False
 USE_ATTENTION = False # not currently in model_glove
 DROP_CLS = False
 SORT_INPUT = False #simplified curriculum learning
+
+CONNECTIVES =  ["accordingly","additionally","after","afterward","also","alternatively","although","and","as","as a result","as an alternative","as if","as long as","as soon as","as though","as well","because","before","before and after","besides","but","by comparison","by contrast","by then","consequently","conversely","earlier","either", "or","else","except","finally","for","for example","for instance","further","furthermore","hence","however","if","if and when","in addition","in contrast","in fact","in other words","in particular","in short","in sum","in the end","in turn","indeed","insofar as","instead","later","lest","likewise","meantime","meanwhile","moreover","much as","neither", "nevertheless","next","nonetheless","nor","now that","on the contrary","on the one hand", "on the other hand","on the other hand","once","or","otherwise","overall","plus","previously","rather","regardless","separately","similarly","simultaneously","since","so","so that","specifically","still","then","thereafter","thereby","therefore","though","thus","till","ultimately","unless","until","when","when and if","whereas","while","yet"]
 
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 

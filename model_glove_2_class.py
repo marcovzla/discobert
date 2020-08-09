@@ -9,7 +9,7 @@ import config
 import torch.nn.functional as F
 from utils import make_embedding_matrix, make_index2word, load_glove
 import numpy as np
-
+import re
 inf = float('inf')
 
 def loss_fn(outputs, targets):
@@ -142,9 +142,20 @@ class DiscoBertModelGlove2Class(nn.Module):
         avg_without_padding = torch.stack([torch.mean(padded_input[i][:input_lengths[i]], dim=0) for i in range(padded_input.shape[0])])
         return avg_without_padding
 
+    def replace_connectives(self, string, connectives):
+        for conn in connectives:
+            string = re.sub(r'\b(' + conn + r'|' + conn.capitalize()  + r')\b', "[UNK]", string)
+        return string
+
     def forward(self, edus, gold_tree=None):
-        # version 1: adapted from pat
-        w, x_length = self.edus2padded_sequences(edus, self.tokenizer)
+
+        if config.NO_CONNECTIVES:
+            connectives = config.CONNECTIVES
+            new_edus = [self.replace_connectives(edu, connectives) for edu in edus]
+            w, x_length = self.edus2padded_sequences(new_edus, self.tokenizer)
+
+        else:
+            w, x_length = self.edus2padded_sequences(edus, self.tokenizer)
         we = self.word_embedding(w)
         packed = torch.nn.utils.rnn.pack_padded_sequence(we, x_length, batch_first=True, enforce_sorted=False)
         # print(packed)
