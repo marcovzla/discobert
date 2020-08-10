@@ -101,14 +101,17 @@ class DiscoBertModel(nn.Module):
         # print("emb1: ", embed_1.shape, "\n", embed_1)
         return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_embedding).squeeze(dim=0)
 
-    def make_features(self, parser):
+    def make_features(self, parser, incl_buffer):
         """Gets a parser and returns an embedding that represents its current state.
         The state is represented by the concatenation of the embeddings corresponding
         to the two nodes on the top of the stack and the next node in the buffer.
         """
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
-        b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+        if incl_buffer:
+            b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+        else:
+            b = self.missing_node
         return torch.cat([s1, s0, b])
 
     def best_legal_action(self, actions, scores):
@@ -194,12 +197,20 @@ class DiscoBertModel(nn.Module):
         losses = []
 
         while not parser.is_done():
-            state_features = self.make_features(parser)
+            state_features = self.make_features(parser, True)
+            # print(state_features.shape)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
             # predict next action, label, and, if predicting actions and directions separately, direction
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+            # print("next act: ", self.id_to_action[self.best_legal_action(legal_actions, action_scores)])
+            if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
+
+                state_features_for_labels = self.make_features(parser, False) #make a new set of features without the buffer
+                label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
+            else:
+                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                
             if self.separate_action_and_dir_classifiers==True:
                 direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
             # are we training?
@@ -228,8 +239,10 @@ class DiscoBertModel(nn.Module):
                     next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
-                
+                if self.id_to_action[next_action].startswith("reduce"):
+                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                else:
+                    next_label = "None"
                 if self.separate_action_and_dir_classifiers==True:
                     next_direction = direction_scores.argmax().unsqueeze(0)
                 
@@ -243,10 +256,10 @@ class DiscoBertModel(nn.Module):
                     rel_dir_emb = rel_emb
             else:
                 rel_dir_emb = None  
-
+            action=self.id_to_action[next_action]
             parser.take_action(
-                action=self.id_to_action[next_action],
-                label=self.id_to_label[next_label],
+                action=action,
+                label=self.id_to_label[next_label] if action.startswith("reduce") else "None",
                 direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
                 reduce_fn=self.merge_embeddings,
                 rel_embedding = rel_dir_emb

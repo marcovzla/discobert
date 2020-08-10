@@ -66,9 +66,10 @@ ID_TO_LABEL = [
     "topic_comment",
 ]
 
+
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-ENCODING = 'openai-gpt' 
+ENCODING = 'bert' 
 
 if ENCODING == "bert":
     # "pre-trained using a combination of masked language modeling objective and next sentence prediction" (https://huggingface.co/transformers/model_doc/bert.html)
