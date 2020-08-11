@@ -246,7 +246,7 @@ class DiscoBertModel(nn.Module):
                     next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
                 # there is no label to predict for shift
                 else:
-                    next_label = "None"
+                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
                 if self.separate_action_and_dir_classifiers==True:
                     next_direction = direction_scores.argmax().unsqueeze(0)
                 
