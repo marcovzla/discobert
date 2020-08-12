@@ -84,14 +84,23 @@ if __name__ == '__main__':
             relations_scores[i] = rs_results[2]
             full_scores[i] = rs_results[3]
 
+        span_score = np.around(np.mean(span_scores), decimals=3)
+        span_score_sd = np.around(np.std(span_scores), decimals=3)
+        nuc_score = np.around(np.mean(nuclearity_scores), decimals=3)
+        nuc_score_sd = np.around(np.std(nuclearity_scores), decimals=3)
+        rel_score = np.around(np.mean(relations_scores), decimals=3)
+        rel_score_sd = np.around(np.std(relations_scores), decimals=3)
+        full_score = np.around(np.mean(full_scores), decimals=3)
+        full_score_sd = np.around(np.std(full_scores), decimals=3)
         print("\n========================================================")
         print(f"Mean scores from {len(random_seeds)} runs with different random seeds:")
         print("--------------------------------------------------------")
-        print("F1 (span):\t", np.around(np.mean(span_scores), decimals=3), "±", np.around(np.std(span_scores), decimals=3))
-        print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=3), "±", np.around(np.std(nuclearity_scores), decimals=3))
-        print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=3), "±", np.around(np.std(relations_scores), decimals=3))
-        print("F1 (full):\t", np.around(np.mean(full_scores), decimals=3), "±", np.around(np.std(full_scores), decimals=3))
- 
+        print("F1 (span):\t", span_score, "±", span_score_sd)
+        print("F1 (span + dir):\t", nuc_score , "±", nuc_score_sd)
+        print("F1 (span + rel):\t", rel_score, "±", rel_score_sd)
+        print("F1 (full):\t", full_score , "±", full_score_sd)
+        textpm_string = "\\\\textpm".replace("\\\\", "\\")
+        print("latex pringout: ", f" & {span_score} {textpm_string} {span_score_sd} &  {nuc_score} {textpm_string} {nuc_score_sd} &  {rel_score} {textpm_string} {rel_score_sd} & {full_score} {textpm_string} {full_score_sd} \\\\")
 
 
 
