@@ -5,11 +5,11 @@ from transformers import RobertaTokenizer
 import torchtext
 from torchtext.data import get_tokenizer
 
-ENCODING = 'glove-2-class' #other options in this branch: "glove-2-class", "bert", and "roberta"
-NO_CONNECTIVES = True # to mask discourse markers (full list below), set to True; only implemented for 2 class version
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
-EXPERIMENT_ID = 27
-EXPERIMENT_DESCRIPTION = "experiment27-GloveEmbedding-two-classifier-train-dev-based-on-rs-15-percent-dev-default-settings-no-connectives-2020-08-09" # enter a brief description that will make the experiment easy to identify
+ENCODING = 'glove-2-class' #options in this branch: "glove", "glove-2-class", 'glove-2-class-stack-only', "bert", and "roberta"
+NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+EXPERIMENT_ID = 0
+EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-only-stack-in-label-classifier" # enter a brief description that will make the experiment easy to identify
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -83,7 +83,7 @@ if ENCODING == "bert":
 elif ENCODING == "roberta":
     BERT_PATH = DISCOBERT_PATH/('roberta-base')
     TOKENIZER = RobertaTokenizer.from_pretrained(str(BERT_PATH))
-elif ENCODING == "glove" or ENCODING == "glove-2-class":
+elif ENCODING == "glove" or ENCODING == "glove-2-class" or ENCODING = "glove-2-class-stack-only":
     BERT_PATH = None
     EMBEDDING_SIZE = 50
     GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
