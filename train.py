@@ -9,6 +9,7 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
 from model_glove import DiscoBertModelGlove
 from model_glove_2_class import DiscoBertModelGlove2Class
+from model_glove_2_class_only_stack import DiscoBertModelGlove2ClassStackOnly
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
 from utils import prf1
 import config
@@ -79,6 +80,9 @@ def main(experiment_dir_path):
     elif config.ENCODING == 'glove-2-class':
         word2index = make_word2index(train_ds)   
         model = DiscoBertModelGlove2Class(word2index)
+    elif config.ENCODING == 'glove-2-class-stack-only':
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove2ClassStackOnly(word2index)
     else:
         model = DiscoBertModel()
         
