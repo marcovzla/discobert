@@ -33,7 +33,7 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
-        if self.encoding == 'bert':
+        if self.encoding == 'bert-large':
             self.tokenizer = config.TOKENIZER
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
@@ -135,7 +135,7 @@ class DiscoBertModel(nn.Module):
     def forward(self, edus, gold_tree=None):
 
         # BERT model returns both sequence and pooled output
-        if self.encoding == "bert":
+        if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus
             encodings = self.tokenizer.encode_batch(edus)
             ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
