@@ -2,8 +2,9 @@ from pathlib import Path
 import tokenizers
 from transformers import *
 
-ENCODING = 'xlnet' 
+ENCODING = 'bert' 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 EXPERIMENT_ID = 7
 EXPERIMENT_DESCRIPTION = f"{encoding}-two-classifier-only-stack-for-label-classifier-default-settings" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
@@ -20,7 +21,7 @@ DIRECTION_HIDDEN_SIZE = 10
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
-USE_ATTENTION = False
+USE_ATTENTION = True
 DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
 SORT_INPUT = False #simplified curriculum learning
 
