@@ -33,7 +33,7 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
-        if self.encoding == 'bert-large':
+        if self.encoding == 'bert' or self.encoding == 'bert-large':
             self.tokenizer = config.TOKENIZER
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
