@@ -35,11 +35,16 @@ def eval_trees(pred_trees, gold_trees, view_fn):
 
 def main(path_to_model, test_ds):
     
+    if config.RERUN_DEV_EVAL == True:
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel.load(path_to_model)
     model.to(device)
     
-    pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
+    if config.RERUN_DEV_EVAL == True:
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+    else:
+        pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
     p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
     # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
     print(f'S (span only)   F1:{f1_s:.2%}')
@@ -65,7 +70,11 @@ if __name__ == '__main__':
     test_ds = list(load_annotations(config.VALID_PATH))
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
 
-    with open(os.path.join(experiment_dir_path, "eval_log"), "w") as f:
+    if config.RERUN_DEV_EVAL == True:
+        log_name = "eval_log-dev"
+    else:
+        log_name = "eval_log-debug"
+    with open(os.path.join(experiment_dir_path, log_name), "w") as f:
         sys.stdout = f
         random_seeds = config.RANDOM_SEEDS
 
@@ -75,8 +84,12 @@ if __name__ == '__main__':
         full_scores = np.zeros(len(random_seeds)) # span + direction + relation label
 
         for i in range(len(random_seeds)):
-            rs = random_seeds[i]
-            path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(rs), config.MODEL_FILENAME)
+            r_seed = random_seeds[i]
+            random.seed(r_seed)
+            torch.manual_seed(r_seed)
+            torch.cuda.manual_seed(r_seed)
+            np.random.seed(r_seed)
+            path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(r_seed), config.MODEL_FILENAME)
             print("model path: ", path_to_model)
             rs_results = main(path_to_model, test_ds)
             span_scores[i] = rs_results[0]
@@ -84,14 +97,23 @@ if __name__ == '__main__':
             relations_scores[i] = rs_results[2]
             full_scores[i] = rs_results[3]
 
+        span_score = np.around(np.mean(span_scores), decimals=3)
+        span_score_sd = np.around(np.std(span_scores), decimals=3)
+        nuc_score = np.around(np.mean(nuclearity_scores), decimals=3)
+        nuc_score_sd = np.around(np.std(nuclearity_scores), decimals=3)
+        rel_score = np.around(np.mean(relations_scores), decimals=3)
+        rel_score_sd = np.around(np.std(relations_scores), decimals=3)
+        full_score = np.around(np.mean(full_scores), decimals=3)
+        full_score_sd = np.around(np.std(full_scores), decimals=3)
         print("\n========================================================")
         print(f"Mean scores from {len(random_seeds)} runs with different random seeds:")
         print("--------------------------------------------------------")
-        print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
-        print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
-        print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
-        print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
- 
+        print("F1 (span):\t", span_score, "±", span_score_sd)
+        print("F1 (span + dir):\t", nuc_score , "±", nuc_score_sd)
+        print("F1 (span + rel):\t", rel_score, "±", rel_score_sd)
+        print("F1 (full):\t", full_score , "±", full_score_sd)
+        textpm_string = "\\\\textpm".replace("\\\\", "\\")
+        print("latex printout: ", f" & {span_score} {textpm_string} {span_score_sd} &  {nuc_score} {textpm_string} {nuc_score_sd} &  {rel_score} {textpm_string} {rel_score_sd} & {full_score} {textpm_string} {full_score_sd} \\\\")
 
 
 

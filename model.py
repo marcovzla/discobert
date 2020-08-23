@@ -34,7 +34,7 @@ class DiscoBertModel(nn.Module):
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
-        if self.encoding == 'bert':
+        if self.encoding == 'bert' or self.encoding == 'bert-large':
             self.tokenizer = config.TOKENIZER
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
@@ -102,14 +102,17 @@ class DiscoBertModel(nn.Module):
         # print("emb1: ", embed_1.shape, "\n", embed_1)
         return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_embedding).squeeze(dim=0)
 
-    def make_features(self, parser):
+    def make_features(self, parser, incl_buffer):
         """Gets a parser and returns an embedding that represents its current state.
         The state is represented by the concatenation of the embeddings corresponding
         to the two nodes on the top of the stack and the next node in the buffer.
         """
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
-        b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+        if incl_buffer:
+            b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+        else:
+            b = self.missing_node
         return torch.cat([s1, s0, b])
 
     def best_legal_action(self, actions, scores):
@@ -139,7 +142,7 @@ class DiscoBertModel(nn.Module):
         connectives = config.CONNECTIVES
         new_edus = [self.replace_connectives(edu, connectives) for edu in edus]
         # BERT model returns both sequence and pooled output
-        if self.encoding == "bert":
+        if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus
             # old_encodings = self.tokenizer.encode_batch(edus)
             # for edu in new_edus:
@@ -166,7 +169,6 @@ class DiscoBertModel(nn.Module):
             )
 
             
-
         # the other models we test, do not have a pooled output
         else:
             # tokenize edus 
@@ -194,7 +196,13 @@ class DiscoBertModel(nn.Module):
             enc_edus = self.bert_drop(summed_up)
 
         else:
-            enc_edus = self.bert_drop(sequence_output[:,0,:])
+            # gpt1 and gpt2 have not been trained with a cls (the beginning of sequence/classification token),
+            # so to get the representation of the edu, take the mean of the token embeddings
+            if self.encoding == "openai-gpt" or self.encoding == "gpt2":
+                enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
+            else:
+                enc_edus = self.bert_drop(sequence_output[:,0,:])
+            
 
         enc_edus = self.project(enc_edus) 
 
@@ -209,12 +217,21 @@ class DiscoBertModel(nn.Module):
         losses = []
 
         while not parser.is_done():
-            state_features = self.make_features(parser)
+            # the boolean in 'make_features' is whether or not to include the buffer node as a feature
+            state_features = self.make_features(parser, True)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
-            # predict next action, label, and, if predicting actions and directions separately, direction
+            # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+            # make a new set of features without the buffer for label classifier for any of the reduce actions
+            if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
+                state_features_for_labels = self.make_features(parser, False) 
+                label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
+            # for shift, use the stack + buffer features for label classifier
+            else:
+                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+            
+            # in the three classifier version, direction is predicted separately from the action
             if self.separate_action_and_dir_classifiers==True:
                 direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
             # are we training?
@@ -243,8 +260,12 @@ class DiscoBertModel(nn.Module):
                     next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
-                
+                # predict the label for any of the reduce actions
+                if self.id_to_action[next_action].startswith("reduce"):
+                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                # there is no label to predict for shift
+                else:
+                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
                 if self.separate_action_and_dir_classifiers==True:
                     next_direction = direction_scores.argmax().unsqueeze(0)
                 
@@ -259,9 +280,12 @@ class DiscoBertModel(nn.Module):
             else:
                 rel_dir_emb = None  
 
+            
+            action=self.id_to_action[next_action]
+            # take the step
             parser.take_action(
-                action=self.id_to_action[next_action],
-                label=self.id_to_label[next_label],
+                action=action,
+                label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
                 direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
                 reduce_fn=self.merge_embeddings,
                 rel_embedding = rel_dir_emb
