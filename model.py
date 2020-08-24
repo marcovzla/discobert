@@ -6,6 +6,9 @@ from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
 import torch.nn.functional as F
+from collections import namedtuple
+
+Annotation = namedtuple('Annotation', 'docid raw dis edus')
 
 inf = float('inf')
 
@@ -21,6 +24,8 @@ class DiscoBertModel(nn.Module):
         self.bert_path = config.BERT_PATH
         self.id_to_action = config.ID_TO_ACTION
         self.action_to_id = config.ACTION_TO_ID
+        self.segmentor_tag_to_id = config.SEGMENT_CLASS_TO_ID
+        self.id_to_segmentor_tag = config.ID_TO_SEGMENT_CLASSES
         self.id_to_direction = config.ID_TO_DIRECTION
         self.direction_to_id = config.DIRECTION_TO_ID
         self.id_to_label = config.ID_TO_LABEL
@@ -69,6 +74,9 @@ class DiscoBertModel(nn.Module):
         self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
+        
+        
+        self.segment_classifier = nn.Linear(768, 2)
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
         if self.separate_action_and_dir_classifiers==True:
@@ -132,149 +140,259 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, gold_tree=None):
+    def forward(self, edus, train, gold_tree=None, raw=None):
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        # todo: how to detokenize into edus to produce annotations? maybe what's discussed here: https://github.com/huggingface/transformers/issues/36
+        # print("edus: ", edus)
+        # ===================================================================================
+        # =======This is what I should do with raw input, but not if I want to evaluate======
+        # ===================================================================================
+        # for running the segmenter without eval, can just do raw; need some flag somewhere
+        # print("raw: ", raw)
+        # tokenizer = BertTokenizer.from_pretrained('bert-base-cased')
+        # tokenized_raw = tokenizer(raw.replace("\n", " "))
+        # # ids = torch.tensor([e.input_ids for e in tokenized_raw], dtype=torch.long).to(self.device)
+        # # attention_mask = torch.tensor([e.attention_mask for e in tokenized_raw], dtype=torch.long).to(self.device)
+        # # token_type_ids = torch.tensor([e.token_type_ids for e in tokenized_raw], dtype=torch.long).to(self.device)
+        # print("raw ids: ", torch.tensor(tokenized_raw.input_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0).shape)
+        # seq_output_from_raw, pooled_from_raw = self.encoder( #sequence_output: [edu, tok, emb]
+        #         torch.tensor(tokenized_raw.input_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0),
+        #         attention_mask=torch.tensor(tokenized_raw.attention_mask, dtype=torch.long).to(self.device).unsqueeze(dim=0),
+        #         token_type_ids=torch.tensor(tokenized_raw.token_type_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0),
+        #     )
+        # ===================================================================================
+        # print("tokenized raw: ", tokenized_raw)
+        # print("encoded raw: ", seq_output_from_raw.shape)
+        
+        ids = []
+        attention_mask = []
+        token_type_ids = []
+        gold_tags = []
+        for i in range(len(edus)):
+            print(edus[i])
+            tokenized_edu = tokenizer(edus[i])
+            ids.extend(tokenized_edu.input_ids)
+            attention_mask.extend(tokenized_edu.attention_mask)
+            token_type_ids.extend(tokenized_edu.token_type_ids)
+            for j in range(len(tokenized_edu.input_ids)):
+                if j == 0:
+                    gold_tags.append("B")   
+                else:
+                    gold_tags.append("O")
+        
+        ids = torch.tensor(ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+        attention_mask = torch.tensor(attention_mask, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+        token_type_ids = torch.tensor(token_type_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+        print(ids.shape)
+        print(attention_mask.shape)
+        print(token_type_ids.shape)
+        # print(ids)
+        # print(attention_mask)
+        # print(token_type_ids)
+        # print(gold_tags)
+        # print("len ids: ", ids.shape)
+        # print("gold len: ", len(gold_tags))
 
-        # BERT model returns both sequence and pooled output
-        if self.encoding == "bert":
-            # tokenize edus
-            encodings = self.tokenizer.encode_batch(edus)
-            ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
-            attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
-            token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
-
-            # encode edus
-            sequence_output, pooled_output = self.encoder( #sequence_output: [edu, tok, emb]
+        seq_output_from_tokenized_edus, pooled_from_tokenized_edus = self.encoder( #sequence_output: [edu, tok, emb]
                 ids,
                 attention_mask=attention_mask,
                 token_type_ids=token_type_ids,
             )
 
+        # get gold data: for every 
+        #     ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
+        #     print("ids: ", ids.shape)
+        #     attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
+        #     token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
+
+        
+        # BERT model returns both sequence and pooled output
+        # if self.encoding == "bert":
+        #     # tokenize edus
+        #     encodings = self.tokenizer.encode_batch(edus)
+        #     ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
+        #     print("ids: ", ids.shape)
+        #     attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
+        #     token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
+
+        #     # encode edus
+        #     sequence_output, pooled_output = self.encoder( #sequence_output: [edu, tok, emb]
+        #         ids,
+        #         attention_mask=attention_mask,
+        #         token_type_ids=token_type_ids,
+        #     )
+
             
-        # the other models we test, do not have a pooled output
-        else:
-            # tokenize edus 
-            batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
-            ids = batched_encodings['input_ids']
-            attention_mask = batched_encodings['attention_mask']
-            # encode edus
-            sequence_output = self.encoder(ids, attention_mask=attention_mask, output_hidden_states=True)[0]
+        # # the other models we test, do not have a pooled output
+        # else:
+        #     # tokenize edus 
+        #     batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
+        #     ids = batched_encodings['input_ids']
+        #     attention_mask = batched_encodings['attention_mask']
+        #     # encode edus
+        #     sequence_output = self.encoder(ids, attention_mask=attention_mask, output_hidden_states=True)[0]
 
 
-        if config.DROP_CLS == True:
-            sequence_output = sequence_output[:, 1:, :] 
-            attention_mask = attention_mask[:, 1:]
+        # if config.DROP_CLS == True:
+        #     sequence_output = sequence_output[:, 1:, :] 
+        #     attention_mask = attention_mask[:, 1:]
         
         
-        if config.USE_ATTENTION == True:
-            after1stAttn = self.attn1(sequence_output)
-            nonLinearity = self.betweenAttention(after1stAttn)
-            after2ndAttn = self.attn2(nonLinearity)
-            attention_mask = attention_mask.unsqueeze(dim=-1)
-            masked_att = after2ndAttn * attention_mask
-            attn_weights = F.softmax(masked_att, dim=1)
-            attn_applied =  sequence_output * attn_weights #[9, 17, 768] [9, 17, 1] 
-            summed_up = torch.sum(attn_applied, dim=1)
-            enc_edus = self.bert_drop(summed_up)
+        # if config.USE_ATTENTION == True:
+        #     after1stAttn = self.attn1(sequence_output)
+        #     nonLinearity = self.betweenAttention(after1stAttn)
+        #     after2ndAttn = self.attn2(nonLinearity)
+        #     attention_mask = attention_mask.unsqueeze(dim=-1)
+        #     masked_att = after2ndAttn * attention_mask
+        #     attn_weights = F.softmax(masked_att, dim=1)
+        #     attn_applied =  sequence_output * attn_weights #[9, 17, 768] [9, 17, 1] 
+        #     summed_up = torch.sum(attn_applied, dim=1)
+        #     enc_edus = self.bert_drop(summed_up)
 
-        else:
-            # gpt1 and gpt2 have not been trained with a cls (the beginning of sequence/classification token),
-            # so to get the representation of the edu, take the mean of the token embeddings
-            if self.encoding == "openai-gpt" or self.encoding == "gpt2":
-                enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
-            else:
-                enc_edus = self.bert_drop(sequence_output[:,0,:])
+        # else:
+        #     # gpt1 and gpt2 have not been trained with a cls (the beginning of sequence/classification token),
+        #     # so to get the representation of the edu, take the mean of the token embeddings
+        #     if self.encoding == "openai-gpt" or self.encoding == "gpt2":
+        #         enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
+        #     else:
+        #         enc_edus = self.bert_drop(sequence_output[:,0,:])
             
 
-        enc_edus = self.project(enc_edus) 
-
+        # enc_edus = self.project(enc_edus) 
+        # encoded_docs = seq_output_from_raw.squeeze(dim=0)
+        encoded_docs = seq_output_from_tokenized_edus.squeeze(dim=0)
+        print("encoded docs shape: ", encoded_docs.shape)
         # make treenodes
-        buffer = []
-        for i in range(enc_edus.shape[0]):
-            buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
+        # buffer = []
+        # for i in range(enc_edus.shape[0]):
+        #     buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
 
-        # initialize automata
-        parser = TransitionSystem(buffer)
-
+        # # initialize automata
+        # parser = TransitionSystem(buffer)
+        predictions = []
+        new_edus = []
         losses = []
-
-        while not parser.is_done():
-            # the boolean in 'make_features' is whether or not to include the buffer node as a feature
-            state_features = self.make_features(parser, True)
-            # legal actions for current parser
-            legal_actions = parser.all_legal_actions()
-            # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
-            action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            # make a new set of features without the buffer for label classifier for any of the reduce actions
-            if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
-                state_features_for_labels = self.make_features(parser, False) 
-                label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
-            # for shift, use the stack + buffer features for label classifier
-            else:
-                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+        potential_edu = []
+        for i in range(encoded_docs.shape[0]):
             
-            # in the three classifier version, direction is predicted separately from the action
-            if self.separate_action_and_dir_classifiers==True:
-                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+            print("enc word: ", encoded_docs[i].shape)
+            prediction_scores = self.segment_classifier(encoded_docs[i])
+            print("pred: ", prediction_scores)
+            print("max: ", torch.argmax(prediction_scores))
+            predicted_tag = self.id_to_segmentor_tag[torch.argmax(prediction_scores)]
+            
             # are we training?
-            if gold_tree is not None:
-                gold_step = parser.gold_step(gold_tree)
-                # unpack step
-                gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
-                gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-                if self.separate_action_and_dir_classifiers==True:
-                    gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
-                # calculate loss
-                loss_on_actions = loss_fn(action_scores, gold_action)
-                loss_on_labels = loss_fn(label_scores, gold_label) 
-                if self.separate_action_and_dir_classifiers==True:
-                    loss_on_direction = loss_fn(direction_scores, gold_direction)
-                    loss = loss_on_actions + loss_on_labels + loss_on_direction
-                else:
-                    loss = loss_on_actions + loss_on_labels 
-                           
-                # store loss for later
-                losses.append(loss)
+            if train == True:
+                print("pred tag: ", predicted_tag)
+                gold_pred = torch.tensor([self.segmentor_tag_to_id[gold_tags[i]]], dtype=torch.long).to(self.device)
+                print("gold pred: ", gold_pred)
+                # predictions.append(gold_tags[i])
+                predictions.append(predicted_tag)
+                if gold_tags[i] == "O":
+                    print("ids: ", ids)
+                    print("i: ", i)
+                    token_id = ids.squeeze(dim=0)[i]
+                    print("token id: ", token_id)
+                    token = tokenizer.convert_ids_to_tokens([token_id])
+                    
+                    print("token: ", token)
+                    potential_edu.append(token[0])
+                elif gold_tags[i] == "B" or i == encoded_docs.shape[0] - 1:
+                    print("pot edu: ", potential_edu)
+                    potential_edu_str = " ".join(potential_edu)
+                    
+                    print("pot edu str: ", potential_edu_str)
+                    new_edus.append(potential_edu_str)
+                    token_id = ids.squeeze(dim=0)[i]
+                    print("token id: ", token_id)
+                    token = tokenizer.convert_ids_to_tokens([token_id])
+                    
+                    print("token: ", token)
+                    potential_edu = [] 
+                # while not parser.is_done():
+                # the boolean in 'make_features' is whether or not to include the buffer node as a feature
+                # state_features = self.make_features(parser, True)
+                # # legal actions for current parser
+                # legal_actions = parser.all_legal_actions()
+                # # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
+                # action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                # make a new set of features without the buffer for label classifier for any of the reduce actions
+                # if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
+                #     state_features_for_labels = self.make_features(parser, False) 
+                #     label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
+                # # for shift, use the stack + buffer features for label classifier
+                # else:
+                #     label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                
+                # in the three classifier version, direction is predicted separately from the action
+                # if self.separate_action_and_dir_classifiers==True:
+                #     direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+                
+                # gold = if 
+                # if gold_tree is not None:
+                #     gold_step = parser.gold_step(gold_tree)
+                #     # unpack step
+                #     gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
+                #     gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
+                #     if self.separate_action_and_dir_classifiers==True:
+                #         gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+                    # calculate loss
+                loss_on_tags = loss_fn(prediction_scores.unsqueeze(dim=0), gold_pred)
+                print("loss on tags: ", loss_on_tags)
+                    # loss_on_labels = loss_fn(label_scores, gold_label) 
+                    # if self.separate_action_and_dir_classifiers==True:
+                    #     loss_on_direction = loss_fn(direction_scores, gold_direction)
+                    #     loss = loss_on_actions + loss_on_labels + loss_on_direction
+                    # else:
+                    #     loss = loss_on_actions + loss_on_labels 
+                            
+                    # # store loss for later
+                losses.append(loss_on_tags)
                 # teacher forcing
-                next_action = gold_action
-                next_label = gold_label
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = gold_direction
-            else:
-                next_action = self.best_legal_action(legal_actions, action_scores)
-                # predict the label for any of the reduce actions
-                if self.id_to_action[next_action].startswith("reduce"):
-                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
-                # there is no label to predict for shift
-                else:
-                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = direction_scores.argmax().unsqueeze(0)
+            #     next_action = gold_action
+            #     next_label = gold_label
+            #     if self.separate_action_and_dir_classifiers==True:
+            #         next_direction = gold_direction
+            else: #in this case, no else?
+                predictions.append(predicted_tag)
+            #     next_action = self.best_legal_action(legal_actions, action_scores)
+            #     # predict the label for any of the reduce actions
+            #     if self.id_to_action[next_action].startswith("reduce"):
+            #         next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+            #     # there is no label to predict for shift
+            #     else:
+            #         next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
+            #     if self.separate_action_and_dir_classifiers==True:
+            #         next_direction = direction_scores.argmax().unsqueeze(0)
                 
             
-            if self.include_relation_embedding:
-                rel_emb = self.relation_embeddings(next_label)
-                if self.include_direction_embedding:
-                    dir_emb = self.direction_embedding(next_direction)
-                    rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
-                else:
-                    rel_dir_emb = rel_emb
-            else:
-                rel_dir_emb = None  
+            # if self.include_relation_embedding:
+            #     rel_emb = self.relation_embeddings(next_label)
+            #     if self.include_direction_embedding:
+            #         dir_emb = self.direction_embedding(next_direction)
+            #         rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
+            #     else:
+            #         rel_dir_emb = rel_emb
+            # else:
+            #     rel_dir_emb = None  
 
             
-            action=self.id_to_action[next_action]
-            # take the step
-            parser.take_action(
-                action=action,
-                label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
-                direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
-                reduce_fn=self.merge_embeddings,
-                rel_embedding = rel_dir_emb
-            )
+            # action=self.id_to_action[next_action]
+            # # take the step
+            # parser.take_action(
+            #     action=action,
+            #     label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
+            #     direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
+            #     reduce_fn=self.merge_embeddings,
+            #     rel_embedding = rel_dir_emb
+            # )
 
         # returns the TreeNode for the tree root
-        predicted_tree = parser.get_result()
-        outputs = (predicted_tree,)
+        print("NEW EDUS: ", new_edus)
+        
+        # new_edus = []
+        # for 
+        # outputs = (predicted_tree,)
 
         # are we training?
         if gold_tree is not None:

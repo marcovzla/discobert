@@ -48,6 +48,9 @@ def main(experiment_dir_path):
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+    # for td in train_ds:
+    #     print("raw: ", td.raw)
+    #     print("edus", td.edus)
     
     if config.SORT_INPUT == True:
         # construct new train_ds
