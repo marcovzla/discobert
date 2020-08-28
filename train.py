@@ -32,6 +32,33 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
 
+def eval_boundaries(predictions, gold_boundaries):
+    print("preds: ", predictions)
+    print("golds: ", gold_boundaries)
+    # following braud (2017), to eval the segmenter, just calculated p,r,f1 for boundaries
+    correct_bs = 0 #true pos
+    wrong_bs = 0 #false pos
+    missed_bs = 0 # false neg
+
+    for i in range(len(predictions)):
+        print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
+        if predictions[i] == "B" and gold_boundaries[i] == "B":
+            print("CORRECT")
+            correct_bs += 1
+        
+        elif predictions[i] == "B" and gold_boundaries[i] != "B":
+            wrong_bs +=1 
+            print("FALSE POS")
+        elif gold_boundaries[i] == "B" and predictions[i] != "B":
+            missed_bs += 1
+            print("FALSE NEG")
+
+
+    precision = float(correct_bs)/(correct_bs + wrong_bs)
+    recall =  float(correct_bs)/(correct_bs + missed_bs) 
+    f1 = 2 * precision * recall / (precision + recall)
+    return precision, recall, f1
+
 def main(experiment_dir_path):
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
@@ -63,7 +90,7 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    num_training_steps = int(len(train_ds) * config.EPOCHS)
+    num_training_steps = int(len(train_ds[:20]) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -92,50 +119,50 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         print("-----------")
-        engine.train_fn(train_ds, model, optimizer, device, scheduler)
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
-        p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
-        # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'S (span only)   F1:{f1_s:.2%}')
-        if f1_s > max_f1_S:
-            max_f1_S = f1_s
-            max_f1_S_epoch = epoch + 1
+        engine.train_fn(train_ds[:20], model, optimizer, device, scheduler)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds[:10], model, device)
+        p, r, f1 = eval_boundaries(pred_trees, gold_trees)
+        print(f'boundaries   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        # print(f'S (span only)   F1:{f1_s:.2%}')
+        # if f1_s > max_f1_S:
+        #     max_f1_S = f1_s
+        #     max_f1_S_epoch = epoch + 1
         
-        p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
-        # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'N (span + dir)  F1:{f1_n:.2%}')
-        if f1_n > max_f1_N:
-            max_f1_N = f1_n
-            max_f1_N_epoch = epoch + 1     
+    #     p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+    #     # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+    #     print(f'N (span + dir)  F1:{f1_n:.2%}')
+    #     if f1_n > max_f1_N:
+    #         max_f1_N = f1_n
+    #         max_f1_N_epoch = epoch + 1     
 
-        p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
-        # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'R (span + label)        F1:{f1_r:.2%}')
-        if f1_r > max_f1_R:
-            max_f1_R = f1_r
-            max_f1_R_epoch = epoch + 1
+    #     p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+    #     # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+    #     print(f'R (span + label)        F1:{f1_r:.2%}')
+    #     if f1_r > max_f1_R:
+    #         max_f1_R = f1_r
+    #         max_f1_R_epoch = epoch + 1
 
-        p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
-        # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'F (full)        F1:{f1:.2%}')
-        if f1 > max_f1_F:
-            max_f1_F = f1
-            max_f1_F_epoch = epoch + 1
-        if f1 > saved_model_f1_f:
-            #we decide whether or not save the model based on Full F1, but save best scores from each component
-            if config.DEBUG == False:
-                model.save(model_path)
-            saved_model_f1_s = f1_s
-            saved_model_f1_n = f1_n
-            saved_model_f1_r = f1_r
-            saved_model_f1_f = f1
+    #     p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
+    #     # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+    #     print(f'F (full)        F1:{f1:.2%}')
+    #     if f1 > max_f1_F:
+    #         max_f1_F = f1
+    #         max_f1_F_epoch = epoch + 1
+    #     if f1 > saved_model_f1_f:
+    #         #we decide whether or not save the model based on Full F1, but save best scores from each component
+    #         if config.DEBUG == False:
+    #             model.save(model_path)
+    #         saved_model_f1_s = f1_s
+    #         saved_model_f1_n = f1_n
+    #         saved_model_f1_r = f1_r
+    #         saved_model_f1_f = f1
 
-    print("\n--------------------------------------------------------")
-    print("Saved model:\n--------------------------------------------------------")
-    print("F1 span:\t", saved_model_f1_s)
-    print("F1 span + direction:\t", saved_model_f1_n)
-    print("F1 span + relation:\t", saved_model_f1_r)
-    print("F1 full:\t", saved_model_f1_f)
+    # print("\n--------------------------------------------------------")
+    # print("Saved model:\n--------------------------------------------------------")
+    # print("F1 span:\t", saved_model_f1_s)
+    # print("F1 span + direction:\t", saved_model_f1_n)
+    # print("F1 span + relation:\t", saved_model_f1_r)
+    # print("F1 full:\t", saved_model_f1_f)
     
 
 

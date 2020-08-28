@@ -7,6 +7,7 @@ from treelstm import TreeLstm
 import config
 import torch.nn.functional as F
 from collections import namedtuple
+from nltk.tokenize import sent_tokenize
 
 Annotation = namedtuple('Annotation', 'docid raw dis edus')
 
@@ -140,7 +141,14 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, train, gold_tree=None, raw=None):
+    def forward(self, edus, train):
+
+        #TODOS:
+        # tokenize sent
+        # encode sent by sent
+        # concat docs from the sent encodings
+        # predictions will have sent boundaries 
+        # check if i am not evaluating the right thing---maybe i am feeding the gold data somewhere during eval
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
         # todo: how to detokenize into edus to produce annotations? maybe what's discussed here: https://github.com/huggingface/transformers/issues/36
         # print("edus: ", edus)
@@ -168,24 +176,36 @@ class DiscoBertModel(nn.Module):
         attention_mask = []
         token_type_ids = []
         gold_tags = []
+        gold_as_tokens = []
+        
+        # looks like gold is created correctly
         for i in range(len(edus)):
-            print(edus[i])
+            # print(edus[i])
             tokenized_edu = tokenizer(edus[i])
             ids.extend(tokenized_edu.input_ids)
             attention_mask.extend(tokenized_edu.attention_mask)
             token_type_ids.extend(tokenized_edu.token_type_ids)
+            
             for j in range(len(tokenized_edu.input_ids)):
+                token_id = tokenized_edu.input_ids[j]
+                print("token id: ", token_id)
+                token = tokenizer.convert_ids_to_tokens([token_id])
+                print("token: ", token)
+                gold_as_tokens.append(token)
                 if j == 0:
                     gold_tags.append("B")   
+                    print("B")
                 else:
                     gold_tags.append("O")
+                    print("O")
+                
         
         ids = torch.tensor(ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
         attention_mask = torch.tensor(attention_mask, dtype=torch.long).to(self.device).unsqueeze(dim=0)
         token_type_ids = torch.tensor(token_type_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
-        print(ids.shape)
-        print(attention_mask.shape)
-        print(token_type_ids.shape)
+        # print(ids.shape)
+        # print(attention_mask.shape)
+        # print(token_type_ids.shape)
         # print(ids)
         # print(attention_mask)
         # print(token_type_ids)
@@ -261,7 +281,7 @@ class DiscoBertModel(nn.Module):
         # enc_edus = self.project(enc_edus) 
         # encoded_docs = seq_output_from_raw.squeeze(dim=0)
         encoded_docs = seq_output_from_tokenized_edus.squeeze(dim=0)
-        print("encoded docs shape: ", encoded_docs.shape)
+        # print("encoded docs shape: ", encoded_docs.shape)
         # make treenodes
         # buffer = []
         # for i in range(enc_edus.shape[0]):
@@ -273,42 +293,48 @@ class DiscoBertModel(nn.Module):
         new_edus = []
         losses = []
         potential_edu = []
+        
         for i in range(encoded_docs.shape[0]):
+            # print("shape of encoded docs: ", encoded_docs.shape)
             
-            print("enc word: ", encoded_docs[i].shape)
+            # print("enc word: ", encoded_docs[i].shape)
             prediction_scores = self.segment_classifier(encoded_docs[i])
-            print("pred: ", prediction_scores)
-            print("max: ", torch.argmax(prediction_scores))
+            # print("pred: ", prediction_scores)
+            # print("max: ", torch.argmax(prediction_scores))
             predicted_tag = self.id_to_segmentor_tag[torch.argmax(prediction_scores)]
             
             # are we training?
             if train == True:
-                print("pred tag: ", predicted_tag)
+                # print("pred tag: ", predicted_tag)
                 gold_pred = torch.tensor([self.segmentor_tag_to_id[gold_tags[i]]], dtype=torch.long).to(self.device)
-                print("gold pred: ", gold_pred)
+                # print("gold pred: ", gold_pred)
                 # predictions.append(gold_tags[i])
                 predictions.append(predicted_tag)
-                if gold_tags[i] == "O":
-                    print("ids: ", ids)
-                    print("i: ", i)
+                
+                if gold_tags[i] == "B" or i == encoded_docs.shape[0] - 1:
+                    # print("pot edu: ", potential_edu)
+                    potential_edu_str = " ".join(potential_edu).replace(" ##", "") #todo: replace [SEP] with nothing; what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
+                    
+                    # print("pot edu str: ", potential_edu_str)
+                    if len(potential_edu_str) > 0:
+                        new_edus.append(potential_edu_str)
+
+                    #TODO: what does this achieve?
                     token_id = ids.squeeze(dim=0)[i]
-                    print("token id: ", token_id)
+                    # print("token id: ", token_id)
                     token = tokenizer.convert_ids_to_tokens([token_id])
                     
-                    print("token: ", token)
-                    potential_edu.append(token[0])
-                elif gold_tags[i] == "B" or i == encoded_docs.shape[0] - 1:
-                    print("pot edu: ", potential_edu)
-                    potential_edu_str = " ".join(potential_edu)
-                    
-                    print("pot edu str: ", potential_edu_str)
-                    new_edus.append(potential_edu_str)
-                    token_id = ids.squeeze(dim=0)[i]
-                    print("token id: ", token_id)
-                    token = tokenizer.convert_ids_to_tokens([token_id])
-                    
-                    print("token: ", token)
+                    # print("token: ", token)
                     potential_edu = [] 
+                elif gold_tags[i] == "O":
+                    # print("ids: ", ids)
+                    # print("i: ", i)
+                    token_id = ids.squeeze(dim=0)[i]
+                    # print("token id: ", token_id)
+                    token = tokenizer.convert_ids_to_tokens([token_id])
+                    
+                    # print("token: ", token)
+                    potential_edu.append(token[0])
                 # while not parser.is_done():
                 # the boolean in 'make_features' is whether or not to include the buffer node as a feature
                 # state_features = self.make_features(parser, True)
@@ -338,7 +364,7 @@ class DiscoBertModel(nn.Module):
                 #         gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                     # calculate loss
                 loss_on_tags = loss_fn(prediction_scores.unsqueeze(dim=0), gold_pred)
-                print("loss on tags: ", loss_on_tags)
+                # print("loss on tags: ", loss_on_tags)
                     # loss_on_labels = loss_fn(label_scores, gold_label) 
                     # if self.separate_action_and_dir_classifiers==True:
                     #     loss_on_direction = loss_fn(direction_scores, gold_direction)
@@ -388,15 +414,23 @@ class DiscoBertModel(nn.Module):
             # )
 
         # returns the TreeNode for the tree root
-        print("NEW EDUS: ", new_edus)
+        # print("NEW EDUS: ", new_edus)
         
+        #todo: make an annotation:
+        # annotation = Annotation(docid=doc_id, raw=raw, dis=None, edus=new_edus)
+        # print("annotation: ", annotation)
         # new_edus = []
         # for 
         # outputs = (predicted_tree,)
 
+        # print("preds: ", predictions)
+        # print("golds: ", gold_tags)
         # are we training?
-        if gold_tree is not None:
+        if train == True:
             loss = sum(losses) / len(losses)
-            outputs = (loss,) + outputs
+            return loss, new_edus
+        else:
+            return predictions, gold_tags
 
-        return outputs
+        # print("outputs: ", outputs)
+        # return outputs
