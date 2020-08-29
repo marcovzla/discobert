@@ -33,27 +33,28 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def eval_boundaries(predictions, gold_boundaries):
-    print("preds: ", predictions)
-    print("golds: ", gold_boundaries)
+    print("preds len: ", len(predictions))
+    print("golds len: ", len(gold_boundaries))
     # following braud (2017), to eval the segmenter, just calculated p,r,f1 for boundaries
     correct_bs = 0 #true pos
     wrong_bs = 0 #false pos
     missed_bs = 0 # false neg
 
     for i in range(len(predictions)):
-        print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
+        # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
         if predictions[i] == "B" and gold_boundaries[i] == "B":
-            print("CORRECT")
+            # print("CORRECT")
             correct_bs += 1
         
         elif predictions[i] == "B" and gold_boundaries[i] != "B":
             wrong_bs +=1 
-            print("FALSE POS")
+            # print("FALSE POS")
         elif gold_boundaries[i] == "B" and predictions[i] != "B":
             missed_bs += 1
-            print("FALSE NEG")
-
-
+            # print("FALSE NEG")
+    print("cor bs: ", correct_bs)
+    print("wrong bs: ", wrong_bs)
+    print("missed bs: ", missed_bs)
     precision = float(correct_bs)/(correct_bs + wrong_bs)
     recall =  float(correct_bs)/(correct_bs + missed_bs) 
     f1 = 2 * precision * recall / (precision + recall)
@@ -90,7 +91,18 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    num_training_steps = int(len(train_ds[:20]) * config.EPOCHS)
+    if config.SORT_VALIDATION == True:
+        # construct new train_ds
+        valid_ids_by_length = {}
+        for item in valid_ds:
+            valid_ids_by_length.setdefault(len(item.edus), []).append(item)
+
+        valid_ids = []
+        for n in sorted(valid_ids_by_length):
+            for ann in valid_ids_by_length[n]:
+                valid_ds.append(ann)
+
+    num_training_steps = int(len(train_ds[:200]) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -119,8 +131,8 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         print("-----------")
-        engine.train_fn(train_ds[:20], model, optimizer, device, scheduler)
-        pred_trees, gold_trees = engine.eval_fn(valid_ds[:10], model, device)
+        engine.train_fn(train_ds[:200], model, optimizer, device, scheduler)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_boundaries(pred_trees, gold_trees)
         print(f'boundaries   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         # print(f'S (span only)   F1:{f1_s:.2%}')
@@ -166,14 +178,14 @@ def main(experiment_dir_path):
     
 
 
-    print("\n--------------------------------------------------------")
-    print("Best epochs:\n--------------------------------------------------------")
-    print("metric\t|\tscore\t|\tepoch")
-    print("max f1 (span):\t", max_f1_S, "\t", max_f1_S_epoch)
-    print("max f1 (span + dir):\t", max_f1_N, "\t", max_f1_N_epoch)
-    print("max f1 (span + rel):\t", max_f1_R, "\t", max_f1_R_epoch)
-    print("max f1 (span + rel + dir):\t", max_f1_F, "\t", max_f1_F_epoch)
-    print("--------------------------------------------------------")
+    # print("\n--------------------------------------------------------")
+    # print("Best epochs:\n--------------------------------------------------------")
+    # print("metric\t|\tscore\t|\tepoch")
+    # print("max f1 (span):\t", max_f1_S, "\t", max_f1_S_epoch)
+    # print("max f1 (span + dir):\t", max_f1_N, "\t", max_f1_N_epoch)
+    # print("max f1 (span + rel):\t", max_f1_R, "\t", max_f1_R_epoch)
+    # print("max f1 (span + rel + dir):\t", max_f1_F, "\t", max_f1_F_epoch)
+    # print("--------------------------------------------------------")
 
     assert saved_model_f1_f == max_f1_F
     # return these if we want to get averages from last epoch

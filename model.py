@@ -142,9 +142,13 @@ class DiscoBertModel(nn.Module):
             return torch.argmax(masked_scores)
 
     def forward(self, edus, train):
+        # if train == False:
+        #     print("EDUS: ", edus)
 
         #TODOS:
-        # tokenize sent
+        # tokenize sent: 
+        # MAYBE, can get gold from edus without cls token but get predictions based on sentences (raw)? will there be a mismatch?
+        # ATTN: Braud calculated score exclusing first token of a sentence? or a document? prob doc. 
         # encode sent by sent
         # concat docs from the sent encodings
         # predictions will have sent boundaries 
@@ -182,22 +186,22 @@ class DiscoBertModel(nn.Module):
         for i in range(len(edus)):
             # print(edus[i])
             tokenized_edu = tokenizer(edus[i])
-            ids.extend(tokenized_edu.input_ids)
-            attention_mask.extend(tokenized_edu.attention_mask)
-            token_type_ids.extend(tokenized_edu.token_type_ids)
+            ids.extend(tokenized_edu.input_ids[1:])
+            attention_mask.extend(tokenized_edu.attention_mask[1:])
+            token_type_ids.extend(tokenized_edu.token_type_ids[1:])
             
-            for j in range(len(tokenized_edu.input_ids)):
+            for j in range(1, len(tokenized_edu.input_ids)):
                 token_id = tokenized_edu.input_ids[j]
-                print("token id: ", token_id)
+                # print("token id: ", token_id)
                 token = tokenizer.convert_ids_to_tokens([token_id])
-                print("token: ", token)
+                # print("token: ", token)
                 gold_as_tokens.append(token)
-                if j == 0:
+                if j == 1:
                     gold_tags.append("B")   
-                    print("B")
+                    # print("gold B")
                 else:
                     gold_tags.append("O")
-                    print("O")
+                    # print("gold O")
                 
         
         ids = torch.tensor(ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
@@ -302,6 +306,9 @@ class DiscoBertModel(nn.Module):
             # print("pred: ", prediction_scores)
             # print("max: ", torch.argmax(prediction_scores))
             predicted_tag = self.id_to_segmentor_tag[torch.argmax(prediction_scores)]
+            # if train == False:
+            #     gold_pred = gold_tags[i]
+            #     print("token, prediction, gold: ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]), " ", gold_pred)
             
             # are we training?
             if train == True:
@@ -309,6 +316,10 @@ class DiscoBertModel(nn.Module):
                 gold_pred = torch.tensor([self.segmentor_tag_to_id[gold_tags[i]]], dtype=torch.long).to(self.device)
                 # print("gold pred: ", gold_pred)
                 # predictions.append(gold_tags[i])
+                # if self.id_to_segmentor_tag[gold_pred] != predicted_tag:
+                #     print("WRONG PRED: ", self.id_to_segmentor_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
+                # else:
+                #     print("CORRECT PRED: ", self.id_to_segmentor_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
                 predictions.append(predicted_tag)
                 
                 if gold_tags[i] == "B" or i == encoded_docs.shape[0] - 1:
