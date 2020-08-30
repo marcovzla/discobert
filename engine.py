@@ -29,6 +29,6 @@ def eval_fn(annotations, model, device):
         annotations.set_description('devel')
         for a in annotations:
             pred, gold = model(a.edus, False, a.raw)
-            # pred_trees.append(tree)
-            # gold_trees.append(a.dis)
-    return pred, gold
+            pred_trees.extend(pred)
+            gold_trees.extend(gold)
+    return pred_trees, gold_trees

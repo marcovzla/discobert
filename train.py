@@ -33,8 +33,10 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 def eval_boundaries(predictions, gold_boundaries):
-    print("preds len: ", len(predictions))
-    print("golds len: ", len(gold_boundaries))
+    # print("predictions: ", predictions)
+    # print("golds: ", gold_boundaries)
+    # print("preds len: ", len(predictions))
+    # print("golds len: ", len(gold_boundaries))
     # following braud (2017), to eval the segmenter, just calculated p,r,f1 for boundaries
     correct_bs = 0 #true pos
     wrong_bs = 0 #false pos
@@ -97,12 +99,12 @@ def main(experiment_dir_path):
         for item in valid_ds:
             valid_ids_by_length.setdefault(len(item.edus), []).append(item)
 
-        valid_ids = []
+        valid_ds = []
         for n in sorted(valid_ids_by_length):
             for ann in valid_ids_by_length[n]:
                 valid_ds.append(ann)
 
-    num_training_steps = int(len(train_ds[:200]) * config.EPOCHS)
+    num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -131,7 +133,7 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         print("-----------")
-        engine.train_fn(train_ds[:200], model, optimizer, device, scheduler)
+        engine.train_fn(train_ds, model, optimizer, device, scheduler)
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_boundaries(pred_trees, gold_trees)
         print(f'boundaries   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')

@@ -143,21 +143,11 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    # def make_boundary_features(self, current_index, encoded_docs):
-    #     prev_token = encoded_docs[current_index - 1] if current_index - 1 >= 0 else self.missing_node_for_boundaries
-    #     print("prev token shape: ", prev_token.unsqueeze(dim=0).shape)
-    #     next_token = encoded_docs[current_index + 1] if current_index + 1 < len(encoded_docs) else self.missing_node_for_boundaries
-    #     print("next tok shape: ", next_token.shape)
-    #     current_token = encoded_docs[current_index]
-    #     print("cur token shape: ", current_token.shape)
-    #     return torch.stack([prev_token, current_token.unsqueeze(dim=0), next_token.unsqueeze(dim=0)]))
-
-
     def forward(self, edus, train, raw):
 
-        print(raw)
+        # print(raw)
         sentences = sent_tokenize(raw)
-        print(sentences)
+        # print(sentences)
         # if train == False:
         #     print("EDUS: ", edus)
 
@@ -170,6 +160,7 @@ class DiscoBertModel(nn.Module):
         # predictions will have sent boundaries 
         # check if i am not evaluating the right thing---maybe i am feeding the gold data somewhere during eval
         tokenizer = AutoTokenizer.from_pretrained("bert-base-cased")
+        
         # todo: how to detokenize into edus to produce annotations? maybe what's discussed here: https://github.com/huggingface/transformers/issues/36
         # print("edus: ", edus)
         # ===================================================================================
@@ -192,13 +183,41 @@ class DiscoBertModel(nn.Module):
         # print("tokenized raw: ", tokenized_raw)
         # print("encoded raw: ", seq_output_from_raw.shape)
         
+
+        tokens_to_classify = []
+        tokens_to_classify_bertified = []
+        for sent in sentences:
+            tokenized_sent_not_tensored = tokenizer(sent)
+            tokenized_sent = tokenizer(sent, return_tensors='pt')
+            sent_tokens = tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids)
+            # print("bert tokenized sent tokens: ",  tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids))
+            # print("bert tokenized send:", tokenized_sent_not_tensored)
+            ids = torch.tensor(tokenized_sent.input_ids, dtype=torch.long).to(self.device)
+            # print("ids: ", ids.shape)
+            attention_mask = torch.tensor(tokenized_sent.attention_mask, dtype=torch.long).to(self.device)
+            token_type_ids = torch.tensor(tokenized_sent.token_type_ids, dtype=torch.long).to(self.device)
+            encoded_sent, pooled_output = self.encoder(ids, attention_mask, token_type_ids)
+            # print('ecnoded sent: ', encoded_sent.shape)
+            for i in range(encoded_sent.squeeze(dim=0).shape[0]):
+                # print("tok sent input ids: ", tokenized_sent.input_ids[0])
+                # print("cur token id: ", tokenized_sent.input_ids[0][i])
+                # print("token in sent: ", sent_tokens[i])
+                if sent_tokens[i] != '[SEP]' and sent_tokens[i] != '[CLS]':
+                    tokens_to_classify.append(sent_tokens[i])
+                    token_encoding = encoded_sent.squeeze(dim=0)[i].unsqueeze(dim=0)
+                    # print("token encoding: ", token_encoding.shape)
+                    tokens_to_classify_bertified.append(token_encoding)
+
+        tokens_to_classify_bertified = torch.cat(tokens_to_classify_bertified, dim=0)
+        # print("shape tokens to classify bertified: ", tokens_to_classify_bertified.shape)
+        #EUREKA: can encode however it encodes but the gold and the predictions will only look at non-special symbols (problem is unk words)
+        # looks like gold is created correctly
         ids = []
         attention_mask = []
         token_type_ids = []
         gold_tags = []
         gold_as_tokens = []
-        
-        # looks like gold is created correctly
+
         for i in range(len(edus)):
             # print(edus[i])
             tokenized_edu = tokenizer(edus[i])
@@ -206,23 +225,31 @@ class DiscoBertModel(nn.Module):
             attention_mask.extend(tokenized_edu.attention_mask[1:])
             token_type_ids.extend(tokenized_edu.token_type_ids[1:])
             
-            for j in range(1, len(tokenized_edu.input_ids)):
+            for j in range(0, len(tokenized_edu.input_ids)): #have to skip cls---it's too much of a giveaway
                 token_id = tokenized_edu.input_ids[j]
                 # print("token id: ", token_id)
                 token = tokenizer.convert_ids_to_tokens([token_id])
                 # print("token: ", token)
-                gold_as_tokens.append(token)
-                if j == 1:
-                    gold_tags.append("B")   
-                    # print("gold B")
-                else:
-                    gold_tags.append("O")
-                    # print("gold O")
                 
+                if token[0] != "[SEP]" and token[0] != "[CLS]":
+                    # print("tok added to gold: ", token[0])
+                    gold_as_tokens.append(token[0])
+                    if j == 1:
+                        gold_tags.append("B")   
+                        # print("gold B")
+                    else:
+                        gold_tags.append("O")
+                        # print("gold O")
+        # print("len tok to classify: ", len(tokens_to_classify))
+        # print("len tok to classify bertified: ", len(tokens_to_classify_bertified))
+        # print("len gold tags: ", len(gold_tags))  
+        # print("len gold as tokens: ", len(gold_as_tokens))
         
-        ids = torch.tensor(ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
-        attention_mask = torch.tensor(attention_mask, dtype=torch.long).to(self.device).unsqueeze(dim=0)
-        token_type_ids = torch.tensor(token_type_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+        # for i, j in enumerate(tokens_to_classify):
+        #     print(gold_as_tokens[i], " ", gold_tags[i], tokens_to_classify[i])
+        # ids = torch.tensor(ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+        # attention_mask = torch.tensor(attention_mask, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+        # token_type_ids = torch.tensor(token_type_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
         # print(ids.shape)
         # print(attention_mask.shape)
         # print(token_type_ids.shape)
@@ -233,11 +260,11 @@ class DiscoBertModel(nn.Module):
         # print("len ids: ", ids.shape)
         # print("gold len: ", len(gold_tags))
 
-        seq_output_from_tokenized_edus, pooled_from_tokenized_edus = self.encoder( #sequence_output: [edu, tok, emb]
-                ids,
-                attention_mask=attention_mask,
-                token_type_ids=token_type_ids,
-            )
+        # seq_output_from_tokenized_edus, pooled_from_tokenized_edus = self.encoder( #sequence_output: [edu, tok, emb]
+        #         ids,
+        #         attention_mask=attention_mask,
+        #         token_type_ids=token_type_ids,
+        #     )
 
         # get gold data: for every 
         #     ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
@@ -250,10 +277,10 @@ class DiscoBertModel(nn.Module):
         # if self.encoding == "bert":
         #     # tokenize edus
         #     encodings = self.tokenizer.encode_batch(edus)
-        #     ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
-        #     print("ids: ", ids.shape)
-        #     attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
-        #     token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
+            # ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
+            # print("ids: ", ids.shape)
+            # attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
+            # token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
 
         #     # encode edus
         #     sequence_output, pooled_output = self.encoder( #sequence_output: [edu, tok, emb]
@@ -300,7 +327,7 @@ class DiscoBertModel(nn.Module):
 
         # enc_edus = self.project(enc_edus) 
         # encoded_docs = seq_output_from_raw.squeeze(dim=0)
-        encoded_docs = seq_output_from_tokenized_edus.squeeze(dim=0)
+        # encoded_docs = seq_output_from_tokenized_edus.squeeze(dim=0)
         # print("encoded docs shape: ", encoded_docs.shape)
         # make treenodes
         # buffer = []
@@ -314,13 +341,13 @@ class DiscoBertModel(nn.Module):
         losses = []
         potential_edu = []
         
-        for i in range(encoded_docs.shape[0]):
+        for i in range(tokens_to_classify_bertified.shape[0]):
             # print("shape of encoded docs: ", encoded_docs.shape)
             
-            # print("enc word: ", encoded_docs[i].shape)
+            # print("enc word: ", encoded_do cs[i].shape)
             # encoding = self.make_boundary_features(i, encoded_docs)
 
-            prediction_scores = self.segment_classifier(encoded_docs[i])
+            prediction_scores = self.segment_classifier(tokens_to_classify_bertified[i])
             # print("pred: ", prediction_scores)
             # print("max: ", torch.argmax(prediction_scores))
             predicted_tag = self.id_to_segmentor_tag[torch.argmax(prediction_scores)]
@@ -340,7 +367,7 @@ class DiscoBertModel(nn.Module):
                 #     print("CORRECT PRED: ", self.id_to_segmentor_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
                 predictions.append(predicted_tag)
                 
-                if gold_tags[i] == "B" or i == encoded_docs.shape[0] - 1:
+                if gold_tags[i] == "B" or i == tokens_to_classify_bertified.shape[0] - 1:
                     # print("pot edu: ", potential_edu)
                     potential_edu_str = " ".join(potential_edu).replace(" ##", "") #todo: replace [SEP] with nothing; what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
                     
@@ -348,22 +375,23 @@ class DiscoBertModel(nn.Module):
                     if len(potential_edu_str) > 0:
                         new_edus.append(potential_edu_str)
 
-                    #TODO: what does this achieve?
-                    token_id = ids.squeeze(dim=0)[i]
-                    # print("token id: ", token_id)
-                    token = tokenizer.convert_ids_to_tokens([token_id])
+                    # #TODO: what does this achieve?
+                    # token_id = ids.squeeze(dim=0)[i]
+                    # # print("token id: ", token_id)
+                    # token = tokenizer.convert_ids_to_tokens([token_id])
                     
                     # print("token: ", token)
                     potential_edu = [] 
                 elif gold_tags[i] == "O":
                     # print("ids: ", ids)
                     # print("i: ", i)
-                    token_id = ids.squeeze(dim=0)[i]
-                    # print("token id: ", token_id)
-                    token = tokenizer.convert_ids_to_tokens([token_id])
+                    # token_id = ids.squeeze(dim=0)[i]
+                    # # print("token id: ", token_id)
+                    # token = tokenizer.convert_ids_to_tokens([token_id])
+                    token = tokens_to_classify[i]
                     
                     # print("token: ", token)
-                    potential_edu.append(token[0])
+                    potential_edu.append(token)
                 # while not parser.is_done():
                 # the boolean in 'make_features' is whether or not to include the buffer node as a feature
                 # state_features = self.make_features(parser, True)
