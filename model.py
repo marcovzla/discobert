@@ -8,6 +8,7 @@ import config
 import torch.nn.functional as F
 from collections import namedtuple
 from nltk.tokenize import sent_tokenize
+import nltk
 
 Annotation = namedtuple('Annotation', 'docid raw dis edus')
 
@@ -74,6 +75,7 @@ class DiscoBertModel(nn.Module):
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
+        self.missing_node_for_boundaries = nn.Parameter(torch.rand(self.encoder.config.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         
         
@@ -141,7 +143,21 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, train):
+    # def make_boundary_features(self, current_index, encoded_docs):
+    #     prev_token = encoded_docs[current_index - 1] if current_index - 1 >= 0 else self.missing_node_for_boundaries
+    #     print("prev token shape: ", prev_token.unsqueeze(dim=0).shape)
+    #     next_token = encoded_docs[current_index + 1] if current_index + 1 < len(encoded_docs) else self.missing_node_for_boundaries
+    #     print("next tok shape: ", next_token.shape)
+    #     current_token = encoded_docs[current_index]
+    #     print("cur token shape: ", current_token.shape)
+    #     return torch.stack([prev_token, current_token.unsqueeze(dim=0), next_token.unsqueeze(dim=0)]))
+
+
+    def forward(self, edus, train, raw):
+
+        print(raw)
+        sentences = sent_tokenize(raw)
+        print(sentences)
         # if train == False:
         #     print("EDUS: ", edus)
 
@@ -302,6 +318,8 @@ class DiscoBertModel(nn.Module):
             # print("shape of encoded docs: ", encoded_docs.shape)
             
             # print("enc word: ", encoded_docs[i].shape)
+            # encoding = self.make_boundary_features(i, encoded_docs)
+
             prediction_scores = self.segment_classifier(encoded_docs[i])
             # print("pred: ", prediction_scores)
             # print("max: ", torch.argmax(prediction_scores))
