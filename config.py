@@ -7,6 +7,7 @@ EXPERIMENT_ID = 3
 EXPERIMENT_DESCRIPTION = "experiment3-xlnet-three-classifier-only-stack-for-label-classifier-default-settings-2020-08-14" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
+SEGMENT_EPOCHS = 10
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
@@ -27,9 +28,11 @@ SORT_VALIDATION = False
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
 DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
 OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
+SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_FILENAME = 'discobert.model'
+SEGMENTER_MODEL_FILENAME = 'segmenter.model'
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
 SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = True #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
@@ -41,7 +44,7 @@ else:
  
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 
-ID_TO_SEGMENT_CLASSES = ["B", "O"]
+ID_TO_SEGMENT_CLASSES = ["B", "I"]
 SEGMENT_CLASS_TO_ID = {action:i for i,action in enumerate(ID_TO_SEGMENT_CLASSES)}
 
 ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']
@@ -79,6 +82,7 @@ if ENCODING == "bert":
     # outputs last hidden state and pooled output
     # has CLS (bos_token) token
     BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
+    SEGMENTER_TOKENIZER = BertTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
     TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
     TOKENIZER.enable_padding() #max_length=MAX_LEN)
 elif ENCODING == "roberta": 
