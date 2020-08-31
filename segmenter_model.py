@@ -181,7 +181,7 @@ class SegmentationModel(nn.Module):
                     
                     # print("token: ", token)
                     potential_edu.append(token)
-                elif gold_tags[i] == "I":
+                elif predicted_tag == "I":
                     token = tokens_to_classify[i]
                     
                     # print("token: ", token)
@@ -203,11 +203,17 @@ class SegmentationModel(nn.Module):
                     
                     # print("token: ", token)
                     potential_edu.append(token)
-                elif gold_tags[i] == "I":
+                elif predicted_tag == "I":
                     token = tokens_to_classify[i]
                     
                     # print("token: ", token)
                     potential_edu.append(token)
+            
+            
+        #this is in case i want to compare old and new edus; breaks if there are more new edus than old ones, which is fine for my purposes here
+        # for i in range(len(new_edus)):
+        #     print("========\nold edu: ", annotation.edus[i])
+        #     print("new edu: ", new_edus[i])
             
 
         # are we training?
@@ -220,11 +226,11 @@ class SegmentationModel(nn.Module):
             # this will be for when we need to run the system, but not evaluate --- just return the annotations
             # will need to make a new annotation or replace edus with new_edus in an existing one
             # check if the annotation has been updated! 
-            print("old annotation: ", annotation)
-            annotation.edus = new_edus
-            print("new annotation: ", annotation)
+            # print("old annotation: ", annotation)
+            new_annotation = Annotation(annotation.docid, annotation.raw, annotation.dis, new_edus)
+            # print("new annotation: ", annotation)
             
-            return annotation, None
+            return Annotation(annotation.docid, annotation.raw, annotation.dis, new_edus), None
         else:
             # need an option that will just take raw and produce annotations with no golds
             NotImplementedError

@@ -11,6 +11,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')
     for a in annotations:
+        # print("annotation in train: ", a)
         loss, new_edus = model(a.edus, "train", a)
         loss_avg.add(loss.item())
         annotations.set_postfix_str(f'loss={loss_avg:.4f}')
@@ -40,7 +41,9 @@ def run_fn(annotations, model, device):
         annotations = tqdm(annotations, total=len(annotations))
         annotations.set_description('run')
         for a in annotations:
+            # print("annotation in run: ", a)
             pred, _ = model(a.edus, "run", a)
-            new_annotations.extend(pred)
-            
+            # print("pred: ", pred)
+            new_annotations.append(pred)
+    # print("new ann 1: ", new_annotations[0])
     return new_annotations
