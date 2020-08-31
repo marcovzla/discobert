@@ -11,7 +11,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')
     for a in annotations:
-        loss, new_edus = model(a.edus, "train", a)
+        loss, tree = model(a.edus, a.dis)
         loss_avg.add(loss.item())
         annotations.set_postfix_str(f'loss={loss_avg:.4f}')
         loss.backward()
@@ -22,25 +22,13 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
 
 def eval_fn(annotations, model, device):
     model.eval()
-    predictions = []
-    gold_labels = []
+    pred_trees = []
+    gold_trees = []
     with torch.no_grad():
         annotations = tqdm(annotations, total=len(annotations))
         annotations.set_description('devel')
         for a in annotations:
-            pred, gold = model(a.edus, "eval", a)
-            predictions.extend(pred)
-            gold_labels.extend(gold)
-    return predictions, gold_labels
-
-def run_fn(annotations, model, device):
-    model.eval()
-    new_annotations = []
-    with torch.no_grad():
-        annotations = tqdm(annotations, total=len(annotations))
-        annotations.set_description('run')
-        for a in annotations:
-            pred, _ = model(a.edus, "run", a)
-            new_annotations.extend(pred)
-            
-    return new_annotations
+            tree = model(a.edus)[0]
+            pred_trees.append(tree)
+            gold_trees.append(a.dis)
+    return pred_trees, gold_trees
