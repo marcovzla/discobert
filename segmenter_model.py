@@ -61,6 +61,8 @@ class SegmentationModel(nn.Module):
         # check if i am not evaluating the right thing---maybe i am feeding the gold data somewhere during eval
 
         # encoding the sentences
+        # fixme: 
+        predictions_based_on_sent = []
         tokens_to_classify = [] # here will go the tokens that will be classified as B or I; excludes certain special tokens (model-specific; for bert, [CLS] and [SEP]---but not [UNK]); used for building new edus and debugging 
         tokens_to_classify_bertified = [] # here will be the bert encodings of the classifiable tokens
         for sent in sentences:
@@ -85,10 +87,17 @@ class SegmentationModel(nn.Module):
                 # print("cur token id: ", tokenized_sent.input_ids[0][i])
                 # print("token in sent: ", sent_tokens[i])
                 if sent_tokens[i] != '[SEP]' and sent_tokens[i] != '[CLS]':
+                    if i == 1:
+                        predictions_based_on_sent.append("B")
+                    else:
+                        predictions_based_on_sent.append("I")
                     tokens_to_classify.append(sent_tokens[i])
                     token_encoding = encoded_sent.squeeze(dim=0)[i].unsqueeze(dim=0)
                     # print("token encoding: ", token_encoding.shape)
                     tokens_to_classify_bertified.append(token_encoding)
+
+        # for i in range(len(tokens_to_classify)):
+        #     print(tokens_to_classify[i], " ", predictions_based_on_sent[i])
 
         # this will be the whole document as token embeddings (only the classifiable ones)
         tokens_to_classify_bertified = torch.cat(tokens_to_classify_bertified, dim=0)
@@ -222,6 +231,8 @@ class SegmentationModel(nn.Module):
             return loss, new_edus
         elif mode == "eval":
             return predictions, gold_tags
+            #to see how we do with only sentence boundaries:
+            #return predictions_based_on_sent, gold_tags
         elif mode == "run":
             # this will be for when we need to run the system, but not evaluate --- just return the annotations
             # will need to make a new annotation or replace edus with new_edus in an existing one

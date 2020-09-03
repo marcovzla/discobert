@@ -11,7 +11,6 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')
     for a in annotations:
-        print("ann in train: ", a)
         loss, tree = model(a.edus, a.dis)
         loss_avg.add(loss.item())
         annotations.set_postfix_str(f'loss={loss_avg:.4f}')

@@ -47,11 +47,11 @@ def main(experiment_dir_path):
     model.to(device)
 
     # load data and split in train and validation sets
-    old_train_ds, old_valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    train_ds, old_valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
     segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
     segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
     segmentaion_model.to(device)
-    train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
+    # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
     valid_ds = segmenter_engine.run_fn(old_valid_ds, segmentaion_model, device)
     # for a in train_ds:
     #     print(a)
