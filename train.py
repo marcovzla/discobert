@@ -59,9 +59,11 @@ def main(experiment_dir_path):
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel()
     model.to(device)
-    
+
+    # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+    
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -168,6 +170,17 @@ def main(experiment_dir_path):
 
 if __name__ == '__main__':
 
+    print("Printing out config settings:")
+    print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
     if config.DEBUG == True:
@@ -190,7 +203,16 @@ if __name__ == '__main__':
 
         with open(os.path.join(experiment_dir_path, "log"), "w") as f:
             sys.stdout = f
-        
+            print("Printing out config settings:")
+            print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+            print("debug: ", config.DEBUG)
+            print("encoding: ", config.ENCODING)
+            print("tokenizer: ", config.TOKENIZER)
+            # print("model: ", config.MODEL)
+            print("use attention", config.USE_ATTENTION)
+            print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+            print("sort input: ", config.SORT_INPUT)
+            print("test size: ", config.TEST_SIZE)
             span_scores = np.zeros(len(random_seeds))
             nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
             relations_scores = np.zeros(len(random_seeds)) # span + relation label
@@ -225,7 +247,29 @@ if __name__ == '__main__':
                     best_seed = r_seed
 
 
-            print("\n========================================================")
+
+            span_score = np.around(np.mean(span_scores), decimals=3)
+            span_score_sd = np.around(np.std(span_scores), decimals=3)
+            nuc_score = np.around(np.mean(nuclearity_scores), decimals=3)
+            nuc_score_sd = np.around(np.std(nuclearity_scores), decimals=3)
+            rel_score = np.around(np.mean(relations_scores), decimals=3)
+            rel_score_sd = np.around(np.std(relations_scores), decimals=3)
+            full_score = np.around(np.mean(full_scores), decimals=3)
+            full_score_sd = np.around(np.std(full_scores), decimals=3)
+
+            
+            print("\n========this print out is to check if i made any mistakes adding the code here from train==============================")
+            print(f"Mean scores from {len(random_seeds)} runs with different random seeds:")
+            print("--------------------------------------------------------")
+            print("F1 (span):\t", span_score, "±", span_score_sd)
+            print("F1 (span + dir):\t", nuc_score , "±", nuc_score_sd)
+            print("F1 (span + rel):\t", rel_score, "±", rel_score_sd)
+            print("F1 (full):\t", full_score , "±", full_score_sd)
+            textpm_string = "\\\\textpm".replace("\\\\", "\\")
+            print("latex pringout: ", f" & {span_score} {textpm_string} {span_score_sd} &  {nuc_score} {textpm_string} {nuc_score_sd} &  {rel_score} {textpm_string} {rel_score_sd} & {full_score} {textpm_string} {full_score_sd} \\\\")
+
+
+            print("\n=================Old version:==================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
             print("--------------------------------------------------------")
             print("F1 (span):\t", np.around(np.mean(span_scores), decimals=3), "±", np.around(np.std(span_scores), decimals=3))
