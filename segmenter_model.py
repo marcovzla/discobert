@@ -100,6 +100,13 @@ class SegmentationModel(nn.Module):
 
         # encoding the sentences
         # fixme: 
+
+        predictions = []
+        
+        losses = []
+        potential_edu = [] # only needed for the run mode (only return new annotations, no eval)
+        new_edus = []
+
         sentence_tokens_full_doc = []
         sent_gold_preds = []
         current_gold = gold_tags
@@ -140,40 +147,17 @@ class SegmentationModel(nn.Module):
                     # print("token encoding: ", token_encoding.shape)
                     tokens_to_classify_bertified.append(token_encoding)
                     sent_encoded_only_classifiable_tokens.append(token_encoding)
-            sent_gold_preds.append(current_gold[:len(sent_encoded_only_classifiable_tokens)])
+            
+            gold_for_sent = current_gold[:len(sent_encoded_only_classifiable_tokens)]
+            # sent_gold_preds.append(gold_for_sent)
             current_gold = current_gold[len(sent_encoded_only_classifiable_tokens):]
-            encoded_sentences.append(sent_encoded_only_classifiable_tokens)
-            sentence_tokens_full_doc.append(sent_only_classifiable_tokens)
-        # for i in range(len(tokens_to_classify)):
-        #     print(tokens_to_classify[i], " ", predictions_based_on_sent[i])
-        # for i in range(len(sentence_tokens_full_doc)):
-        #     for j in range(len(sentence_tokens_full_doc[i])):
-        #         print("token: ", sentence_tokens_full_doc[i][j], " pred: ", sent_gold_preds[i][j])
-        # this will be the whole document as token embeddings (only the classifiable ones)
-        tokens_to_classify_bertified = torch.cat(tokens_to_classify_bertified, dim=0)
-        # print("shape tokens to classify bertified: ", tokens_to_classify_bertified.shape)
-
-        # for sent in encoded_sentences:
-        #     for token in sent:
-        #         print(token.shape)
-
-        # print("sent gold pred: ", sent_gold_preds)
-        
-        
-        predictions = []
-        
-        losses = []
-        potential_edu = [] # only needed for the run mode (only return new annotations, no eval)
-        new_edus = []
-
-
-        for i in range(len(encoded_sentences)):
-            # print("i: ", i)
-            num_of_tokens_in_sent = len(encoded_sentences[i])
-            for j in range(len(encoded_sentences[i])):
+            # encoded_sentences.append(sent_encoded_only_classifiable_tokens)
+            # sentence_tokens_full_doc.append(sent_only_classifiable_tokens)
+            num_of_tokens_in_sent = len(sent_encoded_only_classifiable_tokens)
+            for j in range(len(sent_encoded_only_classifiable_tokens)):
         # for i in range(tokens_to_classify_bertified.shape[0]):
 
-                prediction_scores = self.segment_classifier(encoded_sentences[i][j])
+                prediction_scores = self.segment_classifier(sent_encoded_only_classifiable_tokens[j])
 
                 # print("pred: ", prediction_scores.shape)
                 # print("max: ", torch.argmax(prediction_scores))
@@ -186,8 +170,8 @@ class SegmentationModel(nn.Module):
                 if mode == "train":
                     # print("pred tag: ", predicted_tag)
                     # print("i line 187: ", i)
-                    all_labels = sent_gold_preds[i]
-                    gold_pred_label = all_labels[j]
+                    # all_labels = sent_gold_preds[i]
+                    gold_pred_label = gold_for_sent[j]
                     pred_id = self.segmenter_tag_to_id[gold_pred_label]
                     # print("pred label, id: ", gold_pred_label, " ", pred_id)
                     gold_pred = torch.tensor([pred_id], dtype=torch.long).to(self.device)
@@ -215,12 +199,12 @@ class SegmentationModel(nn.Module):
                             new_edus.append(potential_edu_str)
                         # re-init potential edu
                         potential_edu = [] 
-                        token = sentence_tokens_full_doc[i][j]
+                        token = sent_only_classifiable_tokens[j]
                         
                         # print("token: ", token)
                         potential_edu.append(token)
                     elif predicted_tag == "I":
-                        token = sentence_tokens_full_doc[i][j]
+                        token = sent_only_classifiable_tokens[j]
                         
                         # print("token: ", token)
                         potential_edu.append(token)
@@ -237,16 +221,44 @@ class SegmentationModel(nn.Module):
                             new_edus.append(potential_edu_str)
                         # re-init potential edu
                         potential_edu = [] 
-                        token = sentence_tokens_full_doc[i][j]
+                        token = sent_only_classifiable_tokens[j]
                         
                         # print("token: ", token)
                         potential_edu.append(token)
                     elif predicted_tag == "I":
-                        token = sentence_tokens_full_doc[i][j]
+                        token = sent_only_classifiable_tokens[j]
                         
                         # print("token: ", token)
                         potential_edu.append(token)
                 
+            
+            
+            
+            
+            
+            
+        # for i in range(len(tokens_to_classify)):
+        #     print(tokens_to_classify[i], " ", predictions_based_on_sent[i])
+        # for i in range(len(sentence_tokens_full_doc)):
+        #     for j in range(len(sentence_tokens_full_doc[i])):
+        #         print("token: ", sentence_tokens_full_doc[i][j], " pred: ", sent_gold_preds[i][j])
+        # this will be the whole document as token embeddings (only the classifiable ones)
+        # tokens_to_classify_bertified = torch.cat(tokens_to_classify_bertified, dim=0)
+        # print("shape tokens to classify bertified: ", tokens_to_classify_bertified.shape)
+
+        # for sent in encoded_sentences:
+        #     for token in sent:
+        #         print(token.shape)
+
+        # print("sent gold pred: ", sent_gold_preds)
+        
+        
+        
+
+        # for i in range(len(encoded_sentences)):
+        #     # print("i: ", i)
+        #     num_of_tokens_in_sent = len(encoded_sentences[i])
+            
             
         #this is in case i want to compare old and new edus; breaks if there are more new edus than old ones, which is fine for my purposes here
         # for i in range(len(new_edus)):
