@@ -106,9 +106,9 @@ class SegmentationModel(nn.Module):
 
         predictions_based_on_sent = []
 
-        for sent in sentences:
-            tokenized_sent_not_tensored = self.tokenizer(sent) # getting tokens from here #fixme: this and next lines need to be unified somehow
-            tokenized_sent = self.tokenizer(sent, return_tensors='pt') # getting encodings using this
+        for i in range(len(sentences)):
+            tokenized_sent_not_tensored = self.tokenizer(sentences[i]) # getting tokens from here #fixme: this and next lines need to be unified somehow
+            tokenized_sent = self.tokenizer(sentences[i], return_tensors='pt') # getting encodings using this
             sent_tokens = self.tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids)
             # print("bert tokenized sent tokens: ",  tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids))
             # print("bert tokenized sent:", tokenized_sent_not_tensored)
@@ -149,29 +149,41 @@ class SegmentationModel(nn.Module):
 
             # go through all the encoded tokens in the sentence
             for j in range(len(sent_encoded_only_classifiable_tokens)):
+
+                if j == 0:
+                    # print("j == 0: ", j)
+                    predicted_tag = "B-Sent-Init"
+                    predictions.append(predicted_tag)
                 # get classifier scores
-                prediction_scores = self.segment_classifier(sent_encoded_only_classifiable_tokens[j])
-                predicted_tag = self.id_to_segmenter_tag[torch.argmax(prediction_scores)]
-                
-                # are we training?
+                else:
+                    prediction_scores = self.segment_classifier(sent_encoded_only_classifiable_tokens[j])
+                    predicted_tag = self.id_to_segmenter_tag[torch.argmax(prediction_scores)]
+                    # print("j: ", j)
+                    predictions.append(predicted_tag)
+                    # are we training?
                 if mode == "train":
                     
-                    gold_pred_label = gold_for_sent[j]
-                    pred_id = self.segmenter_tag_to_id[gold_pred_label]
-                    gold_pred = torch.tensor([pred_id], dtype=torch.long).to(self.device)
-                    # if self.id_to_segmenter_tag[gold_pred] != predicted_tag:
-                    #     print("WRONG PRED: ", self.id_to_segmenter_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
-                    # else:
-                    #     print("CORRECT PRED: ", self.id_to_segmenter_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
+                    if j == 0:
+                        #no need to calc loss
+                        continue
                     
-                    # prob dont need this in train?
-                    predictions.append(predicted_tag)
-                    
-                    loss_on_tags = loss_fn(prediction_scores, gold_pred)
+                    else:
+                        gold_pred_label = gold_for_sent[j]
+                        pred_id = self.segmenter_tag_to_id[gold_pred_label]
+                        gold_pred = torch.tensor([pred_id], dtype=torch.long).to(self.device)
+                        # if self.id_to_segmenter_tag[gold_pred] != predicted_tag:
+                        #     print("WRONG PRED: ", self.id_to_segmenter_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
+                        # else:
+                        #     print("CORRECT PRED: ", self.id_to_segmenter_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
+                        
+                        # prob dont need this in train?
+                        # predictions.append(predicted_tag)
+                        
+                        loss_on_tags = loss_fn(prediction_scores, gold_pred)
 
-                    losses.append(loss_on_tags)
+                        losses.append(loss_on_tags)
                 elif mode == "eval": 
-                    predictions.append(predicted_tag)
+                    # predictions.append(predicted_tag)
 
                     # constructing new edus
                     # if found an edu boundary, merge the list of tokens that make up an edu up to this boundary; re-init the potential edu list and add the current token there
@@ -220,9 +232,10 @@ class SegmentationModel(nn.Module):
 
         # are we training?
         if mode == "train":
-            loss = sum(losses) / (len(losses))
+            loss = sum(losses) / (len(losses) - len(sentences)) # subtract the num of sentences bc we did not add loss for the sent-initial edu boundaries
             return loss, new_edus
         elif mode == "eval":
+            # print("predictions: ", predictions)
             return predictions, gold_tags
             #to see how we do with only sentence boundaries:
             #return predictions_based_on_sent, gold_tags

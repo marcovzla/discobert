@@ -35,17 +35,23 @@ def eval_boundaries(predictions, gold_boundaries):
     correct_bs = 0 #true pos
     wrong_bs = 0 #false pos
     missed_bs = 0 # false neg
+    sent_initial_boundary = 0 # do not include this in segmenter eval based on Joty, 2015
 
     for i in range(len(predictions)):
-        # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
-        if predictions[i] == "B" and gold_boundaries[i] == "B":
+        
+        if predictions[i] == "B-Sent-Init":
+            # print("TRUE")
+            sent_initial_boundary += 1
+        elif predictions[i] == "B" and gold_boundaries[i] == "B":
             # print("CORRECT")
             correct_bs += 1
+            # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
         
         elif predictions[i] == "B" and gold_boundaries[i] != "B":
             wrong_bs +=1 
             # print("FALSE POS")
         elif gold_boundaries[i] == "B" and predictions[i] != "B":
+            # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
             missed_bs += 1
             # print("FALSE NEG")
     print("cor bs: ", correct_bs)
@@ -98,7 +104,7 @@ def main(experiment_dir_path):
             for ann in valid_ids_by_length[n]:
                 valid_ds.append(ann)
 
-    num_training_steps = int(len(train_ds[:50]) * config.EPOCHS)
+    num_training_steps = int(len(train_ds[:30]) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -119,7 +125,7 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.SEGMENT_EPOCHS}')
         print("-----------")
-        segmenter_engine.train_fn(train_ds[:50], model, optimizer, device, scheduler)
+        segmenter_engine.train_fn(train_ds[:30], model, optimizer, device, scheduler)
         pred_trees, gold_trees = segmenter_engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_boundaries(pred_trees, gold_trees)
         print(f'boundaries   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
