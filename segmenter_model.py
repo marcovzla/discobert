@@ -56,7 +56,7 @@ class SegmentationModel(nn.Module):
 
     def forward(self, edus, mode, annotation):
 
-
+        #CREATE GOLD DATA 
         # creating the gold data from the edu input if training or evaluating (not when need to just produce annotations with new edus)
         if mode == "train" or mode == "eval":
             # fixme: these ids may not be needed or only needed for debug printouts; att mask and token type ids should be safe to delete
@@ -67,14 +67,14 @@ class SegmentationModel(nn.Module):
             gold_as_tokens = [] # corresponding tokens (for debugging)
 
             for i in range(len(edus)):
-
+                # tokenize each edu
                 tokenized_edu = self.tokenizer(edus[i])
                 ids.extend(tokenized_edu.input_ids[1:])
                  
                 for j in range(len(tokenized_edu.input_ids)): 
                     token_id = tokenized_edu.input_ids[j]
                     token = self.tokenizer.convert_ids_to_tokens([token_id])
-                    
+                    # disreagard the sep and cls tokens
                     if token[0] != "[SEP]" and token[0] != "[CLS]":
                         # print("tok added to gold: ", token[0])
                         gold_as_tokens.append(token[0])
@@ -90,23 +90,24 @@ class SegmentationModel(nn.Module):
             
             # for i, j in enumerate(tokens_to_classify):
             #     print(gold_as_tokens[i], " ", gold_tags[i], tokens_to_classify[i])
+
+        # PROCESS RAW DATA
         # tokenize raw document text into sentences
         sentences = sent_tokenize(annotation.raw)
-        # check if i am not evaluating the right thing---maybe i am feeding the gold data somewhere during eval
-
-        # encoding the sentences
-        # fixme: 
-
+        
+        # Here, add the predictions to be evaluated against the gold data
         predictions = []        
         losses = []
         potential_edu = [] # only needed for the run mode (only return new annotations, no eval)
         new_edus = []
+        if mode == "train" or mode == "eval":
+            # current gold is a set of all datapoints that have not been used for evaluation yet
+            current_gold = gold_tags
 
-        current_gold = gold_tags
-
-        predictions_based_on_sent = []
+        # predictions_based_on_sent = [] # just used this to estimate the proportion of boundaries we can get correctly just based on them being sentence initial
 
         for i in range(len(sentences)):
+            # tokenize each sentence 
             tokenized_sent_not_tensored = self.tokenizer(sentences[i]) # getting tokens from here #fixme: this and next lines need to be unified somehow
             tokenized_sent = self.tokenizer(sentences[i], return_tensors='pt') # getting encodings using this
             sent_tokens = self.tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids)
@@ -120,47 +121,52 @@ class SegmentationModel(nn.Module):
             # encode
             encoded_sent, pooled_output = self.encoder(ids, attention_mask, token_type_ids)
             # print('ecnoded sent: ', encoded_sent.shape)
+
+            # here we will store only the tokens that we need to classifier as either an edu boundary or not (exclude cls and sep tokens)
             sent_encoded_only_classifiable_tokens = []
-            
+            # same as above but in terms of tokens (not encoded)
             sent_only_classifiable_tokens = []
             # getting classifiable tokens (losing special tokens); squeeze each sent bc for 1 sentence, the 0th dim is 1
             # fixme: get rid of squeezing redundancy
             for i in range(encoded_sent.squeeze(dim=0).shape[0]): 
                 if sent_tokens[i] != '[SEP]' and sent_tokens[i] != '[CLS]':
-                    if i == 1:
-                        predictions_based_on_sent.append("B")
-                    else:
-                        predictions_based_on_sent.append("I")
+                    # if i == 1:
+                    #     predictions_based_on_sent.append("B")
+                    # else:
+                    #     predictions_based_on_sent.append("I")
                     sent_only_classifiable_tokens.append(sent_tokens[i])
                     # tokens_to_classify.append(sent_tokens[i])
                     token_encoding = encoded_sent.squeeze(dim=0)[i].unsqueeze(dim=0)
                     # print("token encoding: ", token_encoding.shape)
                     # tokens_to_classify_bertified.append(token_encoding)
                     sent_encoded_only_classifiable_tokens.append(token_encoding)
+            if mode == "train" or mode == "eval":
+                # the first len(sent) predictions are for the current sentence
+                gold_for_sent = current_gold[:len(sent_encoded_only_classifiable_tokens)]
+                #update 'current_gold', i.e., we have gotten the gold predictions for this sentence, so we can remove them from
+                # the gold labels list---the next batch of those is for the next sentence
+                current_gold = current_gold[len(sent_encoded_only_classifiable_tokens):]
             
-            # the first len(sent) predictions are for the current sentence
-            gold_for_sent = current_gold[:len(sent_encoded_only_classifiable_tokens)]
-            #update 'current_gold', i.e., we have gotten the gold predictions for this sentence, so we can remove them from
-            # the gold labels list---the next batch of those is for the next sentence
-            current_gold = current_gold[len(sent_encoded_only_classifiable_tokens):]
-            # encoded_sentences.append(sent_encoded_only_classifiable_tokens)
-            # sentence_tokens_full_doc.append(sent_only_classifiable_tokens)
+            
             num_of_tokens_in_sent = len(sent_encoded_only_classifiable_tokens)
 
             # go through all the encoded tokens in the sentence
             for j in range(len(sent_encoded_only_classifiable_tokens)):
-
+                #MAKE THE PREDICTION
+                # if the token is sentence-initial, we don't need to make a prediction or calc loss on it
                 if j == 0:
-                    # print("j == 0: ", j)
+                    # label this boundary different from the rest bc they should not be accounted for during evaluation---we only do inter-sentential edu boundary eval
                     predicted_tag = "B-Sent-Init"
                     predictions.append(predicted_tag)
-                # get classifier scores
+                
                 else:
+                    # get classifier scores
                     prediction_scores = self.segment_classifier(sent_encoded_only_classifiable_tokens[j])
                     predicted_tag = self.id_to_segmenter_tag[torch.argmax(prediction_scores)]
-                    # print("j: ", j)
                     predictions.append(predicted_tag)
-                    # are we training?
+                
+                # CALC THE LOSS
+                # are we training?
                 if mode == "train":
                     
                     if j == 0:
@@ -175,41 +181,37 @@ class SegmentationModel(nn.Module):
                         #     print("WRONG PRED: ", self.id_to_segmenter_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
                         # else:
                         #     print("CORRECT PRED: ", self.id_to_segmenter_tag[gold_pred], " ", predicted_tag, " ", tokenizer.convert_ids_to_tokens([ids.squeeze(dim=0)[i]]))
-                        
-                        # prob dont need this in train?
-                        # predictions.append(predicted_tag)
-                        
+      
                         loss_on_tags = loss_fn(prediction_scores, gold_pred)
 
                         losses.append(loss_on_tags)
                 elif mode == "eval": 
-                    # predictions.append(predicted_tag)
-
-                    # constructing new edus
-                    # if found an edu boundary, merge the list of tokens that make up an edu up to this boundary; re-init the potential edu list and add the current token there
-                    if predicted_tag == "B" or j == num_of_tokens_in_sent - 1:
-                        # print("pot edu: ", potential_edu)
-                        potential_edu_str = " ".join(potential_edu).replace(" ##", "") # fixme: what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
-                        # print("pot edu str: ", potential_edu_str)
-                        if len(potential_edu_str) > 0:
-                            new_edus.append(potential_edu_str)
-                        # re-init potential edu
-                        potential_edu = [] 
-                        token = sent_only_classifiable_tokens[j]
+                    continue
+                    # constructing new edus - fixme: not really needed during eval---just used for debugging
+                    # if found an edu boundary, merge the list of tokens up to this boundary to make an edu; re-init the potential edu list and add the current token there
+                    # if predicted_tag.startswith("B") or j == num_of_tokens_in_sent - 1:
+                    #     # print("pot edu: ", potential_edu)
+                    #     potential_edu_str = " ".join(potential_edu).replace(" ##", "") # fixme: what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
+                    #     # print("pot edu str: ", potential_edu_str)
+                    #     if len(potential_edu_str) > 0:
+                    #         new_edus.append(potential_edu_str)
+                    #     # re-init potential edu
+                    #     potential_edu = [] 
+                    #     token = sent_only_classifiable_tokens[j]
                         
-                        # print("token: ", token)
-                        potential_edu.append(token)
-                    elif predicted_tag == "I":
-                        token = sent_only_classifiable_tokens[j]
+                    #     # print("token: ", token)
+                    #     potential_edu.append(token)
+                    # elif predicted_tag == "I":
+                    #     token = sent_only_classifiable_tokens[j]
                         
-                        # print("token: ", token)
-                        potential_edu.append(token)
+                    #     # print("token: ", token)
+                    #     potential_edu.append(token)
                 
 
                 else: #if mode == run (only return new annot, no eval)
                     # constructing new edus
-                    # if found an edu boundary, merge the list of tokens that make up an edu up to this boundary; re-init the potential edu list and add the current token there
-                    if predicted_tag == "B" or j == num_of_tokens_in_sent - 1:
+                    # if found an edu boundary, merge the list of tokens up to this boundary to make an edu; re-init the potential edu list and add the current token there
+                    if predicted_tag.startswith("B") or j == num_of_tokens_in_sent - 1:
                         # print("pot edu: ", potential_edu)
                         potential_edu_str = " ".join(potential_edu).replace(" ##", "") # fixme: what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
                         # print("pot edu str: ", potential_edu_str)
