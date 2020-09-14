@@ -35,17 +35,23 @@ def eval_boundaries(predictions, gold_boundaries):
     correct_bs = 0 #true pos
     wrong_bs = 0 #false pos
     missed_bs = 0 # false neg
+    sent_initial_boundary = 0 # do not include this in segmenter eval based on Joty, 2015
 
     for i in range(len(predictions)):
-        # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
-        if predictions[i] == "B" and gold_boundaries[i] == "B":
+        
+        if predictions[i] == "B-Sent-Init":
+            # print("TRUE")
+            sent_initial_boundary += 1
+        elif predictions[i] == "B" and gold_boundaries[i] == "B":
             # print("CORRECT")
             correct_bs += 1
+            # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
         
         elif predictions[i] == "B" and gold_boundaries[i] != "B":
             wrong_bs +=1 
             # print("FALSE POS")
         elif gold_boundaries[i] == "B" and predictions[i] != "B":
+            # print("gold: ", gold_boundaries[i], " pred: ", predictions[i])
             missed_bs += 1
             # print("FALSE NEG")
     print("cor bs: ", correct_bs)
@@ -205,7 +211,9 @@ if __name__ == '__main__':
             print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
             print("sort input: ", config.SORT_INPUT)
             print("test size: ", config.TEST_SIZE)
-            scores = np.zeros(len(random_seeds))
+            p_scores = np.zeros(len(random_seeds))
+            r_scores = np.zeros(len(random_seeds))
+            f1_scores = np.zeros(len(random_seeds))
             
             best_f1 = 0    # best Full F1 among the runs with different seeds
             best_seed = random_seeds[0] # the random seed that produced the best Full F1

@@ -33,7 +33,7 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     for t in pred_trees:
         print("t: ", t.text)
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-    print("gold: ", all_gold_spans)
+    # print("gold: ", all_gold_spans)
     scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
