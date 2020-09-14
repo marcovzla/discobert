@@ -30,6 +30,27 @@ def prf1(pred, gold):
     f1 = 2 * ((p * r) / (p + r))
     return p, r, f1
 
+def tpfpfn(pred, gold):
+    tp, fp, fn = 0, 0, 0
+    for g in gold:
+        if g in pred:
+            tp += 1
+        else:
+            fn += 1
+    for p in pred:
+        if p not in gold:
+            fp += 1
+    if tp == 0:
+        return 0, 0, 0
+    
+    return tp, fp, fn
+
+def calc_prf_from_tpfpfn(tp, fp, fn):
+    p = tp / (tp + fp)
+    r = tp / (tp + fn)
+    f1 = 2 * ((p * r) / (p + r))
+    return p, r, f1
+
 # from https://github.com/jiyfeng/DPLP/blob/master/code/util.py
 # code from Ji and Eisenstein paper
 def extractrelation(s):
