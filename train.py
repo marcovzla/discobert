@@ -28,7 +28,9 @@ def optimizer_parameters(model):
 
 def eval_trees(pred_trees, gold_trees, view_fn):
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+    print("predicted: ", all_pred_spans)
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+    print("gold spans: ", all_gold_spans)
     scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     scores = np.array(scores).mean(axis=0).tolist()
     return scores
@@ -48,7 +50,7 @@ def main(experiment_dir_path):
 
     # load data and split in train and validation sets
     train_ds, old_valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
-    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
+    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
     segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
     segmentaion_model.to(device)
     # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)

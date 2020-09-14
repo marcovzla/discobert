@@ -15,6 +15,8 @@ class TransitionSystem:
     def __init__(self, edus=None):
         self.reset()
         if edus is not None:
+            # for edu in edus:
+                # print("EDU IN TRANSITION SYSTEM: ", edu.text)
             self.buffer.extend(edus)
 
     def reset(self):
@@ -26,6 +28,7 @@ class TransitionSystem:
 
     def get_result(self):
         if self.is_done():
+            # print("STACK: ", self.stack[0].text)
             return deepcopy(self.stack[0])
 
     def take_action(self, action, *args, **kwargs):
@@ -42,22 +45,22 @@ class TransitionSystem:
         node = self.buffer.pop(0)
         self.stack.append(node)
 
-    def reduce(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
+    def reduce(self, label=None, direction=None, reduce_fn=None, rel_embedding=None, text=None):
         rhs = self.stack.pop()
         lhs = self.stack.pop()
         emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_embedding) 
         # print(emb)
 
-        node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
+        node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb, text=text)
         node.calc_span()
         self.stack.append(node)
 
 
-    def reduceL(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
-        self.reduce(label, 'RightToLeft', reduce_fn, rel_embedding)
+    def reduceL(self, label=None, direction=None, reduce_fn=None, rel_embedding=None, text=None):
+        self.reduce(label, 'RightToLeft', reduce_fn, rel_embedding, text)
 
-    def reduceR(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
-        self.reduce(label, 'LeftToRight', reduce_fn, rel_embedding)
+    def reduceR(self, label=None, direction=None, reduce_fn=None, rel_embedding=None, text=None):
+        self.reduce(label, 'LeftToRight', reduce_fn, rel_embedding, text)
  
     @staticmethod
     def all_actions():

@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from transformers import *
-from rst import TreeNode
+from rst import TreeNode, make_offsets
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
@@ -132,7 +132,7 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, gold_tree=None):
+    def forward(self, edus, gold_tree=None, raw=None):
 
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
@@ -187,17 +187,31 @@ class DiscoBertModel(nn.Module):
 
         enc_edus = self.project(enc_edus) 
 
+        # just use the bert offsets for this
+        # make edu offsets
+        offsets = make_offsets(raw, edus)
+        for offset in offsets:
+            print(offset[0], " ", offset[1])
         # make treenodes
         buffer = []
         for i in range(enc_edus.shape[0]):
-            buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
+            
+            buffer.append(TreeNode(leaf=i, embedding=enc_edus[i], text=edus[i]))
 
         # initialize automata
         parser = TransitionSystem(buffer)
 
+        # for item in parser.buffer:
+        #     print("item: ", item.text)
+            
         losses = []
 
         while not parser.is_done():
+
+            # for b in parser.buffer:
+            #     print("b: ", b.text)
+            # for s in parser.stack:
+            #     print("s: ", s.text)
             # the boolean in 'make_features' is whether or not to include the buffer node as a feature
             state_features = self.make_features(parser, True)
             # legal actions for current parser
@@ -236,6 +250,11 @@ class DiscoBertModel(nn.Module):
                 losses.append(loss)
                 # teacher forcing
                 next_action = gold_action
+                
+                if self.id_to_action[next_action].startswith("reduce"):
+                    text = " ".join([parser.stack[-1].text, parser.stack[-2].text])
+                else:
+                    text = None
                 next_label = gold_label
                 if self.separate_action_and_dir_classifiers==True:
                     next_direction = gold_direction
@@ -244,9 +263,14 @@ class DiscoBertModel(nn.Module):
                 # predict the label for any of the reduce actions
                 if self.id_to_action[next_action].startswith("reduce"):
                     next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                    # print("stack -1: ", parser.stack[-1].text)
+                    # print("stack -2: ", parser.stack[-2].text)
+                    text = " ".join([parser.stack[-2].text, parser.stack[-1].text])
+                    # print("TEXT I COMBINED: ", text)
                 # there is no label to predict for shift
                 else:
-                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
+                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)  
+                    text=None        
                 if self.separate_action_and_dir_classifiers==True:
                     next_direction = direction_scores.argmax().unsqueeze(0)
                 
@@ -269,7 +293,8 @@ class DiscoBertModel(nn.Module):
                 label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
                 direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
                 reduce_fn=self.merge_embeddings,
-                rel_embedding = rel_dir_emb
+                rel_embedding = rel_dir_emb,
+                text = text
             )
 
         # returns the TreeNode for the tree root

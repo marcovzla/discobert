@@ -5,7 +5,8 @@ from transformers import *
 ENCODING = 'bert' 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 EXPERIMENT_ID = 3 
-EXPERIMENT_DESCRIPTION = f"no-buffer-in-label-classifier-current-best-model/two-classifiers-default-settings/experiment1-bert-two-classifier-only-stack-for-label-classifier-default-settings-2020-08-10" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+EXPERIMENT_DESCRIPTION = f"{ENCODING}-with-our-segments" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+SEGMENTER_EXPERIMENT_DESCRIPTION = "from_debug-2020-09-05"
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 SEGMENT_EPOCHS = 5
@@ -24,14 +25,14 @@ INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier vers
 USE_ATTENTION = False
 DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
 SORT_INPUT = True #simplified curriculum learning
-SORT_VALIDATION = False
+SORT_VALIDATION = True
 
-DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
-DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
+DISCOBERT_PATH = Path('/media/alexeeva/ee9cacfc-30ac-4859-875f-728f0764925c/storage/data/RST/data').expanduser()
+DISCOBERT_CODE_PATH = Path('/home/alexeeva/Repos/discobert').expanduser()
 OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
-TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
-VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
+TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING_SAMPLE'
+VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST_SAMPLE'
 MODEL_FILENAME = 'discobert.model'
 SEGMENTER_MODEL_FILENAME = 'segmenter.model'
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
@@ -82,8 +83,8 @@ if ENCODING == "bert":
     # outputs last hidden state and pooled output
     # has CLS (bos_token) token
     BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
-    SEGMENTER_TOKENIZER = BertTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
-    TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False)
+    SEGMENTER_TOKENIZER = BertTokenizer(str(BERT_PATH/'vocab.txt'), do_lower_case=False)
+    TOKENIZER = tokenizers.BertWordPieceTokenizer(str(BERT_PATH/'vocab.txt'), lowercase=False, clean_text=True)
     TOKENIZER.enable_padding() #max_length=MAX_LEN)
 elif ENCODING == "roberta": 
     # "builds on BERT and modifies key hyperparameters, removing the next-sentence pretraining objective and training with much larger mini-batches and learning rates" (https://huggingface.co/transformers/model_doc/roberta.html)

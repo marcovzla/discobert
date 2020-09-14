@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from transformers import *
-from rst import TreeNode
+from rst import TreeNode, make_offsets
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
@@ -29,7 +29,7 @@ class SegmentationModel(nn.Module):
         # init model
         self.encoding = config.ENCODING
         if self.encoding == 'bert':
-            self.tokenizer = config.SEGMENTER_TOKENIZER
+            self.tokenizer = config.TOKENIZER
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
             self.tokenizer = config.TOKENIZER
@@ -66,14 +66,21 @@ class SegmentationModel(nn.Module):
             gold_tags = [] # gold labels ("B(egin)" or "I(side)") only for the non-special tokens (for bert, excludes [SEP] and [CLS])
             gold_as_tokens = [] # corresponding tokens (for debugging)
 
+        
             for i in range(len(edus)):
                 # tokenize each edu
-                tokenized_edu = self.tokenizer(edus[i])
-                ids.extend(tokenized_edu.input_ids[1:])
+                tokenized_edu = self.tokenizer.encode(edus[i])
+                ids.extend(tokenized_edu.ids[1:])
+                print("tokenized edu: ", tokenized_edu)
+                print(tokenized_edu.offsets)
+                offsets = tokenized_edu.offsets
+                for offset in offsets:
+                    print(edus[i][offset[0]:offset[1]])
                  
-                for j in range(len(tokenized_edu.input_ids)): 
-                    token_id = tokenized_edu.input_ids[j]
-                    token = self.tokenizer.convert_ids_to_tokens([token_id])
+                for j in range(len(tokenized_edu.ids)): 
+                    token_id = tokenized_edu.ids[j]
+                    token = self.tokenizer.original_str([token_id])
+                    print("token from orig string: ", token)
                     # disreagard the sep and cls tokens
                     if token[0] != "[SEP]" and token[0] != "[CLS]":
                         # print("tok added to gold: ", token[0])
@@ -94,7 +101,10 @@ class SegmentationModel(nn.Module):
         # PROCESS RAW DATA
         # tokenize raw document text into sentences
         sentences = sent_tokenize(annotation.raw)
-        
+        print("sentences: ", sentences)
+        sentence_offsets = make_offsets(annotation.raw, sentences)
+        for offset in sentence_offsets:
+            print("offset: ", offset)
         # Here, add the predictions to be evaluated against the gold data
         predictions = []        
         losses = []
@@ -110,7 +120,13 @@ class SegmentationModel(nn.Module):
             # tokenize each sentence 
             tokenized_sent_not_tensored = self.tokenizer(sentences[i]) # getting tokens from here #fixme: this and next lines need to be unified somehow
             tokenized_sent = self.tokenizer(sentences[i], return_tensors='pt') # getting encodings using this
+            print("tokenized sent offsets: ", tokenized_sent.offsets)
             sent_tokens = self.tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids)
+            
+            print("sent i: ", sentences[i])
+            print(self.tokenizer)
+            
+            print(sent_tokens)
             # print("bert tokenized sent tokens: ",  tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids))
             # print("bert tokenized sent:", tokenized_sent_not_tensored)
 
@@ -146,7 +162,8 @@ class SegmentationModel(nn.Module):
                 #update 'current_gold', i.e., we have gotten the gold predictions for this sentence, so we can remove them from
                 # the gold labels list---the next batch of those is for the next sentence
                 current_gold = current_gold[len(sent_encoded_only_classifiable_tokens):]
-            
+
+            #TODO: think about how to eval over edus to allow not only bert - eval edus directly to not depend on tokenization
             
             num_of_tokens_in_sent = len(sent_encoded_only_classifiable_tokens)
 
@@ -156,7 +173,7 @@ class SegmentationModel(nn.Module):
                 # if the token is sentence-initial, we don't need to make a prediction or calc loss on it
                 if j == 0:
                     # label this boundary different from the rest bc they should not be accounted for during evaluation---we only do inter-sentential edu boundary eval
-                    predicted_tag = "B-Sent-Init"
+                    predicted_tag = "B-Sent-Init" # TODO: DO TRAIN ON SENT INIT; just dont use it during inference
                     predictions.append(predicted_tag)
                 
                 else:
@@ -249,7 +266,7 @@ class SegmentationModel(nn.Module):
             new_annotation = Annotation(annotation.docid, annotation.raw, annotation.dis, new_edus)
             # print("new annotation: ", annotation)
             
-            return Annotation(annotation.docid, annotation.raw, annotation.dis, new_edus), None
+            return Annotation(annotation.docid, annotation.raw, annotation.dis, new_edus), None # check if 
         else:
             # need an option that will just take raw and produce annotations with no golds
             NotImplementedError

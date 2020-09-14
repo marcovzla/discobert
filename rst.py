@@ -41,29 +41,33 @@ def load_edus(name):
 # primarily for evaluation -- make a "view" of the tree nodes to compare (S)
 def iter_spans_only(treenodes):
     for t in treenodes:
-        yield t.span
+        # print("t in iter nuclearity spans: ", t.text)
+        # print("t span: ", t.span)
+        yield t.text
 
 # for evaluation, must get the span and the nuclearity right (N)
 def iter_nuclearity_spans(treenodes):
     for t in treenodes:
-        yield f'{t.span}::{t.direction}'
+        yield f'{t.text}::{t.direction}'
 
 # for evaluation -- must get span and relation label right (R)
 def iter_labeled_spans(treenodes):
     for t in treenodes:
-        yield f'{t.span}::{t.label}'
+        yield f'{t.text}::{t.label}'
 
 # for evaluation -- must get everything right (F)
 def iter_labeled_spans_with_nuclearity(treenodes):
     for t in treenodes:
-        yield f'{t.span}::{t.direction}::{t.label}'
+        yield f'{t.text}::{t.direction}::{t.label}'
 
 def make_offsets(text, tokens):
     """given some raw text and its corresponding tokens,
     this function returns the token's character offsets"""
     start = 0
     for tok in tokens:
+        print(tok)
         start = text.index(tok, start)
+        print("start: ", start)
         stop = start + len(tok)
         yield (start, stop)
         start = stop
@@ -122,6 +126,11 @@ class TreeNode:
         edus = [t.leaf for t in self.iter_terminals()]
         self.span = range(min(edus), max(edus) + 1)
 
+    def get_text(self):
+        edu_texts = [t.text for t in self.iter_terminals()]
+        # print("edu texts: ", edu_texts)
+        self.text = " ".join(edu_texts)
+
     def iter_nodes(self):
         # preorder traversal
         yield self
@@ -155,8 +164,16 @@ class TreeNode:
     @classmethod
     def from_string(cls, string):
         key, tree, pos = parse_node(tokenize(string), 0)
+        # print("key: ", key)
+        # print("tree: ", tree)
+        # print("tree text: ", tree.text)
+        # print("pos: ", pos)
+        # print("tree label: ", tree.label)
+        # print("tree children: ", tree.children)
         propagate_labels(tree)
+        # print("tree label after propagate: ", tree.label)
         binarize_tree(tree)
+        
         return tree
 
 
@@ -175,6 +192,8 @@ def tokenize(data):
 def parse_node(tokens, position):
     i = position
     t = tokens[i]
+    # for token in tokens:
+    #     print(token)
     # print("token in parse node: ", t)
     kind = t.lastgroup
     value = t.group()
@@ -210,7 +229,7 @@ def parse_node(tokens, position):
     elif value in ['Nucleus', 'Satellite', 'Root']:
         # a tree node
         node = TreeNode(kind=value)
-        text = None
+        
         # print("NODE: ", node)
         pos = i + 1
         
@@ -230,7 +249,8 @@ def parse_node(tokens, position):
         node.calc_span()
         # print("text: ", text)
         # node.text = text
-        # print("node text: ", node.text)
+        node.get_text()
+        # print("NODE TEXT: ", node.text)
         # print("node children: ", node.children)
         return (value, node, pos+1)
     else:
@@ -262,24 +282,41 @@ def propagate_labels(node):
     node.direction = direction
     # recurse
     for c in node.children:
+        # print("Node label in prop labels c before prop: ", c.label)
         propagate_labels(c)
+        # print("Node label in prop labels c: ", c.label)
 
 def binarize_tree(node):
     if node.is_terminal:
+        # print("node text terminal node: ", node.text)
         return node
+    # print("len node children: ", len(node.children))
     if len(node.children) > 2:
+        # print("NOT TERMINAL")
         old_children = node.children
+        # for child in node.children:
+        #     print("child text and kind: ", child.kind, " ", child.text)
+        # print("child 0: ", node.children[0].text)
         node.children = []
+        
         node.children.append(old_children[0])
         node.children.append(make_binary_child(node, old_children[1:]))
     for c in node.children:
         binarize_tree(c)
     return node
 
+
+
 def make_binary_child(parent, children):
     if len(children) == 1:
+        
         return children[0]
     node = copy(parent)
+    
     node.children = [children[0], make_binary_child(parent, children[1:])]
+    
     node.calc_span()
+    node.get_text()
     return node
+
+
