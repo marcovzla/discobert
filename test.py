@@ -26,11 +26,26 @@ def optimizer_parameters(model):
         {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
 
+# def eval_trees(pred_trees, gold_trees, view_fn):
+#     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+    
+#     all_pred_spans_flattened = [val for sublist in all_pred_spans for val in sublist]
+#     # print("all pred spans: ", all_pred_spans)
+#     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+#     all_gold_spans_flattened = [val for sublist in all_gold_spans for val in sublist]
+#     scores = prf1(all_pred_spans_flattened, all_gold_spans_flattened)
+#     return scores
+
+# def eval_trees(pred_trees, gold_trees, view_fn):
+#     all_pred_spans = [f'{x}' for x in view_fn(t.get_nonterminals()) for t in pred_trees]
+#     all_gold_spans = [f'{x}' for x in view_fn(t.get_nonterminals()) for t in gold_trees]
+#     scores = prf1(all_pred_spans, all_gold_spans)
+#     return scores
+
 def eval_trees(pred_trees, gold_trees, view_fn):
-    all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-    all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-    scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
-    scores = np.array(scores).mean(axis=0).tolist()
+    all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
+    all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
+    scores = prf1(all_pred_spans, all_gold_spans)
     return scores
 
 def main(path_to_model, test_ds):
@@ -71,9 +86,9 @@ if __name__ == '__main__':
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
 
     if config.RERUN_DEV_EVAL == True:
-        log_name = "eval_log-dev"
+        log_name = "eval_log-dev-new-eval"
     else:
-        log_name = "eval_log"
+        log_name = "eval_log-new-eval"
     with open(os.path.join(experiment_dir_path, log_name), "w") as f:
         sys.stdout = f
         random_seeds = config.RANDOM_SEEDS
