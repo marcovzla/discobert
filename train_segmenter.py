@@ -98,7 +98,7 @@ def main(experiment_dir_path):
             for ann in valid_ids_by_length[n]:
                 valid_ds.append(ann)
 
-    num_training_steps = int(len(train_ds[:50]) * config.EPOCHS)
+    num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
@@ -107,6 +107,8 @@ def main(experiment_dir_path):
     )
 
     # the scores from the model that was best based on Full F1 score and that was saved
+    saved_model_p = 0
+    saved_model_r = 0
     saved_model_f1 = 0
     
     # max component scores and the associated epochs
@@ -119,7 +121,7 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.SEGMENT_EPOCHS}')
         print("-----------")
-        segmenter_engine.train_fn(train_ds[:50], model, optimizer, device, scheduler)
+        segmenter_engine.train_fn(train_ds, model, optimizer, device, scheduler)
         pred_trees, gold_trees = segmenter_engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_boundaries(pred_trees, gold_trees)
         print(f'boundaries   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
@@ -131,7 +133,10 @@ def main(experiment_dir_path):
         if f1 > saved_model_f1:
             # if config.DEBUG == False:
             model.save(model_path)
+            saved_model_p = p
+            saved_model_r = r
             saved_model_f1 = f1
+            
     
     # print("\n--------------------------------------------------------")
     # print("Saved model:\n--------------------------------------------------------")
@@ -155,7 +160,7 @@ def main(experiment_dir_path):
     # return these if we want to get averages from last epoch
     # return f1_span, f1_n, f1_r, f1
     # return saved (best full f1) model scores
-    return saved_model_f1
+    return saved_model_p, saved_model_r, saved_model_f1
     
         
 
@@ -219,25 +224,35 @@ if __name__ == '__main__':
 
                 rs_results = main(experiment_dir_path)
 
-                scores[i] = rs_results
+                p_scores[i] = rs_results[0]
+                r_scores[i] = rs_results[1]
+                f1_scores[i] = rs_results[2]
                 
 
                 # if the full f1 output from the random seed is higher than previously recorded best f1 (from a diff seed), 
                 # update the best f1 and the random seed
-                if rs_results > best_f1:
-                    best_f1 = rs_results
+                if rs_results[2] > best_f1:
+                    best_f1 = rs_results[2]
                     best_seed = r_seed
 
+            p_score = np.around(np.mean(p_scores), decimals=3)
+            p_score_sd = np.around(np.std(p_scores), decimals=3)
 
 
-            score = np.around(np.mean(scores), decimals=3)
-            score_sd = np.around(np.std(scores), decimals=3)
+            r_score = np.around(np.mean(r_scores), decimals=3)
+            r_score_sd = np.around(np.std(r_scores), decimals=3)
+
+            f1_score = np.around(np.mean(f1_scores), decimals=3)
+            f1_score_sd = np.around(np.std(f1_scores), decimals=3)
+
+                       
             
-            
-            print("\n========this print out is to check if i made any mistakes adding the code here from train==============================")
+            print("\n======================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds:")
             print("--------------------------------------------------------")
-            print("F1 (span):\t", score, "±", score_sd) # this is f1; todo: add p and r
+            print("P:\t", p_score, "±", p_score_sd)
+            print("R:\t", r_score, "±", r_score_sd)
+            print("F1:\t", f1_score, "±", f1_score_sd) # this is f1; todo: add p and r
             textpm_string = "\\\\textpm".replace("\\\\", "\\")
             # print("latex pringout: ", f" & {span_score} {textpm_string} {span_score_sd} &  {nuc_score} {textpm_string} {nuc_score_sd} &  {rel_score} {textpm_string} {rel_score_sd} & {full_score} {textpm_string} {full_score_sd} \\\\")
 
