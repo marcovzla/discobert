@@ -60,6 +60,10 @@ def iter_labeled_spans_with_nuclearity(treenodes):
 
 class TreeNode:
 
+    #todo: method dump trees
+    #stopping condiction and recursive; if no children, then it's a leaf, then print leaf 
+    #when it's not a leaf (non_term), print the info for this node and then call this method again for each of its children
+
     def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None, label=None, direction=None, embedding=None):
         self.kind = kind # ['Nucleus', 'Satellite', 'Root']
         self.children = children if children is not None else []

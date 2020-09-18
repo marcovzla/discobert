@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
-from utils import prf1
+from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
 import engine
 import random
@@ -25,11 +25,23 @@ def optimizer_parameters(model):
         {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
 
+# def eval_trees(pred_trees, gold_trees, view_fn):
+#     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+#     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+#     scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+#     scores = np.array(scores).mean(axis=0).tolist()
+#     return scores
+
 def eval_trees(pred_trees, gold_trees, view_fn):
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-    scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
-    scores = np.array(scores).mean(axis=0).tolist()
+    tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+    # print(tpfpfns)
+    tp, fp, fn = np.array(tpfpfns).sum(axis=0)
+    # print(tp, fp, fn)
+    scores = calc_prf_from_tpfpfn(tp, fp, fn)
+    # scores = np.array(scores).mean(axis=0).tolist()
+    # print(scores)
     return scores
 
 def main(experiment_dir_path):
