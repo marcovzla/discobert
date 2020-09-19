@@ -137,9 +137,15 @@ class TreeNode:
 
     def to_nltk(self):
         if self.is_terminal:
-            return Tree('EDU', [self.text])
+            return Tree('TEXT', [self.text])
         else:
-            return Tree(self.label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
+            if self.direction == 'LeftToRight':
+                label = f'{self.label}:NS'
+            elif self.direction == 'RightToLeft':
+                label = f'{self.label}:SN'
+            else:
+                label = self.label
+            return Tree(label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
 
     @classmethod
     def from_string(cls, string):
