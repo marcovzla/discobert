@@ -190,7 +190,7 @@ class DiscoBertModel(nn.Module):
         # make treenodes
         buffer = []
         for i in range(enc_edus.shape[0]):
-            buffer.append(TreeNode(leaf=i, embedding=enc_edus[i]))
+            buffer.append(TreeNode(leaf=i, embedding=enc_edus[i], text=edus[i]))
 
         # initialize automata
         parser = TransitionSystem(buffer)
@@ -274,6 +274,8 @@ class DiscoBertModel(nn.Module):
 
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
+        if config.PRINT_TREES == True:
+            print(predicted_tree.to_nltk(), "\n")
         outputs = (predicted_tree,)
 
         # are we training?
