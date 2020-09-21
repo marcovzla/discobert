@@ -175,7 +175,7 @@ if __name__ == '__main__':
     print("Printing out config settings:")
     print("debug: ", config.DEBUG)
     print("encoding: ", config.ENCODING)
-    print("tokenizer: ", config.SEGMENTER_TOKENIZER)
+    print("tokenizer: ", config.TOKENIZER)
     print("sort input: ", config.SORT_INPUT)
     print("test size: ", config.TEST_SIZE)
 

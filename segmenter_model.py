@@ -29,7 +29,7 @@ class SegmentationModel(nn.Module):
         # init model
         self.encoding = config.ENCODING
         if self.encoding == 'bert':
-            self.tokenizer = config.SEGMENTER_TOKENIZER
+            self.tokenizer = config.TOKENIZER
             self.encoder = BertModel.from_pretrained(self.bert_path)
         elif self.encoding == 'roberta':
             self.tokenizer = config.TOKENIZER
@@ -68,16 +68,18 @@ class SegmentationModel(nn.Module):
 
             for i in range(len(edus)):
                 # tokenize each edu
-                tokenized_edu = self.tokenizer(edus[i])
-                ids.extend(tokenized_edu.input_ids[1:])
+                tokenized_edu = self.tokenizer.encode(edus[i])
+                ids.extend(tokenized_edu.ids[1:])
                  
-                for j in range(len(tokenized_edu.input_ids)): 
-                    token_id = tokenized_edu.input_ids[j]
-                    token = self.tokenizer.convert_ids_to_tokens([token_id])
-                    # disreagard the sep and cls tokens
-                    if token[0] != "[SEP]" and token[0] != "[CLS]":
+                for j in range(len(tokenized_edu.ids)): 
+                    token_id = tokenized_edu.ids[j]
+                    token = tokenized_edu.tokens[j]
+                    
+                    # disreagard the sep and cls tokens that occur at the beginning of every tokenized edu 
+                    if token != "[SEP]" and token != "[CLS]": 
                         # print("tok added to gold: ", token[0])
-                        gold_as_tokens.append(token[0])
+                        # print("tok 0 not eq to sep or cls")
+                        gold_as_tokens.append(token)
                         if j == 1: # with bert encodings starting with the classification (CLS) token, the 1st (not 0th) token should be counted as "B"
                             gold_tags.append("B")   
                         else:
@@ -88,8 +90,8 @@ class SegmentationModel(nn.Module):
             # print("len gold tags: ", len(gold_tags))  
             # print("len gold as tokens: ", len(gold_as_tokens))
             
-            # for i, j in enumerate(tokens_to_classify):
-            #     print(gold_as_tokens[i], " ", gold_tags[i], tokens_to_classify[i])
+            # for i, j in enumerate(gold_as_tokens):
+            #     print(gold_as_tokens[i], " ", gold_tags[i])
 
         # PROCESS RAW DATA
         # tokenize raw document text into sentences
@@ -108,18 +110,18 @@ class SegmentationModel(nn.Module):
 
         for i in range(len(sentences)):
             # tokenize each sentence 
-            tokenized_sent_not_tensored = self.tokenizer(sentences[i]) # getting tokens from here #fixme: this and next lines need to be unified somehow
-            tokenized_sent = self.tokenizer(sentences[i], return_tensors='pt') # getting encodings using this
-            sent_tokens = self.tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids)
+            tokenized_sent_not_tensored = self.tokenizer.encode(sentences[i]) # getting tokens from here #fixme: this and next lines need to be unified somehow
+            # tokenized_sent = self.tokenizer.encode(sentences[i], return_tensors='pt') # getting encodings using this
+            sent_tokens = tokenized_sent_not_tensored.tokens
             # print("bert tokenized sent tokens: ",  tokenizer.convert_ids_to_tokens(tokenized_sent_not_tensored.input_ids))
             # print("bert tokenized sent:", tokenized_sent_not_tensored)
 
             # prep for the encoder
-            ids = torch.tensor(tokenized_sent.input_ids, dtype=torch.long).to(self.device)
-            attention_mask = torch.tensor(tokenized_sent.attention_mask, dtype=torch.long).to(self.device)
-            token_type_ids = torch.tensor(tokenized_sent.token_type_ids, dtype=torch.long).to(self.device)
+            ids = torch.tensor(tokenized_sent_not_tensored.ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+            attention_mask = torch.tensor(tokenized_sent_not_tensored.attention_mask, dtype=torch.long).to(self.device).unsqueeze(dim=0)
+            type_ids = torch.tensor(tokenized_sent_not_tensored.type_ids, dtype=torch.long).to(self.device).unsqueeze(dim=0)
             # encode
-            encoded_sent, pooled_output = self.encoder(ids, attention_mask, token_type_ids)
+            encoded_sent, pooled_output = self.encoder(ids, attention_mask, type_ids)
             # print('ecnoded sent: ', encoded_sent.shape)
 
             # here we will store only the tokens that we need to classifier as either an edu boundary or not (exclude cls and sep tokens)
