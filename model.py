@@ -68,11 +68,11 @@ class DiscoBertModel(nn.Module):
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
-        self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
+        # self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
         self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
-        if self.separate_action_and_dir_classifiers==True:
-            self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
+        # if self.separate_action_and_dir_classifiers==True:
+        #     self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
@@ -213,32 +213,33 @@ class DiscoBertModel(nn.Module):
                 label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
             
             # in the three classifier version, direction is predicted separately from the action
-            if self.separate_action_and_dir_classifiers==True:
-                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+            # if self.separate_action_and_dir_classifiers==True:
+            #     direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
             # are we training?
             if gold_tree is not None:
                 gold_step = parser.gold_step(gold_tree)
+                # print("gold step: ", gold_step)
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-                if self.separate_action_and_dir_classifiers==True:
-                    gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+                # if self.separate_action_and_dir_classifiers==True:
+                #     gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
                 loss_on_labels = loss_fn(label_scores, gold_label) 
-                if self.separate_action_and_dir_classifiers==True:
-                    loss_on_direction = loss_fn(direction_scores, gold_direction)
-                    loss = loss_on_actions + loss_on_labels + loss_on_direction
-                else:
-                    loss = loss_on_actions + loss_on_labels 
+                # if self.separate_action_and_dir_classifiers==True:
+                #     loss_on_direction = loss_fn(direction_scores, gold_direction)
+                #     loss = loss_on_actions + loss_on_labels + loss_on_direction
+                # else:
+                loss = loss_on_actions + loss_on_labels 
                            
                 # store loss for later
                 losses.append(loss)
                 # teacher forcing
                 next_action = gold_action
                 next_label = gold_label
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = gold_direction
+                # if self.separate_action_and_dir_classifiers==True:
+                #     next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
                 # predict the label for any of the reduce actions
@@ -247,8 +248,8 @@ class DiscoBertModel(nn.Module):
                 # there is no label to predict for shift
                 else:
                     next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = direction_scores.argmax().unsqueeze(0)
+                # if self.separate_action_and_dir_classifiers==True:
+                #     next_direction = direction_scores.argmax().unsqueeze(0)
                 
             
             if self.include_relation_embedding:
@@ -263,17 +264,26 @@ class DiscoBertModel(nn.Module):
 
             
             action=self.id_to_action[next_action]
+            if self.id_to_label[next_label].endswith("LR"):
+                direction = "LeftToRight" 
+            elif self.id_to_label[next_label].endswith("RL"):
+                direction = "RightToLeft"
+            else:
+                direction = None
+            
+            label = self.id_to_label[next_label].replace("LR", "").replace("RL", "")
             # take the step
             parser.take_action(
                 action=action,
-                label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
-                direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
+                label=label if action.startswith("reduce") else "None", # no label for shift 
+                direction=direction,
                 reduce_fn=self.merge_embeddings,
                 rel_embedding = rel_dir_emb
             )
 
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
+        # print(predicted_tree)
         if config.PRINT_TREES == True:
             print(predicted_tree.to_nltk(), "\n")
         outputs = (predicted_tree,)

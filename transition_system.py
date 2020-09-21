@@ -5,10 +5,10 @@ import config
 import torch
 import numpy
 
-if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
-    Step = namedtuple('Step', 'action label direction')
-else:
-    Step = namedtuple('Step', 'action label')
+# if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
+#     Step = namedtuple('Step', 'action label direction')
+# else:
+Step = namedtuple('Step', 'action label')
 
 class TransitionSystem:
 
@@ -28,13 +28,23 @@ class TransitionSystem:
         if self.is_done():
             return deepcopy(self.stack[0])
 
+    # def take_action(self, action, *args, **kwargs):
+    #     if action == 'shift':
+    #         self.shift()
+    #     elif action == 'reduceL':
+    #         self.reduceL(*args, **kwargs)
+    #     elif action == 'reduceR':
+    #         self.reduceR(*args, **kwargs)
+    #     else:
+    #         self.reduce(*args, **kwargs)
+
     def take_action(self, action, *args, **kwargs):
         if action == 'shift':
             self.shift()
-        elif action == 'reduceL':
-            self.reduceL(*args, **kwargs)
-        elif action == 'reduceR':
-            self.reduceR(*args, **kwargs)
+        # elif action == 'reduceL':
+        #     self.reduceL(*args, **kwargs)
+        # elif action == 'reduceR':
+        #     self.reduceR(*args, **kwargs)
         else:
             self.reduce(*args, **kwargs)
 
@@ -61,10 +71,11 @@ class TransitionSystem:
  
     @staticmethod
     def all_actions():
-        if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
-            return ['shift', 'reduce']
-        else:
-            return ['shift', 'reduceL', 'reduceR', 'reduce']
+        return ['shift', 'reduce']
+        # if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
+        #     return ['shift', 'reduce']
+        # else:
+        #     return ['shift', 'reduceL', 'reduceR', 'reduce']
 
     def all_legal_actions(self):
         actions = []
@@ -72,9 +83,9 @@ class TransitionSystem:
             actions.append('shift')
         if self.can_reduce():
             actions.append('reduce')
-            if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==False:
-                actions.append('reduceL')
-                actions.append('reduceR')
+            # if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==False:
+            #     actions.append('reduceL')
+            #     actions.append('reduceR')
             
         return actions
 
@@ -108,32 +119,32 @@ class TransitionSystem:
 
             for n in gold_tree.iter_nodes():
                 if n.span == new_span:
-                    if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
-                        correct_steps.append(Step('reduce', n.label, n.direction))
-                        break
-                    else:
-                        if n.direction == 'LeftToRight':
-                            correct_steps.append(Step('reduceR', n.label))
-                        elif n.direction == 'RightToLeft':
-                            correct_steps.append(Step('reduceL', n.label))
-                        else:
-                            correct_steps.append(Step('reduce', n.label))
-                        break
+                    # if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
+                    #     correct_steps.append(Step('reduce', n.label, n.direction))
+                    #     break
+                    # else:
+                    if n.direction == 'LeftToRight':
+                        correct_steps.append(Step('reduce', n.label + "LR"))
+                    else:# n.direction == 'RightToLeft':
+                        correct_steps.append(Step('reduce', n.label + "RL"))
+                    # else:
+                    #     correct_steps.append(Step('reduce', n.label))
+                    break
                     
             else:
                 if self.can_shift():
-                    if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
-                        correct_steps.append(Step('shift', 'None', 'None'))
-                    else:
-                        correct_steps.append(Step('shift', 'None'))
+                    # if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
+                    #     correct_steps.append(Step('shift', 'None', 'None'))
+                    # else:
+                    correct_steps.append(Step('shift', 'None'))
                 else:
                     # print("all spans:")
                     # for s in [x.span for x in list(gold_tree.iter_nodes())]:
                     #     print("\t", s)
                     raise Exception("There is no correct action given the current state of the parser.")
         elif self.can_shift():
-            if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
-                correct_steps.append(Step('shift', 'None', 'None'))
-            else:
-                correct_steps.append(Step('shift', 'None'))
+            # if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
+            #     correct_steps.append(Step('shift', 'None', 'None'))
+            # else:
+            correct_steps.append(Step('shift', 'None'))
         return correct_steps

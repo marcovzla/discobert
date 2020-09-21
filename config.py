@@ -5,9 +5,9 @@ from transformers import *
 ENCODING = 'roberta' 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-PRINT_TREES = True
-EXPERIMENT_ID = 15
-EXPERIMENT_DESCRIPTION = f"experiment2-roberta-two-classifier-only-stack-for-label-classifier-with-attention-2020-08-15" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+PRINT_TREES = False
+EXPERIMENT_ID = 16
+EXPERIMENT_DESCRIPTION = f"{ENCODING}-two-classifier-only-stack-for-label-classifier-label+direction-with-new-eval" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -35,13 +35,14 @@ VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
 MODEL_FILENAME = 'discobert.model'
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
 
-SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = False #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
+# SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = False #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
 
-if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
-    ID_TO_ACTION = ['shift', 'reduce']
-else:
-    ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
- 
+# if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
+#     ID_TO_ACTION = ['shift', 'reduce']
+# else:
+#     ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
+ID_TO_ACTION = ['shift', 'reduce']
+
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 
 ID_TO_DIRECTION = ['None', 'LeftToRight', 'RightToLeft']
@@ -49,24 +50,43 @@ DIRECTION_TO_ID = {direction:i for i,direction in enumerate(ID_TO_DIRECTION)}
 
 ID_TO_LABEL = [
     "None",
-    "attribution",
-    "background",
-    "cause",
-    "comparison",
-    "condition",
-    "contrast",
-    "elaboration",
-    "enablement",
-    "evaluation",
-    "explanation",
-    "joint",
-    "manner_means",
-    "same_unit",
-    "summary",
-    "temporal",
-    "textual_organization",
-    "topic_change",
-    "topic_comment",
+    "attributionLR",
+    "backgroundLR",
+    "causeLR",
+    "comparisonLR",
+    "conditionLR",
+    "contrastLR",
+    "elaborationLR",
+    "enablementLR",
+    "evaluationLR",
+    "explanationLR",
+    "jointLR",
+    "manner_meansLR",
+    "same_unitLR",
+    "summaryLR",
+    "temporalLR",
+    "textual_organizationLR",
+    "topic_changeLR",
+    "topic_commentLR",
+        "attributionRL",
+    "backgroundRL",
+    "causeRL",
+    "comparisonRL",
+    "conditionRL",
+    "contrastRL",
+    "elaborationRL",
+    "enablementRL",
+    "evaluationRL",
+    "explanationRL",
+    "jointRL",
+    "manner_meansRL",
+    "same_unitRL",
+    "summaryRL",
+    "temporalRL",
+    "textual_organizationRL",
+    "topic_changeRL",
+    "topic_commentRL",
+    'comparison', 'joint', 'same_unit', 'textual_organization', 'contrast', 'temporal', 'topic_change', 'topic_comment', 'cause', 'condition', 'attribution', 'explanation', 'evaluation', 'background',
 ]
 
 

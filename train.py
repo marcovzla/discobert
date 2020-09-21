@@ -6,7 +6,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
+from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_labels_with_nuclearity
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
 import engine
@@ -60,7 +60,71 @@ def main(experiment_dir_path):
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+    # used the commented out part to see which labels occur with None direction
+#     test_ds = list(load_annotations(config.VALID_PATH))
+#     trees = []
+
+#     for list_of_items in train_ds, valid_ds, test_ds:
+#         for item in list_of_items:
+            
+#             trees.append(item.dis)
+#             print(item.dis)
+
+
+#     nuclearity_and_labels = [f'{x}' for t in trees for x in iter_labels_with_nuclearity(t.get_nonterminals())]
     
+#     label_list = ["attribution",
+#     "background",
+#     "cause",
+#     "comparison",
+#     "condition",
+#     "contrast",
+#     "elaboration",
+#     "enablement",
+#     "evaluation",
+#     "explanation",
+#     "joint",
+#     "manner_means",
+#     "same_unit",
+#     "summary",
+#     "temporal",
+#     "textual_organization",
+#     "topic_change",
+# "topic_comment"]
+
+#     nuclearity_label_dict = {relation:{"None":0, "LeftToRight":0, "RightToLeft":0} for i,relation in enumerate(label_list)}
+#     nuclearity_label_none_compatible = {"none_compatible": []}
+
+    for item in nuclearity_and_labels:
+        # print(item)
+        split_item = item.split("::")
+        nuclearity = split_item[0]
+        label = split_item[1]
+        # print("nuclearity: ", nuclearity)
+        if nuclearity == "None":
+            nuclearity_label_dict[label]["None"] += 1
+            if not label in nuclearity_label_none_compatible["none_compatible"]:
+                nuclearity_label_none_compatible["none_compatible"].append(label)
+        elif nuclearity == "RightToLeft":
+            nuclearity_label_dict[label]["RightToLeft"] += 1
+        elif nuclearity == "LeftToRight":
+            nuclearity_label_dict[label]["LeftToRight"] += 1
+        else:
+            print("something went horribly wrong: ", item)
+        
+
+    #{'attribution': 'Not none', 'background': 'Not none', 'cause': 'Not none', 'comparison': 'Not none', 'condition': 'Not none', 'contrast': 'Not none', 'elaboration': 'Not none', 'enablement': 'Not none', 'evaluation': 'Not none', 'explanation': 'Not none', 'joint': None, 'manner_means': 'Not none', 'same_unit': None, 'summary': 'Not none', 'temporal': 'Not none', 'textual_organization': None, 'topic_change': 'Not none', 'topic_comment': 'Not none'}  
+
+    print(nuclearity_label_dict, "\n")
+    print("COMPATIBILITY DICT: ", nuclearity_label_none_compatible)
+
+
+
+
+    # for item in train_ds:
+    #     print(item.dis.to_nltk())
+
+
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -168,7 +232,7 @@ def main(experiment_dir_path):
 if __name__ == '__main__':
 
     print("Printing out config settings:")
-    print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+    # print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
     print("debug: ", config.DEBUG)
     print("encoding: ", config.ENCODING)
     print("tokenizer: ", config.TOKENIZER)
@@ -201,7 +265,7 @@ if __name__ == '__main__':
         with open(os.path.join(experiment_dir_path, "log"), "w") as f:
             sys.stdout = f
             print("Printing out config settings:")
-            print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+            # print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
             print("debug: ", config.DEBUG)
             print("encoding: ", config.ENCODING)
             print("tokenizer: ", config.TOKENIZER)

@@ -58,6 +58,11 @@ def iter_labeled_spans_with_nuclearity(treenodes):
     for t in treenodes:
         yield f'{t.span}::{t.direction}::{t.label}'
 
+# used this for checking which labels come with what nuclearity
+def iter_labels_with_nuclearity(treenodes):
+    for t in treenodes:
+        yield f'{t.direction}::{t.label}'
+
 class TreeNode:
 
     #todo: method dump trees

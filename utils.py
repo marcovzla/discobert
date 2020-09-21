@@ -31,8 +31,11 @@ def prf1(pred, gold):
     return p, r, f1
 
 def tpfpfn(pred, gold):
+    # print("preds: ", pred)
+    # print("golds: ", gold)
     tp, fp, fn = 0, 0, 0
     for g in gold:
+        # print(g)
         if g in pred:
             tp += 1
         else:
