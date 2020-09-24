@@ -149,7 +149,7 @@ if __name__ == '__main__':
             path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(r_seed), config.MODEL_FILENAME)
             # print("model path: ", path_to_model)
             
-            log_name = "trees_" + str(r_seed) + ".txt"
+            log_name = "trees_with_doc_id" + str(r_seed) + ".txt"
             with open(os.path.join(experiment_dir_path, log_name), "w") as f:
                 sys.stdout = f
                 rs_results = main(path_to_model, test_ds)

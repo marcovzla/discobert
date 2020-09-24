@@ -132,7 +132,7 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, gold_tree=None):
+    def forward(self, edus, gold_tree=None, annotation=None):
 
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
@@ -230,7 +230,8 @@ class DiscoBertModel(nn.Module):
                     loss_on_direction = loss_fn(direction_scores, gold_direction)
                     loss = loss_on_actions + loss_on_labels + loss_on_direction
                 else:
-                    loss = loss_on_actions + loss_on_labels 
+                    loss = loss_on_actions + loss_on_labels
+                    # loss = loss_on_actions + 2 * loss_on_labels 
                            
                 # store loss for later
                 losses.append(loss)
@@ -275,7 +276,8 @@ class DiscoBertModel(nn.Module):
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
         if config.PRINT_TREES == True:
-            print(predicted_tree.to_nltk(), "\n")
+            # print(annotation)
+            print("Document::" + str(annotation.docid) + "::" + str(predicted_tree.to_nltk()) + "\n")
         outputs = (predicted_tree,)
 
         # are we training?

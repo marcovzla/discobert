@@ -147,7 +147,7 @@ class TreeNode:
 
     def to_nltk(self):
         if self.is_terminal:
-            return Tree('TEXT', [self.text])
+            return Tree('TEXT', [self.text.replace("(", "[").replace(")", "]")])
         else:
             if self.direction == 'LeftToRight':
                 label = f'{self.label}:NS'

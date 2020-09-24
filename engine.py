@@ -28,7 +28,7 @@ def eval_fn(annotations, model, device):
         annotations = tqdm(annotations, total=len(annotations))
         annotations.set_description('devel')
         for a in annotations:
-            tree = model(a.edus)[0]
+            tree = model(a.edus, annotation=a)[0]
             pred_trees.append(tree)
             gold_trees.append(a.dis)
     return pred_trees, gold_trees
