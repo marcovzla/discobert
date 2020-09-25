@@ -6,7 +6,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
+from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
 import engine
@@ -35,9 +35,64 @@ def optimizer_parameters(model):
 #     print(scores)
 #     return scores
 
+def get_label_nuclearity_distribution(predictions):
+    label_list = [
+            "None", 
+            "attribution",
+        "background",
+        "cause",
+        "comparison",
+        "condition",
+        "contrast",
+        "elaboration",
+        "enablement",
+        "evaluation",
+        "explanation",
+        "joint",
+        "manner_means",
+        "same_unit",
+        "summary",
+        "temporal",
+        "textual_organization",
+        "topic_change",
+    "topic_comment"]
+
+    nuclearity_label_dict = {relation:{"None":0, "LeftToRight":0, "RightToLeft":0} for i,relation in enumerate(label_list)}
+    nuclearity_label_none_compatible = {"none_compatible": []}
+    for doc_pred in predictions:
+        for pred in doc_pred:
+            # print(pred)
+            pred_split = pred.split("::")
+            label = pred_split[0]
+            nuclearity = pred_split[1]
+            if nuclearity == "None":
+                # print(nuclearity_label_dict[label])
+                nuclearity_label_dict[label]["None"] += 1
+                if not label in nuclearity_label_none_compatible["none_compatible"]:
+                    nuclearity_label_none_compatible["none_compatible"].append(label)
+            elif nuclearity == "RightToLeft":
+                nuclearity_label_dict[label]["RightToLeft"] += 1
+            elif nuclearity == "LeftToRight":
+                nuclearity_label_dict[label]["LeftToRight"] += 1
+            else:
+                print("something went horribly wrong: ", item)
+
+    return nuclearity_label_dict
+
 def eval_trees(pred_trees, gold_trees, view_fn):
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+    print("view fn", view_fn)
+
+    
+    if "iter_label_and_direction" in str(view_fn):
+        print("predicted:")
+        pred_dict = get_label_nuclearity_distribution(all_pred_spans)
+        print("gold:")
+        gold_dict = get_label_nuclearity_distribution(all_gold_spans)
+        for key in pred_dict:
+            print("label: ", key, "\npred: ", pred_dict[key], "\ngold: ", gold_dict[key], "\n")
+
     tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     # print(tpfpfns)
     tp, fp, fn = np.array(tpfpfns).sum(axis=0)
@@ -67,6 +122,7 @@ def main(path_to_model, test_ds):
         pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
 
     if config.PRINT_TREES == False:
+        
         p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')
@@ -83,6 +139,10 @@ def main(path_to_model, test_ds):
         p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
+
+        eval_trees(pred_trees, gold_trees, iter_label_and_direction)
+
+        
 
         return f1_s, f1_n, f1_r, f1
     else:

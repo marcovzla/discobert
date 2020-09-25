@@ -58,6 +58,13 @@ def iter_labeled_spans_with_nuclearity(treenodes):
     for t in treenodes:
         yield f'{t.span}::{t.direction}::{t.label}'
 
+# this is just for checking the predicted label distribution 
+def iter_label_and_direction(treenodes):
+    for t in treenodes:
+        yield f'{t.label}::{t.direction}'
+
+
+
 class TreeNode:
 
     #todo: method dump trees
