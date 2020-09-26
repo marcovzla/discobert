@@ -12,6 +12,9 @@ inf = float('inf')
 def loss_fn(outputs, targets):
     return nn.CrossEntropyLoss()(outputs, targets)
 
+def loss_fn_on_labels(outputs, targets, label_weights_tensor):
+    return nn.CrossEntropyLoss(weight=label_weights_tensor)(outputs, targets)
+
 class DiscoBertModel(nn.Module):
     
     def __init__(self):
@@ -132,7 +135,7 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, gold_tree=None, annotation=None):
+    def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
 
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
@@ -204,13 +207,17 @@ class DiscoBertModel(nn.Module):
             legal_actions = parser.all_legal_actions()
             # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+            if gold_tree is not None:
+                label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
             # make a new set of features without the buffer for label classifier for any of the reduce actions
             if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
                 state_features_for_labels = self.make_features(parser, False) 
                 label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
+                # label_scores = torch.mul(self.label_classifier(state_features_for_labels).unsqueeze(dim=0), label_weights_tensor)
             # for shift, use the stack + buffer features for label classifier
             else:
                 label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                # label_scores = torch.mul(self.label_classifier(state_features).unsqueeze(dim=0), label_weights_tensor)
             
             # in the three classifier version, direction is predicted separately from the action
             if self.separate_action_and_dir_classifiers==True:
@@ -225,11 +232,16 @@ class DiscoBertModel(nn.Module):
                     gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
-                loss_on_labels = loss_fn(label_scores, gold_label) 
+                action_for_labels = self.best_legal_action(legal_actions, action_scores)
+                if self.id_to_action[action_for_labels].startswith("reduce"): 
+                    loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
+                else:
+                    loss_on_labels = 0
                 if self.separate_action_and_dir_classifiers==True:
                     loss_on_direction = loss_fn(direction_scores, gold_direction)
                     loss = loss_on_actions + loss_on_labels + loss_on_direction
                 else:
+
                     loss = loss_on_actions + loss_on_labels
                     # loss = loss_on_actions + 2 * loss_on_labels 
                            

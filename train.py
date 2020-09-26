@@ -3,10 +3,11 @@
 import torch
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, classification_report
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
+from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
 import engine
@@ -60,7 +61,39 @@ def main(experiment_dir_path):
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+    train_trees = []
+    for item in train_ds:
+        train_trees.append(item.dis)
+
+    all_labels = [f'{x}' for t in train_trees for x in iter_labels(t.get_nonterminals())]
+    # distinct_labels = list(set(all_labels))
     
+    label_list = config.ID_TO_LABEL[1:]
+
+    
+    # # print(all_labels)
+    # class_weight_dict = {}
+    # for i, item in enumerate(label_list):
+    #     class_weight_dict[i] = all_labels.count(item)
+    # class_weight_dict[0] = 1
+
+    # print(class_weight_dict)
+    # classes = np.array(list(class_weight_dict.keys()))
+    
+    # ys = []
+    # for label in all_labels:
+    #     # print("label: ", label, " ",label_list.index(label))
+    #     ys.append(label_list.index(label))
+    # ys = np.array(ys)
+    # # print("label list: ", label_list)
+    # print("ys sample: ", type(ys[:10]))
+    # print("classes: ", type(classes))
+    # print("ys shape: ", np.array(ys).shape)
+    # print("classes shape: ", classes.shape)
+    class_weights = compute_class_weight("balanced", label_list, all_labels)
+    # print("class weights: ",class_weights)
+    class_weights = np.insert(class_weights, 0, 0, axis=0)
+    print("class weights1: ",class_weights)
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -101,8 +134,8 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         print("-----------")
-        engine.train_fn(train_ds, model, optimizer, device, scheduler)
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+        engine.train_fn(train_ds, model, optimizer, device, scheduler, class_weights)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device, class_weights)
         p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')

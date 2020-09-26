@@ -5,13 +5,13 @@ import numpy as np
 from utils import CumulativeMovingAverage
 import config
 
-def train_fn(annotations, model, optimizer, device, scheduler=None):
+def train_fn(annotations, model, optimizer, device, scheduler=None, class_weights=None):
     model.train()
     loss_avg = CumulativeMovingAverage()
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')
     for a in annotations:
-        loss, tree = model(a.edus, a.dis)
+        loss, tree = model(a.edus, a.dis, class_weights=class_weights)
         loss_avg.add(loss.item())
         annotations.set_postfix_str(f'loss={loss_avg:.4f}')
         loss.backward()
@@ -20,7 +20,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None):
             scheduler.step()
         model.zero_grad()
 
-def eval_fn(annotations, model, device):
+def eval_fn(annotations, model, device, class_weights=None):
     model.eval()
     pred_trees = []
     gold_trees = []
@@ -28,7 +28,7 @@ def eval_fn(annotations, model, device):
         annotations = tqdm(annotations, total=len(annotations))
         annotations.set_description('devel')
         for a in annotations:
-            tree = model(a.edus, annotation=a)[0]
+            tree = model(a.edus, annotation=a, class_weights=class_weights)[0]
             pred_trees.append(tree)
             gold_trees.append(a.dis)
     return pred_trees, gold_trees

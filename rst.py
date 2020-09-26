@@ -63,6 +63,10 @@ def iter_label_and_direction(treenodes):
     for t in treenodes:
         yield f'{t.label}::{t.direction}'
 
+def iter_labels(treenodes):
+    for t in treenodes:
+        yield f'{t.label}'
+
 
 
 class TreeNode:
