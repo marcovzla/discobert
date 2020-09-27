@@ -82,7 +82,7 @@ def get_label_nuclearity_distribution(predictions):
 def eval_trees(pred_trees, gold_trees, view_fn):
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-    print("view fn", view_fn)
+    # print("view fn", view_fn)
 
     
     if "iter_label_and_direction" in str(view_fn):
@@ -140,7 +140,7 @@ def main(path_to_model, test_ds):
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
 
-        eval_trees(pred_trees, gold_trees, iter_label_and_direction)
+        # eval_trees(pred_trees, gold_trees, iter_label_and_direction)
 
         
 
