@@ -33,6 +33,7 @@ class DiscoBertModel(nn.Module):
         self.direction_hidden_size = config.DIRECTION_HIDDEN_SIZE
         self.include_relation_embedding = config.INCLUDE_RELATION_EMBEDDING
         self.include_direction_embedding = config.INCLUDE_DIRECTION_EMBEDDING
+        self.extra_info_hidden_size = 2 * self.relation_label_hidden_size + self.direction_hidden_size
         # init model
         self.tokenizer = config.TOKENIZER
         self.encoding = config.ENCODING
@@ -73,16 +74,18 @@ class DiscoBertModel(nn.Module):
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         self.action_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_action))
-        self.label_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_label))
+        nn.init.xavier_normal_(self.action_classifier.weight)
+        self.label_classifier = nn.Linear(2 * self.hidden_size + self.extra_info_hidden_size, len(self.id_to_label))
+        nn.init.xavier_normal_(self.label_classifier.weight)
         if self.separate_action_and_dir_classifiers==True:
             self.direction_classifier = nn.Linear(3 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
-        if self.include_relation_embedding:
-            self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
-        if self.include_direction_embedding:
-            self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
+        self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
+        nn.init.xavier_normal_(self.relation_embeddings.weight)
+        self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
+        nn.init.xavier_normal_(self.direction_embedding.weight)
 
     @property
     def device(self):
@@ -104,18 +107,23 @@ class DiscoBertModel(nn.Module):
         # print("emb1: ", embed_1.shape, "\n", embed_1)
         return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_embedding).squeeze(dim=0)
 
-    def make_features(self, parser, incl_buffer):
+    def make_features(self, parser):
         """Gets a parser and returns an embedding that represents its current state.
         The state is represented by the concatenation of the embeddings corresponding
         to the two nodes on the top of the stack and the next node in the buffer.
         """
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
-        if incl_buffer:
-            b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
-        else:
-            b = self.missing_node
+        b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
         return torch.cat([s1, s0, b])
+
+    def make_features_for_new_node(self, parser, direction):
+        s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
+        s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
+        s1_label = self.relation_embeddings(torch.LongTensor([self.label_to_id[parser.stack[-2].label]]).to(self.device))
+        s0_label = self.relation_embeddings(torch.LongTensor([self.label_to_id[parser.stack[-1].label]]).to(self.device))
+        dir_emb = self.direction_embedding(torch.LongTensor([self.direction_to_id[direction]]).to(self.device))
+        return torch.cat([s1, s0, s1_label.squeeze(), s0_label.squeeze(), dir_emb.squeeze()])
 
     def best_legal_action(self, actions, scores):
         """Gets a list of legal actions w.r.t the current state of the parser
@@ -195,28 +203,46 @@ class DiscoBertModel(nn.Module):
         for i in range(enc_edus.shape[0]):
             buffer.append(TreeNode(leaf=i, embedding=enc_edus[i], text=edus[i], label='None'))
 
+        if gold_tree is not None:
+            label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
+
         # initialize automata
         parser = TransitionSystem(buffer)
 
         losses = []
 
+        def action_to_direction(action):
+            if action == 'reduceL':
+                return 'RightToLeft'
+            elif action == 'reduceR':
+                return 'LeftToRight'
+            else:
+                return 'None'
+
         while not parser.is_done():
             # the boolean in 'make_features' is whether or not to include the buffer node as a feature
-            state_features = self.make_features(parser, True)
+            state_features = self.make_features(parser)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
             # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            if gold_tree is not None:
-                label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
             # make a new set of features without the buffer for label classifier for any of the reduce actions
-            if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
-                state_features_for_labels = self.make_features(parser, False) 
+            action_pred = self.id_to_action[self.best_legal_action(legal_actions, action_scores)]
+            if action_pred.startswith("reduce"):
+                if gold_tree is not None:
+                    gold_step = parser.gold_step(gold_tree)
+                    direction = action_to_direction(gold_step.action)
+                else:
+                    direction = action_to_direction(action_pred)
+                state_features_for_labels = self.make_features_for_new_node(parser, direction) 
                 label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
-                # label_scores = torch.mul(self.label_classifier(state_features_for_labels).unsqueeze(dim=0), label_weights_tensor)
+            # label_scores = torch.mul(self.label_classifier(state_features_for_labels).unsqueeze(dim=0), label_weights_tensor)
             # for shift, use the stack + buffer features for label classifier
             else:
-                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                # label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                label_scores = torch.zeros(len(self.label_to_id))
+                label_scores[0] = 1
+                label_scores = label_scores.unsqueeze(dim=0).to(self.device)
                 # label_scores = torch.mul(self.label_classifier(state_features).unsqueeze(dim=0), label_weights_tensor)
             
             # in the three classifier version, direction is predicted separately from the action
@@ -232,7 +258,7 @@ class DiscoBertModel(nn.Module):
                     gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
-                loss_on_labels = loss_fn(label_scores, gold_label) 
+                loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
                 # action_for_labels = self.best_legal_action(legal_actions, action_scores)
                 # if self.id_to_action[action_for_labels].startswith("reduce"): 
                 #     loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
@@ -244,7 +270,7 @@ class DiscoBertModel(nn.Module):
                 else:
 
                     # loss = loss_on_actions + loss_on_labels
-                    loss = loss_on_actions + 2 * loss_on_labels 
+                    loss = loss_on_actions + loss_on_labels 
                            
                 # store loss for later
                 losses.append(loss)

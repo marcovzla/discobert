@@ -2,12 +2,12 @@ from pathlib import Path
 import tokenizers
 from transformers import *
 
-ENCODING = 'roberta' 
+ENCODING = 'roberta'
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 PRINT_TREES = False
 EXPERIMENT_ID = 22
-EXPERIMENT_DESCRIPTION = f"experiment17-roberta-two-classifier-only-stack-for-label-classifier-with-attention-labels-loss-mult-by2-2020-09-21" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+EXPERIMENT_DESCRIPTION = f"experiment17-{ENCODING}-two-classifier-only-stack-for-label-classifier-with-attention-labels-loss-mult-by2-2020-09-21" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -28,7 +28,7 @@ SORT_INPUT = False #simplified curriculum learning
 
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
-DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
+DISCOBERT_CODE_PATH = Path('~/repos/discobert').expanduser()
 OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'

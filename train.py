@@ -5,8 +5,8 @@ import numpy as np
 from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
-from transformers import AdamW, get_linear_schedule_with_warmup
-from model import DiscoBertModel
+from transformers import AdamW, get_linear_schedule_with_warmup, get_cosine_with_hard_restarts_schedule_with_warmup
+from model_rel import DiscoBertModel
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
@@ -72,15 +72,15 @@ def main(experiment_dir_path):
     label_list = config.ID_TO_LABEL
 
     
-    # # print(all_labels)
-    class_weights = []
-    for i, item in enumerate(label_list):
-        class_weights.append(1/np.log(all_labels.count(item)))
+    # # # print(all_labels)
+    # class_weights = []
+    # for i, item in enumerate(label_list):
+    #     class_weights.append(1/np.log(all_labels.count(item)))
     
 
-    print(len(class_weights))
-    class_weights = np.array(class_weights)
-    print(class_weights)
+    # print(len(class_weights))
+    # class_weights = np.array(class_weights)
+    # print(class_weights)
 
     # print(class_weight_dict)
     # classes = np.array(list(class_weight_dict.keys()))
@@ -95,7 +95,8 @@ def main(experiment_dir_path):
     # print("classes: ", type(classes))
     # print("ys shape: ", np.array(ys).shape)
     # print("classes shape: ", classes.shape)
-    # class_weights = compute_class_weight("balanced", label_list, all_labels)
+    class_weights = compute_class_weight("balanced", label_list[1:], all_labels)
+    class_weights = np.insert(class_weights, 0, [0])
     # print("class weights: ",class_weights)
     # class_weights = np.insert(class_weights, 0, 0, axis=0)
     print("class weights1: ",class_weights)
