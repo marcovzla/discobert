@@ -6,7 +6,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction
+from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
 import engine
@@ -79,12 +79,20 @@ def get_label_nuclearity_distribution(predictions):
 
     return nuclearity_label_dict
 
+
+
 def eval_trees(pred_trees, gold_trees, view_fn):
-    all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-    all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+    if "iter_labels" in str(view_fn):
+        # this is to get confusion-matrix-like information
+        all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
+        all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
+    else:
+        all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
     # print("view fn", view_fn)
 
-    
+    #For the following two, make sure to set "rerun_dev_eval" to True
+    # to compare how 
     if "iter_label_and_direction" in str(view_fn):
         print("predicted:")
         pred_dict = get_label_nuclearity_distribution(all_pred_spans)
@@ -92,6 +100,29 @@ def eval_trees(pred_trees, gold_trees, view_fn):
         gold_dict = get_label_nuclearity_distribution(all_gold_spans)
         for key in pred_dict:
             print("label: ", key, "\npred: ", pred_dict[key], "\ngold: ", gold_dict[key], "\n")
+
+
+
+    confusion = {}
+    # print(str(view_fn))
+    if "iter_labels" in str(view_fn):
+        for i, gold_label in enumerate(all_gold_spans):
+            predicted = all_pred_spans[i]
+            # print(gold_label, " ", predicted)
+            if gold_label in confusion:
+                if predicted in confusion[gold_label]:
+                    confusion[gold_label][predicted] += 1
+                else:
+                    confusion[gold_label][predicted] = 1
+            else:
+                confusion[gold_label] = {gold_label: 1}
+
+    for gold_label in confusion.keys():
+        print("==============\n", gold_label, "\n--------------")
+        predictions_dict = {k: v for k, v in sorted(confusion[gold_label].items(), key=lambda item: item[1], reverse=True)}
+        for predicted in predictions_dict:
+            print(predicted, "\t", confusion[gold_label][predicted])
+
 
     tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     # print(tpfpfns)
@@ -103,8 +134,8 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores
 
 # def eval_trees(pred_trees, gold_trees, view_fn):
-#     all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
-#     all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
+    # all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
+    # all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
 #     scores = prf1(all_pred_spans, all_gold_spans)
 #     return scores
 
@@ -140,8 +171,8 @@ def main(path_to_model, test_ds):
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
 
-        # eval_trees(pred_trees, gold_trees, iter_label_and_direction)
-
+        # eval_trees(pred_trees, gold_trees, iter_label_and_direction) #this is to get label distributions
+        # eval_trees(pred_trees, gold_trees, iter_labels) # this is to get confusion-matrix-like outputs
         
 
         return f1_s, f1_n, f1_r, f1
@@ -155,7 +186,7 @@ if __name__ == '__main__':
     random_seeds = config.RANDOM_SEEDS
     if config.PRINT_TREES == False:
         if config.RERUN_DEV_EVAL == True:
-            log_name = "eval_log-dev-new-eval-with-tpfpfn"
+            log_name = "eval_log-dev-new-eval" #"goldAndPreds.txt"
         else:
             log_name = "eval_log-new-eval-with-tpfpfn"
         with open(os.path.join(experiment_dir_path, log_name), "w") as f:

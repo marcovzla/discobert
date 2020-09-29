@@ -232,18 +232,19 @@ class DiscoBertModel(nn.Module):
                     gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
-                action_for_labels = self.best_legal_action(legal_actions, action_scores)
-                if self.id_to_action[action_for_labels].startswith("reduce"): 
-                    loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
-                else:
-                    loss_on_labels = 0
+                loss_on_labels = loss_fn(label_scores, gold_label) 
+                # action_for_labels = self.best_legal_action(legal_actions, action_scores)
+                # if self.id_to_action[action_for_labels].startswith("reduce"): 
+                #     loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
+                # else:
+                #     loss_on_labels = 0
                 if self.separate_action_and_dir_classifiers==True:
                     loss_on_direction = loss_fn(direction_scores, gold_direction)
                     loss = loss_on_actions + loss_on_labels + loss_on_direction
                 else:
 
-                    loss = loss_on_actions + loss_on_labels
-                    # loss = loss_on_actions + 2 * loss_on_labels 
+                    # loss = loss_on_actions + loss_on_labels
+                    loss = loss_on_actions + 2 * loss_on_labels 
                            
                 # store loss for later
                 losses.append(loss)
