@@ -68,36 +68,20 @@ def main(experiment_dir_path):
     all_labels = [f'{x}' for t in train_trees for x in iter_labels(t.get_nonterminals())]
     # distinct_labels = list(set(all_labels))
     
-    # label_list = config.ID_TO_LABEL[1:]
-    label_list = config.ID_TO_LABEL
+    label_list = config.ID_TO_LABEL[1:]
+    # label_list = config.ID_TO_LABEL
 
-    
-    # # print(all_labels)
-    class_weights = []
-    for i, item in enumerate(label_list):
-        class_weights.append(1/np.log(all_labels.count(item)))
-    
 
-    print(len(class_weights))
-    class_weights = np.array(class_weights)
-    print(class_weights)
-
-    # print(class_weight_dict)
-    # classes = np.array(list(class_weight_dict.keys()))
+    # class_weights = []
+    # for i, item in enumerate(label_list):
+    #     class_weights.append(1/np.log(all_labels.count(item)))
     
-    # ys = []
-    # for label in all_labels:
-    #     # print("label: ", label, " ",label_list.index(label))
-    #     ys.append(label_list.index(label))
-    # ys = np.array(ys)
-    # # print("label list: ", label_list)
-    # print("ys sample: ", type(ys[:10]))
-    # print("classes: ", type(classes))
-    # print("ys shape: ", np.array(ys).shape)
-    # print("classes shape: ", classes.shape)
-    # class_weights = compute_class_weight("balanced", label_list, all_labels)
+    # class_weights = np.array(class_weights)
+
+
+    class_weights = compute_class_weight("balanced", label_list, all_labels)
     # print("class weights: ",class_weights)
-    # class_weights = np.insert(class_weights, 0, 0, axis=0)
+    class_weights = np.insert(class_weights, 0, 0, axis=0)
     print("class weights1: ",class_weights)
     if config.SORT_INPUT == True:
         # construct new train_ds

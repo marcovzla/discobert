@@ -158,6 +158,8 @@ class TreeNode:
 
     def to_nltk(self):
         if self.is_terminal:
+            # return Tree('TEXT', [" ".join(self.text.replace("(", "[").replace(")", "]").split(" ")[:5])])
+            # return Tree('TEXT', [])
             return Tree('TEXT', [self.text.replace("(", "[").replace(")", "]")])
         else:
             if self.direction == 'LeftToRight':
@@ -262,6 +264,7 @@ def propagate_labels(node):
         propagate_labels(c)
 
 def binarize_tree(node):
+    # print(len(node.children))
     if node.is_terminal:
         return node
     if len(node.children) > 2:

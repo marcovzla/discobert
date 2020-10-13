@@ -79,6 +79,7 @@ class DiscoBertModel(nn.Module):
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
+        # self.lstm = nn.LSTM(self.encoder.config.hidden_size, 100, bidirectional=True)
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
@@ -112,7 +113,21 @@ class DiscoBertModel(nn.Module):
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
         if incl_buffer:
+            # print("LEN BUFFER: ", len(parser.buffer))
             b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+            if len(parser.buffer) < 1:
+                b = self.missing_node
+            else:
+                # print(parser.buffer[1].embedding)
+                # for b in parser.buffer:
+                #     print("b emb: ", b.embedding)
+                stacked = torch.stack([b.embedding for b in parser.buffer])
+                # print('stacked shape: ', stacked.shape)
+                b = torch.mean(stacked, dim=0)
+                # print("b shape: ", b.shape)
+
+
+            
         else:
             b = self.missing_node
         return torch.cat([s1, s0, b])
@@ -186,9 +201,18 @@ class DiscoBertModel(nn.Module):
                 enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
             else:
                 enc_edus = self.bert_drop(sequence_output[:,0,:])
-            
-
+        #         # enc_edus = self.bert_drop(sequence_output)
+        # enc_edus = self.bert_drop(sequence_output)
+        # print(enc_edus.shape)
         enc_edus = self.project(enc_edus) 
+        # print("projected: ", enc_edus.shape)
+        # enc_edus, _ = self.lstm(enc_edus)
+        # enc_edus = self.bert_drop(enc_edus[:,0,:])
+        # print(type(enc_edus))
+        # print(len(enc_edus))
+        
+        # enc_edus = torch.mean(enc_edus, dim=1)
+        # print(enc_edus.shape)
 
         # make treenodes
         buffer = []
@@ -233,18 +257,18 @@ class DiscoBertModel(nn.Module):
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
                 loss_on_labels = loss_fn(label_scores, gold_label) 
-                # action_for_labels = self.best_legal_action(legal_actions, action_scores)
-                # if self.id_to_action[action_for_labels].startswith("reduce"): 
-                #     loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
-                # else:
-                #     loss_on_labels = 0
+                action_for_labels = self.best_legal_action(legal_actions, action_scores)
+                if self.id_to_action[action_for_labels].startswith("reduce"): 
+                    loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
+                else:
+                    loss_on_labels = 0
                 if self.separate_action_and_dir_classifiers==True:
                     loss_on_direction = loss_fn(direction_scores, gold_direction)
                     loss = loss_on_actions + loss_on_labels + loss_on_direction
                 else:
 
-                    # loss = loss_on_actions + loss_on_labels
-                    loss = loss_on_actions + 2 * loss_on_labels 
+                    loss = loss_on_actions + loss_on_labels
+                #     loss = loss_on_actions + 2 * loss_on_labels 
                            
                 # store loss for later
                 losses.append(loss)

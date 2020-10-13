@@ -91,6 +91,10 @@ def eval_trees(pred_trees, gold_trees, view_fn):
         all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
     # print("view fn", view_fn)
 
+    # per_doc_scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+    # # print("PER DOC SCORES: ", per_doc_scores)
+    # for score in per_doc_scores:
+    #     print(score)
     #For the following two, make sure to set "rerun_dev_eval" to True
     # to compare how 
     if "iter_label_and_direction" in str(view_fn):
@@ -101,7 +105,7 @@ def eval_trees(pred_trees, gold_trees, view_fn):
         for key in pred_dict:
             print("label: ", key, "\npred: ", pred_dict[key], "\ngold: ", gold_dict[key], "\n")
 
-
+    
 
     confusion = {}
     # print(str(view_fn))
@@ -142,12 +146,23 @@ def eval_trees(pred_trees, gold_trees, view_fn):
 def main(path_to_model, test_ds):
     
     if config.RERUN_DEV_EVAL == True:
+        # print("START LOAD TRAIN/DEV SET")
         train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel.load(path_to_model)
     model.to(device)
     
     if config.RERUN_DEV_EVAL == True:
+        if config.SORT_INPUT:
+            valid_ids_by_length = {}
+            for item in valid_ds:
+                valid_ids_by_length.setdefault(len(item.edus), []).append(item)
+
+            valid_ds = []
+            for n in sorted(valid_ids_by_length):
+                for ann in valid_ids_by_length[n]:
+                    valid_ds.append(ann)
+
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
     else:
         pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
@@ -182,13 +197,14 @@ def main(path_to_model, test_ds):
 if __name__ == '__main__':
 
     test_ds = list(load_annotations(config.VALID_PATH))
+
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
     random_seeds = config.RANDOM_SEEDS
     if config.PRINT_TREES == False:
         if config.RERUN_DEV_EVAL == True:
-            log_name = "eval_log-dev-new-eval" #"goldAndPreds.txt"
+            log_name = "eval_log_dev.txt" 
         else:
-            log_name = "eval_log-new-eval-with-tpfpfn"
+            log_name = "eval_log"
         with open(os.path.join(experiment_dir_path, log_name), "w") as f:
             sys.stdout = f
             

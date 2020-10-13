@@ -4,6 +4,7 @@ from tqdm import tqdm
 import numpy as np
 from utils import CumulativeMovingAverage
 import config
+from rst import iter_labeled_spans_with_nuclearity
 
 def train_fn(annotations, model, optimizer, device, scheduler=None, class_weights=None):
     model.train()
@@ -21,6 +22,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None, class_weight
         model.zero_grad()
 
 def eval_fn(annotations, model, device, class_weights=None):
+    # print("TREES:\n")
     model.eval()
     pred_trees = []
     gold_trees = []
@@ -28,7 +30,23 @@ def eval_fn(annotations, model, device, class_weights=None):
         annotations = tqdm(annotations, total=len(annotations))
         annotations.set_description('devel')
         for a in annotations:
+            # print(a.docid)
             tree = model(a.edus, annotation=a, class_weights=class_weights)[0]
             pred_trees.append(tree)
             gold_trees.append(a.dis)
+
+            # pred_tree_nodes = iter_labeled_spans_with_nuclearity(tree.get_nonterminals())   #iter_labeled_spans_with_nuclearity
+            # print(f"Predicted tree for::{a.docid}")
+            # for node in pred_tree_nodes:
+            #     print(node)
+            # print("\n")
+
+            # gold_tree_nodes = iter_labeled_spans_with_nuclearity(a.dis.get_nonterminals())
+            # print(f"Gold tree for::{a.docid}")
+            # for node in gold_tree_nodes:
+            #     print(node)
+            # print("\n")
+            
+            # print(f"Predicted tree for::{a.docid}::\n", tree.to_nltk(), "\n")
+            # print(f"Gold tree for::{a.docid}::\n", a.dis.to_nltk(), "\n")
     return pred_trees, gold_trees
