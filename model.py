@@ -79,7 +79,7 @@ class DiscoBertModel(nn.Module):
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
-        # self.lstm = nn.LSTM(self.encoder.config.hidden_size, 100, bidirectional=True)
+        self.lstm = nn.LSTM(self.encoder.config.hidden_size, 100, bidirectional=True)
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
@@ -200,18 +200,18 @@ class DiscoBertModel(nn.Module):
             if self.encoding == "openai-gpt" or self.encoding == "gpt2":
                 enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
             else:
-                enc_edus = self.bert_drop(sequence_output[:,0,:])
-        #         # enc_edus = self.bert_drop(sequence_output)
-        # enc_edus = self.bert_drop(sequence_output)
-        # print(enc_edus.shape)
-        enc_edus = self.project(enc_edus) 
+                # enc_edus = self.bert_drop(sequence_output[:,0,:])
+                enc_edus = self.bert_drop(sequence_output)
+        
+
+        # enc_edus = self.project(enc_edus) 
         # print("projected: ", enc_edus.shape)
-        # enc_edus, _ = self.lstm(enc_edus)
+        enc_edus, _ = self.lstm(enc_edus)
         # enc_edus = self.bert_drop(enc_edus[:,0,:])
         # print(type(enc_edus))
         # print(len(enc_edus))
         
-        # enc_edus = torch.mean(enc_edus, dim=1)
+        enc_edus = torch.mean(enc_edus, dim=1)
         # print(enc_edus.shape)
 
         # make treenodes
