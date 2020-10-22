@@ -70,7 +70,7 @@ class DiscoBertModel(nn.Module):
             self.attn2 = nn.Linear(100, 1)
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
-        self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
+        self.project = nn.Linear(self.encoder.config.hidden_size * 4, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
         self.action_classifier = nn.Linear(6 * self.hidden_size, len(self.id_to_action))
@@ -207,8 +207,8 @@ class DiscoBertModel(nn.Module):
                 enc_edus = self.bert_drop(torch.mean(sequence_output, dim=1))
             else:
                 enc_edus = self.bert_drop(sequence_output[:,:4,:])
-                # print(enc_edus.shape)
-                enc_edus = torch.mean(enc_edus, dim=1)
+                # print("=>", enc_edus.shape)
+                enc_edus = torch.cat((enc_edus[:, 0, :], enc_edus[:, 1, :], enc_edus[:, 2, :], enc_edus[:, 3, :]), dim=1)
                 # print("here", enc_edus.shape)
                 # enc_edus = self.bert_drop(sequence_output)
         
