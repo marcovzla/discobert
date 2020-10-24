@@ -80,7 +80,7 @@ class DiscoBertModel(nn.Module):
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
-        self.lstm = nn.LSTM(self.encoder.config.hidden_size, 100, bidirectional=True, batch_first=True)
+        self.lstm = nn.LSTM(self.encoder.config.hidden_size, 200, bidirectional=True, batch_first=True)
         if self.include_relation_embedding:
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
@@ -221,16 +221,16 @@ class DiscoBertModel(nn.Module):
         ## print("dim before squeezing: ", enc_edus.shape)
         ## print("dim before lstm: ", enc_edus.unsqueeze(dim=0).shape)
         enc_edus, _ = self.lstm(enc_edus.unsqueeze(dim=0))
-        enc_edus_shape = enc_edus.shape
+        # enc_edus_shape = enc_edus.shape
         batch, seq_len, hidden_size = enc_edus.shape
-        zeros = torch.zeros((batch, seq_len, hidden_size//2)).to(self.device)
+        # zeros = torch.zeros((batch, seq_len, hidden_size//2)).to(self.device)
         # print("zeros shape: ", zeros.shape)
         
         # print("here: ", batch, " ", seq_len, " ", hidden_size)
         enc_edus = enc_edus.view(batch, seq_len, 2, hidden_size//2)
         # print("viewed: ", enc_edus.shape)
         enc_edus = torch.mean(enc_edus, dim=2)
-        enc_edus = torch.cat((enc_edus, zeros), dim=2)
+        # enc_edus = torch.cat((enc_edus, zeros), dim=2)
         # print(enc_edus.shape, "<-")
         # print("dim after lstm: ", enc_edus.shape)
         # enc_edus = self.bert_drop(enc_edus[:,0,:])
