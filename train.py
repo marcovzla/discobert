@@ -22,7 +22,7 @@ def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
     named_params = list(model.named_parameters())
     return [
-        {'params': [p for n,p in named_params if not any(nd in n for nd in no_decay)], 'weight_decay': 0.001},
+        {'params': [p for n,p in named_params if not any(nd in n for nd in no_decay)], 'weight_decay': 0.0001}, #0.001 and 0.0001 are pretty close (0.0001 is slightly better on the first few epochs); anything less than .0001 doesn't change performance
         {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
 
