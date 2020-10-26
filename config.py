@@ -3,11 +3,11 @@ import tokenizers
 from transformers import *
 
 ENCODING = 'xlnet' 
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
-RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+RERUN_DEV_EVAL = True # True to rerun eval on the same dev sets that were used during training
 PRINT_TREES = False
-EXPERIMENT_ID = 34
-EXPERIMENT_DESCRIPTION = f"{ENCODING}-xlnet-three-nodes-on-buffer-and-three-on-stack-half-embedding" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+EXPERIMENT_ID = 35
+EXPERIMENT_DESCRIPTION = f"experiment35-xlnet-xlnet-three-nodes-on-buffer-and-three-on-stack_buffer-size-feature_with-att-and-rel-emb_sorted_input-2020-10-25" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
 MAX_LEN = 50
@@ -20,11 +20,11 @@ HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 5 #10
 DIRECTION_HIDDEN_SIZE = 10
 
-INCLUDE_RELATION_EMBEDDING = False
+INCLUDE_RELATION_EMBEDDING = True
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
-USE_ATTENTION = False
+USE_ATTENTION = True
 DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = False #simplified curriculum learning
+SORT_INPUT = True #simplified curriculum learning
 
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 

@@ -73,12 +73,12 @@ class DiscoBertModel(nn.Module):
         self.betweenAttention = nn.Tanh()
         self.bert_drop = nn.Dropout(self.dropout)
         self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
-        self.missing_node = nn.Parameter(torch.rand(self.hidden_size//2, dtype=torch.float))
+        self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
-        self.action_classifier = nn.Linear(6 * self.hidden_size//2, len(self.id_to_action))
-        self.label_classifier = nn.Linear(6 * self.hidden_size//2, len(self.id_to_label))
+        self.action_classifier = nn.Linear(6 * self.hidden_size + 1, len(self.id_to_action))
+        self.label_classifier = nn.Linear(6 * self.hidden_size + 1, len(self.id_to_label))
         if self.separate_action_and_dir_classifiers==True:
-            self.direction_classifier = nn.Linear(6 * self.hidden_size, len(self.id_to_direction))
+            self.direction_classifier = nn.Linear(6 * self.hidden_size + 1, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
@@ -113,10 +113,10 @@ class DiscoBertModel(nn.Module):
         The state is represented by the concatenation of the embeddings corresponding
         to the two nodes on the top of the stack and the next node in the buffer.
         """
-        # buffer_size = len(parser.buffer) / (len(parser.buffer) + len(parser.stack))
+        buffer_size = len(parser.buffer) / (len(parser.buffer) + len(parser.stack))
         # print(buffer_size)
         # buffer_feature = torch.from_numpy(np.array(buffer_size)).to(self.device)
-        # buffer_feature = torch.as_tensor(buffer_size).to(self.device)
+        buffer_feature = torch.as_tensor(buffer_size).to(self.device)
         # if len(parser.stack) > 0:
         #     print("parser: ", parser.stack[0].embedding, parser.stack[0].embedding.shape)
         # else:
@@ -125,21 +125,21 @@ class DiscoBertModel(nn.Module):
         # print("buffer feature type: ", buffer_feature.type)
         # print("buffer feature: ", buffer_feature.shape)
         
-        s2 = self.missing_node if len(parser.stack) < 3 else parser.stack[-3].embedding[:self.hidden_size//2]
-        s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding[:self.hidden_size//2] ##half of the embedding
-        s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding[:self.hidden_size//2]
+        s2 = self.missing_node if len(parser.stack) < 3 else parser.stack[-3].embedding
+        s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
+        s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
         if incl_buffer:
             # print("LEN BUFFER: ", len(parser.buffer))
-            b0 = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding[:self.hidden_size//2]
-            b1 = self.missing_node if len(parser.buffer) < 2 else parser.buffer[1].embedding[:self.hidden_size//2]
-            b2 = self.missing_node if len(parser.buffer) < 3 else parser.buffer[2].embedding[:self.hidden_size//2]
+            b0 = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+            b1 = self.missing_node if len(parser.buffer) < 2 else parser.buffer[1].embedding
+            b2 = self.missing_node if len(parser.buffer) < 3 else parser.buffer[2].embedding
 
             
         else:
             b0 = self.missing_node
             b1 = self.missing_node
             b2 = self.missing_node
-        return torch.cat([s2, s1, s0, b0, b1, b2])
+        return torch.cat([s2, s1, s0, b0, b1, b2, buffer_feature.unsqueeze(dim=0)])
 
     def best_legal_action(self, actions, scores):
         """Gets a list of legal actions w.r.t the current state of the parser
