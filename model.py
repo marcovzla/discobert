@@ -11,11 +11,11 @@ from sentence_transformers import SentenceTransformer
 
 inf = float('inf')
 
-def loss_fn(outputs, targets):
-    return nn.CrossEntropyLoss()(outputs, targets)
-
 # def loss_fn(outputs, targets):
-#     return nn.MultiMarginLoss()(outputs, targets)
+#     return nn.CrossEntropyLoss()(outputs, targets)
+
+def loss_fn(outputs, targets):
+    return nn.MultiMarginLoss()(outputs, targets)
 
 def loss_fn_on_labels(outputs, targets, label_weights_tensor):
     return nn.CrossEntropyLoss(weight=label_weights_tensor)(outputs, targets)
