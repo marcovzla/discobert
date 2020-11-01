@@ -8,6 +8,7 @@ import config
 import torch.nn.functional as F
 import numpy as np
 from sentence_transformers import SentenceTransformer
+import random
 
 inf = float('inf')
 
@@ -159,8 +160,9 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
-    def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
-        
+    def forward(self, edus, gold_tree=None, train=None, annotation=None, class_weights=None, threshold=None):
+        print("NEW DOC!")
+        print("TH IN FORWARD: ", threshold)
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus
@@ -250,7 +252,7 @@ class DiscoBertModel(nn.Module):
             legal_actions = parser.all_legal_actions()
             # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            if gold_tree is not None:
+            if train==True:
                 label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
             # make a new set of features without the buffer for label classifier for any of the reduce actions
             if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
@@ -265,14 +267,17 @@ class DiscoBertModel(nn.Module):
             # in the three classifier version, direction is predicted separately from the action
             if self.separate_action_and_dir_classifiers==True:
                 direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+
+            
             # are we training?
-            if gold_tree is not None:
+            if train==True:
                 gold_step = parser.gold_step(gold_tree)
                 # unpack step
                 gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
                 gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
                 if self.separate_action_and_dir_classifiers==True:
                     gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+                    
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
                 loss_on_labels = loss_fn(label_scores, gold_label) 
@@ -297,15 +302,50 @@ class DiscoBertModel(nn.Module):
                 if self.separate_action_and_dir_classifiers==True:
                     next_direction = gold_direction
             else:
-                next_action = self.best_legal_action(legal_actions, action_scores)
-                # predict the label for any of the reduce actions
-                if self.id_to_action[next_action].startswith("reduce"):
-                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
-                # there is no label to predict for shift
+
+                try:
+                    gold_step = parser.gold_step(gold_tree)
+                # unpack step
+                    gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
+                    gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
+                    if self.separate_action_and_dir_classifiers==True:
+                        gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+                except:
+                    print("ERROR GETTING GOLD STEP")
+                    gold_step = None
+                # to ask bsh: two or three classifier version 
+                # in a two classifier version: random wrong action has more options 
+
+                # we only care if we shift or reduce
+
+
+                # we don't know the number of steps so %age might not be exact 
+                # how to introduce randomization---we'd want it at diff steps, not just at the beginning.. 
+                # but we do know the gold tree... does that help? when it's golf tree step n, throw in an error? 
+                # but if we, for example, want an error during the last step, but we took fewer steps somehow than the gold, 
+                if gold_step != None:
+                    next_action = gold_action
+                    next_label = gold_label
+                    if self.separate_action_and_dir_classifiers==True:
+                        next_direction = gold_direction
                 else:
-                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = direction_scores.argmax().unsqueeze(0)
+                    next_action = self.best_legal_action(legal_actions, action_scores)
+                    if self.id_to_action[next_action].startswith("reduce"):
+                        next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                    # there is no label to predict for shift
+                    else:
+                        next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
+                    if self.separate_action_and_dir_classifiers==True:
+                        next_direction = direction_scores.argmax().unsqueeze(0)
+                # next_action = self.best_legal_action(legal_actions, action_scores)
+                # # predict the label for any of the reduce actions
+                # if self.id_to_action[next_action].startswith("reduce"):
+                #     next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                # # there is no label to predict for shift
+                # else:
+                #     next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
+                # if self.separate_action_and_dir_classifiers==True:
+                #     next_direction = direction_scores.argmax().unsqueeze(0)
                 
             
             if self.include_relation_embedding:
@@ -320,9 +360,32 @@ class DiscoBertModel(nn.Module):
 
             
             action=self.id_to_action[next_action]
+            print("----\naction: ", action)
+            # threshold = 0.5
             # take the step
+            # actions = ['reduce', 'reduceL', 'reduceR', 'shift']
+            print("legal actions: ", legal_actions)
+            actions_to_choose_from = legal_actions
+            
+            coin = random.random()
+            print("coin: ", coin)
+            if coin < threshold:
+                print("FLIP")
+                actions_to_choose_from.remove(action)
+                print(actions_to_choose_from)
+                if len(actions_to_choose_from) > 0:
+                    action = random.choice(actions_to_choose_from)
+                # if action == "shift":
+                #     action = random.choice('reduce', 'reduceL', 'reduceR')
+                # else:
+                #     action = "shift"
+
+            print("action after coin: ", action)
+            
+
             parser.take_action(
-                action=action,
+                action=action, #rand number between 0 and 1, if it's below my prob (e.g. below 0.05), then do the opposite of this action 
+                # start with 0, 5%, 10, 20, 30, 40, 50 or even at 5 increments and plot; span f1 plotted against noise
                 label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
                 direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
                 reduce_fn=self.merge_embeddings,
@@ -337,7 +400,7 @@ class DiscoBertModel(nn.Module):
         outputs = (predicted_tree,)
 
         # are we training?
-        if gold_tree is not None:
+        if train==True:
             loss = sum(losses) / len(losses)
             outputs = (loss,) + outputs
 

@@ -105,6 +105,11 @@ class TransitionSystem:
             rhs = self.stack[-1]
             lhs = self.stack[-2]
             new_span = range(lhs.span.start, rhs.span.stop)
+            print(new_span, "<-")
+            print("self can shift: ", self.can_shift())
+            print("self can reduce: ", self.can_reduce())
+            print("stack: ", len(self.stack))
+            print("buffer: ", len(self.buffer))
 
             for n in gold_tree.iter_nodes():
                 if n.span == new_span:
@@ -130,6 +135,7 @@ class TransitionSystem:
                     # print("all spans:")
                     # for s in [x.span for x in list(gold_tree.iter_nodes())]:
                     #     print("\t", s)
+                    
                     raise Exception("There is no correct action given the current state of the parser.")
         elif self.can_shift():
             if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:

@@ -12,7 +12,7 @@ def train_fn(annotations, model, optimizer, device, scheduler=None, class_weight
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')
     for a in annotations:
-        loss, tree = model(a.edus, a.dis, class_weights=class_weights)
+        loss, tree = model(a.edus, gold_tree=a.dis, train=True, class_weights=class_weights)
         loss_avg.add(loss.item())
         annotations.set_postfix_str(f'loss={loss_avg:.4f}')
         loss.backward()
@@ -21,8 +21,9 @@ def train_fn(annotations, model, optimizer, device, scheduler=None, class_weight
             scheduler.step()
         model.zero_grad()
 
-def eval_fn(annotations, model, device, class_weights=None):
+def eval_fn(annotations, model, device, class_weights=None, threshold=None):
     # print("TREES:\n")
+    print("TH IN EVAL: ", threshold)
     model.eval()
     pred_trees = []
     gold_trees = []
@@ -31,7 +32,7 @@ def eval_fn(annotations, model, device, class_weights=None):
         annotations.set_description('devel')
         for a in annotations:
             # print(a.docid)
-            tree = model(a.edus, annotation=a, class_weights=class_weights)[0]
+            tree = model(a.edus, gold_tree=a.dis, train=False, annotation=a, class_weights=class_weights, threshold=threshold)[0]
             pred_trees.append(tree)
             gold_trees.append(a.dis)
 

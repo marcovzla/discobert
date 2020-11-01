@@ -143,7 +143,8 @@ def eval_trees(pred_trees, gold_trees, view_fn):
 #     scores = prf1(all_pred_spans, all_gold_spans)
 #     return scores
 
-def main(path_to_model, test_ds):
+def main(path_to_model, test_ds, threshold):
+    print("TH: ", threshold)
     
     if config.RERUN_DEV_EVAL == True:
         # print("START LOAD TRAIN/DEV SET")
@@ -163,9 +164,9 @@ def main(path_to_model, test_ds):
                 for ann in valid_ids_by_length[n]:
                     valid_ds.append(ann)
 
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device, threshold=threshold)
     else:
-        pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
+        pred_trees, gold_trees = engine.eval_fn(test_ds, model, device, threshold=threshold)
 
     if config.PRINT_TREES == False:
         
@@ -202,17 +203,18 @@ if __name__ == '__main__':
     random_seeds = config.RANDOM_SEEDS
     if config.PRINT_TREES == False:
         if config.RERUN_DEV_EVAL == True:
-            log_name = "eval_log_dev.txt" 
+            log_name = "eval_log_dev_noise_experiment.txt" 
         else:
-            log_name = "eval_log"
+            log_name = "eval_log_noise_experiment"
         with open(os.path.join(experiment_dir_path, log_name), "w") as f:
             sys.stdout = f
             
-
-            span_scores = np.zeros(len(random_seeds))
-            nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
-            relations_scores = np.zeros(len(random_seeds)) # span + relation label
-            full_scores = np.zeros(len(random_seeds)) # span + direction + relation label
+            thresholds = [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.4, 0.45, 0.50]
+            span_scores = np.zeros(len(thresholds))
+            
+            nuclearity_scores = np.zeros(len(thresholds)) # span + direction
+            relations_scores = np.zeros(len(thresholds)) # span + relation label
+            full_scores = np.zeros(len(thresholds)) # span + direction + relation label
 
             for i in range(len(random_seeds)):
                 r_seed = random_seeds[i]
@@ -220,13 +222,30 @@ if __name__ == '__main__':
                 torch.manual_seed(r_seed)
                 torch.cuda.manual_seed(r_seed)
                 np.random.seed(r_seed)
-                path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(r_seed), config.MODEL_FILENAME)
-                print("model path: ", path_to_model)
-                rs_results = main(path_to_model, test_ds)
-                span_scores[i] = rs_results[0]
-                nuclearity_scores[i] = rs_results[1]
-                relations_scores[i] = rs_results[2]
-                full_scores[i] = rs_results[3]
+                
+                for j, th in enumerate(thresholds):
+                    print("J: ", j, " th: ", th)
+                    path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(r_seed), config.MODEL_FILENAME)
+                    print("model path: ", path_to_model)
+                    rs_results = main(path_to_model, test_ds, th)
+                    print(rs_results)
+                    span_scores[j] = rs_results[0]
+                    nuclearity_scores[j] = rs_results[1]
+                    relations_scores[j] = rs_results[2]
+                    full_scores[j] = rs_results[3]
+                    print(span_scores)
+            print(len(span_scores))
+            for i, th in enumerate(thresholds):
+                print(str(th) + "\t" + str(span_scores[i]))
+
+            print("-----")
+            for th in thresholds:
+                print(th)
+
+            print("-----")
+
+            for score in span_scores:
+                print(score)
 
             span_score = np.around(np.mean(span_scores), decimals=3)
             span_score_sd = np.around(np.std(span_scores), decimals=3)
