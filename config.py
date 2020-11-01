@@ -4,7 +4,7 @@ from transformers import *
 
 ENCODING = 'xlnet' 
 DEBUG = True # no saving of files; output in the terminal; first random seed from the list
-RERUN_DEV_EVAL = True # True to rerun eval on the same dev sets that were used during training
+RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 PRINT_TREES = False
 EXPERIMENT_ID = 35
 EXPERIMENT_DESCRIPTION = f"experiment35-xlnet-xlnet-three-nodes-on-buffer-and-three-on-stack_buffer-size-feature_with-att-and-rel-emb_sorted_input-2020-10-25" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
@@ -24,7 +24,7 @@ INCLUDE_RELATION_EMBEDDING = True
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
 USE_ATTENTION = True
 DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = True #simplified curriculum learning
+SORT_INPUT = False #simplified curriculum learning
 
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
@@ -37,10 +37,12 @@ CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each
 
 SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = False #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
 
-if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
-    ID_TO_ACTION = ['shift', 'reduce']
-else:
-    ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
+# if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
+#     ID_TO_ACTION = ['shift', 'reduce']
+# else:
+#     ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
+
+ID_TO_ACTION = ["reduceL", "reduceR"]
  
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 

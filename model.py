@@ -247,12 +247,39 @@ class DiscoBertModel(nn.Module):
         losses = []
 
         while not parser.is_done():
-            # the boolean in 'make_features' is whether or not to include the buffer node as a feature
-            state_features = self.make_features(parser, True)
-            # legal actions for current parser
-            legal_actions = parser.all_legal_actions()
-            # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
-            action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+
+
+            max_score = 0
+            max_nodes = []
+            legal_actions = config.ID_TO_ACTION
+            all_current_nodes = parser.stack + parser.buffer
+            for i, node1 in enumerate(all_current_nodes):
+                for j, node2 in enumerate(all_current_nodes[i+1:]):
+                    node0 = self.missing_node if i == 0 else all_current_nodes[i - 1].embedding
+                    node3 = self.missing_node if j == len(all_current_nodes) else all_current_nodes[j + 1].embedding
+                    state_features = torch.cat([node0, node1, node2, node3])
+                    
+
+                 
+                    action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                    curr_score = self.best_legal_action(legal_actions, action_scores)
+                    if curr_score > max_score:
+                        max_score = curr_score
+                        max_nodes = [node1, node2, node0, node3]
+
+            
+
+
+
+                    
+
+
+            # # the boolean in 'make_features' is whether or not to include the buffer node as a feature
+            # state_features = self.make_features(parser, True)
+            # # legal actions for current parser
+            # legal_actions = parser.all_legal_actions()
+            # # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
+            # action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
             if gold_tree is not None:
                 label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
             # make a new set of features without the buffer for label classifier for any of the reduce actions
