@@ -94,6 +94,7 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
+    train_ds = train_ds[3:]
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)
     scheduler = get_linear_schedule_with_warmup(

@@ -11,6 +11,16 @@ from sentence_transformers import SentenceTransformer
 
 inf = float('inf')
 
+def reduceForEasyFirst(child1, child2, label=None, direction=None, reduce_fn=None, rel_embedding=None):
+    lhs = child1
+    rhs = child2
+    emb = None if reduce_fn is None else reduce_fn(lhs.embedding, rhs.embedding, rel_embedding) 
+    # print(emb)
+
+    node = TreeNode(children=[lhs, rhs], label=label, direction=direction, embedding=emb)
+    node.calc_span()
+    return node
+
 def loss_fn(outputs, targets):
     return nn.CrossEntropyLoss()(outputs, targets)
 
@@ -78,10 +88,10 @@ class DiscoBertModel(nn.Module):
         self.project = nn.Linear(self.encoder.config.hidden_size, self.hidden_size)
         self.missing_node = nn.Parameter(torch.rand(self.hidden_size, dtype=torch.float))
         self.separate_action_and_dir_classifiers = config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS
-        self.action_classifier = nn.Linear(6 * self.hidden_size + 1, len(self.id_to_action))
-        self.label_classifier = nn.Linear(6 * self.hidden_size + 1, len(self.id_to_label))
+        self.action_classifier = nn.Linear(4 * self.hidden_size, len(self.id_to_action))
+        self.label_classifier = nn.Linear(4 * self.hidden_size, len(self.id_to_label))
         if self.separate_action_and_dir_classifiers==True:
-            self.direction_classifier = nn.Linear(6 * self.hidden_size + 1, len(self.id_to_direction))
+            self.direction_classifier = nn.Linear(4 * self.hidden_size, len(self.id_to_direction))
         # self.merge_layer = nn.Linear(2 * self.encoder.config.hidden_size, self.encoder.config.hidden_size)
         self.treelstm = TreeLstm(self.hidden_size // 2, self.include_relation_embedding, self.include_direction_embedding, self.relation_label_hidden_size, self.direction_hidden_size)
         # self.relu = nn.ReLU()
@@ -163,7 +173,7 @@ class DiscoBertModel(nn.Module):
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
-        
+        print("DOC START")
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus
@@ -245,27 +255,92 @@ class DiscoBertModel(nn.Module):
         parser = TransitionSystem(buffer)
 
         losses = []
+        all_current_nodes = parser.stack + parser.buffer
+        
+        while len(all_current_nodes) > 1:
+            print("len all current nodes: ", len(all_current_nodes))
 
-        while not parser.is_done():
 
 
             max_score = 0
-            max_nodes = []
-            legal_actions = config.ID_TO_ACTION
-            all_current_nodes = parser.stack + parser.buffer
+            max_node = None # id of the first node in reduce
+            max_action = None # action for the max score we've seen so far
+            legal_actions = config.ID_TO_ACTION #ReduceL, ReduceR
+            
             for i, node1 in enumerate(all_current_nodes):
-                for j, node2 in enumerate(all_current_nodes[i+1:]):
+                print(f'i: {i}')
+                
+                if not i >= len(all_current_nodes) - 1:
+                    # incl two more nodes for features
+                    node2 = all_current_nodes[i + 1].embedding
                     node0 = self.missing_node if i == 0 else all_current_nodes[i - 1].embedding
-                    node3 = self.missing_node if j == len(all_current_nodes) else all_current_nodes[j + 1].embedding
-                    state_features = torch.cat([node0, node1, node2, node3])
+                    node3 = self.missing_node if i + 2 >= len(all_current_nodes) - 1 else all_current_nodes[i + 2].embedding
+                    state_features = torch.cat([node0, node1.embedding, node2, node3])
+
+                    #hinge loss 
+                    #the predicted and the next highest 
+                    #use "is valid"
+                    #add the label loss
                     
 
-                 
+                    
                     action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-                    curr_score = self.best_legal_action(legal_actions, action_scores)
+                    print("act scores: ", action_scores)
+                    curr_score = torch.max(action_scores).item()
+                    print("curr score: ", curr_score)
+                    curr_best_action = torch.argmax(action_scores).item()
+                    print("cur best action: ", curr_best_action)
+                    
                     if curr_score > max_score:
                         max_score = curr_score
-                        max_nodes = [node1, node2, node0, node3]
+                        max_node = i
+                        max_action = legal_actions[curr_best_action]
+                        print("max action: ", max_action)
+                        print("max score: ", max_score)
+                        print("max nodes: ", max_node)
+                else:
+                    # when reach the point when there is no i + 1
+                    print("BREAK")
+                    break
+                        
+            print("REACHED HERE")
+        
+
+            new_current = []
+            # print("new current: ", new_current)
+            for i, node1 in enumerate(all_current_nodes):
+                print(f"is i = max node?: {i} = {max_node}")
+                if i == max_node:
+                    
+                    label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                    next_label = label_scores.argmax().unsqueeze(0)
+                    label = self.id_to_label[next_label]
+                    print(f"label: {label}")
+                    if max_action == "reduceL":
+                        new_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=label, direction="RightToLeft", reduce_fn=self.merge_embeddings) 
+                    else:
+                        new_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=label, direction="LeftToRight", reduce_fn=self.merge_embeddings) 
+                    new_current.append(new_node)
+                    # for node in all_current_nodes[i+2:]:
+                    #     new_current.append(node)
+                    all_current_nodes = new_current
+                    # print(f"after reduce: ", new_node.to_nltk())
+                    break
+
+
+                    # new node
+                    # add this node
+                    # add the remaining nodes i + 2 (?)
+                    # break
+                else:
+                    new_current.append(node1)
+            print("new new current len: ", len(new_current))
+
+        print(all_current_nodes[0].to_nltk())
+
+
+                
+
 
             
 
@@ -274,101 +349,101 @@ class DiscoBertModel(nn.Module):
                     
 
 
-            # # the boolean in 'make_features' is whether or not to include the buffer node as a feature
-            # state_features = self.make_features(parser, True)
-            # # legal actions for current parser
-            # legal_actions = parser.all_legal_actions()
-            # # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
-            # action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            if gold_tree is not None:
-                label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
-            # make a new set of features without the buffer for label classifier for any of the reduce actions
-            if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
-                state_features_for_labels = self.make_features(parser, False) 
-                label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
-                # label_scores = torch.mul(self.label_classifier(state_features_for_labels).unsqueeze(dim=0), label_weights_tensor)
-            # for shift, use the stack + buffer features for label classifier
-            else:
-                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-                # label_scores = torch.mul(self.label_classifier(state_features).unsqueeze(dim=0), label_weights_tensor)
+        #     # # the boolean in 'make_features' is whether or not to include the buffer node as a feature
+        #     # state_features = self.make_features(parser, True)
+        #     # # legal actions for current parser
+        #     # legal_actions = parser.all_legal_actions()
+        #     # # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
+        #     # action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+        #     if gold_tree is not None:
+        #         label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
+        #     # make a new set of features without the buffer for label classifier for any of the reduce actions
+        #     if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
+        #         state_features_for_labels = self.make_features(parser, False) 
+        #         label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
+        #         # label_scores = torch.mul(self.label_classifier(state_features_for_labels).unsqueeze(dim=0), label_weights_tensor)
+        #     # for shift, use the stack + buffer features for label classifier
+        #     else:
+        #         label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+        #         # label_scores = torch.mul(self.label_classifier(state_features).unsqueeze(dim=0), label_weights_tensor)
             
-            # in the three classifier version, direction is predicted separately from the action
-            if self.separate_action_and_dir_classifiers==True:
-                direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
-            # are we training?
-            if gold_tree is not None:
-                gold_step = parser.gold_step(gold_tree)
-                # unpack step
-                gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
-                gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
-                if self.separate_action_and_dir_classifiers==True:
-                    gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
-                # calculate loss
-                loss_on_actions = loss_fn(action_scores, gold_action)
-                loss_on_labels = loss_fn(label_scores, gold_label) 
-                action_for_labels = self.best_legal_action(legal_actions, action_scores)
-                if self.id_to_action[action_for_labels].startswith("reduce"): 
-                    loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
-                else:
-                    loss_on_labels = 0
-                if self.separate_action_and_dir_classifiers==True:
-                    loss_on_direction = loss_fn(direction_scores, gold_direction)
-                    loss = loss_on_actions + loss_on_labels + loss_on_direction
-                else:
+        #     # in the three classifier version, direction is predicted separately from the action
+        #     if self.separate_action_and_dir_classifiers==True:
+        #         direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
+        #     # are we training?
+        #     if gold_tree is not None:
+        #         gold_step = parser.gold_step(gold_tree)
+        #         # unpack step
+        #         gold_action = torch.tensor([self.action_to_id[gold_step.action]], dtype=torch.long).to(self.device)
+        #         gold_label = torch.tensor([self.label_to_id[gold_step.label]], dtype=torch.long).to(self.device)
+        #         if self.separate_action_and_dir_classifiers==True:
+        #             gold_direction = torch.tensor([self.direction_to_id[gold_step.direction]], dtype=torch.long).to(self.device)
+        #         # calculate loss
+        #         loss_on_actions = loss_fn(action_scores, gold_action)
+        #         loss_on_labels = loss_fn(label_scores, gold_label) 
+        #         action_for_labels = self.best_legal_action(legal_actions, action_scores)
+        #         if self.id_to_action[action_for_labels].startswith("reduce"): 
+        #             loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
+        #         else:
+        #             loss_on_labels = 0
+        #         if self.separate_action_and_dir_classifiers==True:
+        #             loss_on_direction = loss_fn(direction_scores, gold_direction)
+        #             loss = loss_on_actions + loss_on_labels + loss_on_direction
+        #         else:
 
-                    loss = loss_on_actions + loss_on_labels
-                #     loss = loss_on_actions + 2 * loss_on_labels 
+        #             loss = loss_on_actions + loss_on_labels
+        #         #     loss = loss_on_actions + 2 * loss_on_labels 
                            
-                # store loss for later
-                losses.append(loss)
-                # teacher forcing
-                next_action = gold_action
-                next_label = gold_label
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = gold_direction
-            else:
-                next_action = self.best_legal_action(legal_actions, action_scores)
-                # predict the label for any of the reduce actions
-                if self.id_to_action[next_action].startswith("reduce"):
-                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
-                # there is no label to predict for shift
-                else:
-                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
-                if self.separate_action_and_dir_classifiers==True:
-                    next_direction = direction_scores.argmax().unsqueeze(0)
+        #         # store loss for later
+        #         losses.append(loss)
+        #         # teacher forcing
+        #         next_action = gold_action
+        #         next_label = gold_label
+        #         if self.separate_action_and_dir_classifiers==True:
+        #             next_direction = gold_direction
+        #     else:
+        #         next_action = self.best_legal_action(legal_actions, action_scores)
+        #         # predict the label for any of the reduce actions
+        #         if self.id_to_action[next_action].startswith("reduce"):
+        #             next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+        #         # there is no label to predict for shift
+        #         else:
+        #             next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
+        #         if self.separate_action_and_dir_classifiers==True:
+        #             next_direction = direction_scores.argmax().unsqueeze(0)
                 
             
-            if self.include_relation_embedding:
-                rel_emb = self.relation_embeddings(next_label)
-                if self.include_direction_embedding:
-                    dir_emb = self.direction_embedding(next_direction)
-                    rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
-                else:
-                    rel_dir_emb = rel_emb
-            else:
-                rel_dir_emb = None  
+        #     if self.include_relation_embedding:
+        #         rel_emb = self.relation_embeddings(next_label)
+        #         if self.include_direction_embedding:
+        #             dir_emb = self.direction_embedding(next_direction)
+        #             rel_dir_emb = torch.cat((rel_emb, dir_emb), dim=1)
+        #         else:
+        #             rel_dir_emb = rel_emb
+        #     else:
+        #         rel_dir_emb = None  
 
             
-            action=self.id_to_action[next_action]
-            # take the step
-            parser.take_action(
-                action=action,
-                label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
-                direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
-                reduce_fn=self.merge_embeddings,
-                rel_embedding = rel_dir_emb
-            )
+        #     action=self.id_to_action[next_action]
+        #     # take the step
+        #     parser.take_action(
+        #         action=action,
+        #         label=self.id_to_label[next_label] if action.startswith("reduce") else "None", # no label for shift 
+        #         direction=self.id_to_direction[next_direction] if self.separate_action_and_dir_classifiers==True else None,
+        #         reduce_fn=self.merge_embeddings,
+        #         rel_embedding = rel_dir_emb
+        #     )
 
-        # returns the TreeNode for the tree root
-        predicted_tree = parser.get_result()
-        if config.PRINT_TREES == True:
-            # print(annotation)
-            print("Document::" + str(annotation.docid) + "::" + str(predicted_tree.to_nltk()) + "\n")
-        outputs = (predicted_tree,)
+        # # returns the TreeNode for the tree root
+        # predicted_tree = parser.get_result()
+        # if config.PRINT_TREES == True:
+        #     # print(annotation)
+        #     print("Document::" + str(annotation.docid) + "::" + str(predicted_tree.to_nltk()) + "\n")
+        # outputs = (predicted_tree,)
 
-        # are we training?
-        if gold_tree is not None:
-            loss = sum(losses) / len(losses)
-            outputs = (loss,) + outputs
+        # # are we training?
+        # if gold_tree is not None:
+        #     loss = sum(losses) / len(losses)
+        #     outputs = (loss,) + outputs
 
-        return outputs
+        # return outputs

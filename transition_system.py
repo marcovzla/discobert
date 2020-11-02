@@ -53,6 +53,8 @@ class TransitionSystem:
         self.stack.append(node)
 
 
+
+
     def reduceL(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
         self.reduce(label, 'RightToLeft', reduce_fn, rel_embedding)
 
