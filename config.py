@@ -3,7 +3,7 @@ import tokenizers
 from transformers import *
 
 ENCODING = 'xlnet' 
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 PRINT_TREES = False
 EXPERIMENT_ID = 36
@@ -20,11 +20,11 @@ HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 5 #10
 DIRECTION_HIDDEN_SIZE = 10
 
-INCLUDE_RELATION_EMBEDDING = True
+INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
-USE_ATTENTION = True
+USE_ATTENTION = False
 DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = True #simplified curriculum learning
+SORT_INPUT = False #simplified curriculum learning
 
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
