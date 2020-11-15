@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from transformers import *
-from rst import TreeNode
+from rst import TreeNode, iter_nuclearity_spans
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
 import config
@@ -21,14 +21,14 @@ def reduceForEasyFirst(child1, child2, label=None, direction=None, reduce_fn=Non
     node.calc_span()
     return node
 
-def loss_fn(outputs, targets):
+def loss_fn_for_labels(outputs, targets):
     return nn.CrossEntropyLoss()(outputs, targets)
 
-# def loss_fn(outputs, targets):
-#     return nn.MultiMarginLoss()(outputs, targets)
+def loss_fn(outputs, targets):
+    return nn.MultiMarginLoss()(outputs, targets)
 
-def loss_fn_on_labels(outputs, targets, label_weights_tensor):
-    return nn.CrossEntropyLoss(weight=label_weights_tensor)(outputs, targets)
+# def loss_fn_on_labels(outputs, targets, label_weights_tensor):
+#     return nn.CrossEntropyLoss(weight=label_weights_tensor)(outputs, targets)
 
 class DiscoBertModel(nn.Module):
     
@@ -174,6 +174,12 @@ class DiscoBertModel(nn.Module):
 
     def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
         print("DOC START")
+
+        print(gold_tree)
+        if gold_tree is not None:
+            print("HERE")
+            all_gold_spans = [f'{x}' for x in iter_nuclearity_spans(gold_tree.get_nonterminals())] 
+            print(all_gold_spans)
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus
@@ -257,16 +263,32 @@ class DiscoBertModel(nn.Module):
         losses = []
         all_current_nodes = parser.stack + parser.buffer
         
+        
+        # get scores for every possible reduction (that is the score for reducing each pair of adjacent nodes)
         while len(all_current_nodes) > 1:
             print("len all current nodes: ", len(all_current_nodes))
+            print("ALL CURRENT NODES: ")
+            for node in all_current_nodes:
+                print("->", node)
+                print("->>", f'{node.span}::{node.direction}')
 
+            # during training, we'll be getting both max gold score ...
+            gold_max_score = 0
+            gold_max_node = None # id of the first node in reduce
+            gold_max_action = None # action for the max score we've seen so far
+            gold_max_label = None
 
+            if gold_tree is not None:
+                # ... and max predicted score (with max gold and max predicted can---and ideally should---be the same)
+                max_score = 0
+                max_node = None # id of the first node in reduce
+                max_action = None # action for the max score we've seen so far
+                max_label = None
+                second_best_predicted_score = 0
 
-            max_score = 0
-            max_node = None # id of the first node in reduce
-            max_action = None # action for the max score we've seen so far
             legal_actions = config.ID_TO_ACTION #ReduceL, ReduceR
             
+            # calculate the scores 
             for i, node1 in enumerate(all_current_nodes):
                 print(f'i: {i}')
                 
@@ -285,16 +307,42 @@ class DiscoBertModel(nn.Module):
 
                     
                     action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                    
                     print("act scores: ", action_scores)
                     curr_score = torch.max(action_scores).item()
                     print("curr score: ", curr_score)
                     curr_best_action = torch.argmax(action_scores).item()
                     print("cur best action: ", curr_best_action)
                     
+
+                    label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                    next_label = label_scores.argmax().unsqueeze(0)
+                    label = self.id_to_label[next_label]
+                    print(f"label: {label}")
+                    # since there are only two action and the best one is already gonna be considered as a candidate for reduction,
+                    # we only need to check if the min score action is a good gold candidate
+                    if gold_tree is not None:
+                        second_best_score = torch.min(action_scores).item()
+                        if second_best_score > gold_max_score:
+                            second_best_action = torch.argmin(action_scores).item()
+                            if second_best_action == "reduceL":
+                                direction = "RightToLeft"
+                            else:
+                                direction = "LeftToRight"
+                            potential_gold_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=None, direction=direction, reduce_fn=None) 
+                            if f'{potential_gold_node.span}::{potential_gold_node.direction}' in all_gold_spans:
+                                gold_max_score = second_best_score
+                                gold_max_node = i
+                                gold_max_action = second_best_action
+                                gold_max_label = label
+
+                    
                     if curr_score > max_score:
+                        second_best_predicted_score = max_score #update second best score
                         max_score = curr_score
                         max_node = i
                         max_action = legal_actions[curr_best_action]
+                        max_label = label
                         print("max action: ", max_action)
                         print("max score: ", max_score)
                         print("max nodes: ", max_node)
@@ -304,39 +352,107 @@ class DiscoBertModel(nn.Module):
                     break
                         
             print("REACHED HERE")
-        
 
-            new_current = []
-            # print("new current: ", new_current)
-            for i, node1 in enumerate(all_current_nodes):
-                print(f"is i = max node?: {i} = {max_node}")
-                if i == max_node:
-                    
-                    label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
-                    next_label = label_scores.argmax().unsqueeze(0)
-                    label = self.id_to_label[next_label]
-                    print(f"label: {label}")
-                    if max_action == "reduceL":
-                        new_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=label, direction="RightToLeft", reduce_fn=self.merge_embeddings) 
-                    else:
-                        new_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=label, direction="LeftToRight", reduce_fn=self.merge_embeddings) 
-                    new_current.append(new_node)
-                    # for node in all_current_nodes[i+2:]:
-                    #     new_current.append(node)
-                    all_current_nodes = new_current
-                    # print(f"after reduce: ", new_node.to_nltk())
-                    break
+            
 
 
-                    # new node
-                    # add this node
-                    # add the remaining nodes i + 2 (?)
-                    # break
+            # check if max score reduction is in gold
+            if max_action == "reduceL":
+                direction = "RightToLeft"
+            else:
+                direction = "LeftToRight"
+            new_node = reduceForEasyFirst(all_current_nodes[max_node], all_current_nodes[max_node + 1], label=max_label, direction=direction, reduce_fn=self.merge_embeddings)  
+            new_node_as_string = f'{new_node.span}::{new_node.direction}'
+
+            if gold_tree is not None:
+                if new_node_as_string in all_gold_spans: 
+                    new_current = []
+                    new_current.extend(all_current_nodes[:max_node])
+                    new_current.append(new_node_as_string)
+                    new_current.extend(all_current_nodes[max_node+2:])
                 else:
-                    new_current.append(node1)
-            print("new new current len: ", len(new_current))
 
+                    if gold_max_action == "reduceL":
+                        direction = "RightToLeft"
+                    else:
+                        direction = "LeftToRight"
+                    
+                    new_node = reduceForEasyFirst(all_current_nodes[gold_max_node], all_current_nodes[gold_max_node + 1], label=gold_max_label, direction=direction, reduce_fn=self.merge_embeddings) 
+                    new_current = []
+                    new_current.extend(all_current_nodes[:max_node])
+                    new_current.append(new_node)
+                    new_current.extend(all_current_nodes[max_node+2:])
+            else:
+                new_current = []
+                new_current.extend(all_current_nodes[:max_node])
+                new_current.append(new_node_as_string)
+                new_current.extend(all_current_nodes[max_node+2:])
+
+
+            all_current_nodes = new_current
+            top_two_predicted_scores = torch.FloatTensor([max_score, second_best_predicted_score]).to(self.device)
+            action_loss = loss_fn(top_two_predicted_scores, torch.LongTensor([gold_max_score]).to(self.device))
+            # loss_on_labels = loss_fn_for_labels(label_scores, gold_label)
+            losses.append(action_loss)
         print(all_current_nodes[0].to_nltk())
+        predicted_tree = all_current_nodes[0]
+
+        outputs = (predicted_tree,)
+
+        # are we training?
+        if gold_tree is not None:
+            loss = sum(losses) / len(losses)
+            outputs = (loss,) + outputs
+
+        return outputs
+
+
+
+
+
+        
+            
+
+
+
+        #     new_current = []
+            
+        #     # print("new current: ", new_current)
+        #     for i, node1 in enumerate(all_current_nodes):
+        #         print(f"is i = max node?: {i} = {max_node}")
+        #         if i == max_node:
+                    
+                    
+        #             if max_action == "reduceL":
+        #                 new_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=label, direction="RightToLeft", reduce_fn=self.merge_embeddings) 
+        #             else:
+        #                 new_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=label, direction="LeftToRight", reduce_fn=self.merge_embeddings) 
+                    
+        #             print("HERE!!: ", new_node.span, new_node.direction)
+        #             new_node_as_string = f'{new_node.span}::{new_node.direction}'
+        #             if new_node_as_string in all_gold_spans:
+        #                 print("new node in gold")
+        #                 new_current.append(new_node)
+        #                 # for node in all_current_nodes[i+2:]:
+        #             #     new_current.append(node)
+        #                 all_current_nodes = new_current
+        #             else:
+        #                 print("new node not in gold: ", new_node_as_string, all_gold_spans)
+        #                 break
+                    
+        #             # print(f"after reduce: ", new_node.to_nltk())
+        #             break
+
+
+        #             # new node
+        #             # add this node
+        #             # add the remaining nodes i + 2 (?)
+        #             # break
+        #         else:
+        #             new_current.append(node1)
+        #     print("new new current len: ", len(new_current))
+
+        # print(all_current_nodes[0].to_nltk())
 
 
                 
