@@ -27,6 +27,9 @@ def loss_fn_for_labels(outputs, targets):
 def loss_fn(outputs, targets):
     return nn.MultiMarginLoss()(outputs, targets)
 
+def hinge_loss_fn(input1, input2, target):
+    return nn.MarginRankingLoss()(input1, input2, target)
+
 # def loss_fn_on_labels(outputs, targets, label_weights_tensor):
 #     return nn.CrossEntropyLoss(weight=label_weights_tensor)(outputs, targets)
 
@@ -179,7 +182,7 @@ class DiscoBertModel(nn.Module):
         if gold_tree is not None:
             print("HERE")
             all_gold_spans = [f'{x}' for x in iter_nuclearity_spans(gold_tree.get_nonterminals())] 
-            print(all_gold_spans)
+            print("all gold: ", all_gold_spans)
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus
@@ -269,19 +272,20 @@ class DiscoBertModel(nn.Module):
             print("len all current nodes: ", len(all_current_nodes))
             print("ALL CURRENT NODES: ")
             for node in all_current_nodes:
-                print("->", node)
+                # print("->", node)
                 print("->>", f'{node.span}::{node.direction}')
 
+            all_scores = []
             # during training, we'll be getting both max gold score ...
             gold_max_score = 0
-            gold_max_node = None # id of the first node in reduce
+            gold_max_node = 0 # id of the first node in reduce
             gold_max_action = None # action for the max score we've seen so far
             gold_max_label = None
 
             if gold_tree is not None:
                 # ... and max predicted score (with max gold and max predicted can---and ideally should---be the same)
                 max_score = 0
-                max_node = None # id of the first node in reduce
+                max_node = 0 # id of the first node in reduce
                 max_action = None # action for the max score we've seen so far
                 max_label = None
                 second_best_predicted_score = 0
@@ -307,9 +311,13 @@ class DiscoBertModel(nn.Module):
 
                     
                     action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
+                    print("action scores: ", list(action_scores))
                     
-                    print("act scores: ", action_scores)
+                    
+                    # print("act scores: ", action_scores)
                     curr_score = torch.max(action_scores).item()
+                    all_scores.append(curr_score)
+                    # all_scores.append(curr_score)
                     print("curr score: ", curr_score)
                     curr_best_action = torch.argmax(action_scores).item()
                     print("cur best action: ", curr_best_action)
@@ -323,22 +331,36 @@ class DiscoBertModel(nn.Module):
                     # we only need to check if the min score action is a good gold candidate
                     if gold_tree is not None:
                         second_best_score = torch.min(action_scores).item()
+                        all_scores.append(second_best_score)
+                        print("second best score: ", second_best_score)
+                        print("gold max score: ", gold_max_score)
+                        
                         if second_best_score > gold_max_score:
+                            
                             second_best_action = torch.argmin(action_scores).item()
-                            if second_best_action == "reduceL":
+                            print("second best action: ", second_best_action)
+                            if legal_actions[second_best_action] == "reduceL":
                                 direction = "RightToLeft"
                             else:
                                 direction = "LeftToRight"
+                            print("direction: ", direction)
                             potential_gold_node = reduceForEasyFirst(node1, all_current_nodes[i + 1], label=None, direction=direction, reduce_fn=None) 
+                            print("pot gold node: ", f'{potential_gold_node.span}::{potential_gold_node.direction}')
                             if f'{potential_gold_node.span}::{potential_gold_node.direction}' in all_gold_spans:
+                                print("TRUE")
+                                print(f'{potential_gold_node.span}::{potential_gold_node.direction}', "<-")
+                                print(all_gold_spans, "<<-")
                                 gold_max_score = second_best_score
+                                print("GOLD MAX: ", gold_max_score)
                                 gold_max_node = i
                                 gold_max_action = second_best_action
                                 gold_max_label = label
 
                     
                     if curr_score > max_score:
+                        print("max score: ", max_score)
                         second_best_predicted_score = max_score #update second best score
+                        print("updated second best predicted: ", second_best_predicted_score)
                         max_score = curr_score
                         max_node = i
                         max_action = legal_actions[curr_best_action]
@@ -357,43 +379,99 @@ class DiscoBertModel(nn.Module):
 
 
             # check if max score reduction is in gold
+            # construct the new node
             if max_action == "reduceL":
                 direction = "RightToLeft"
             else:
                 direction = "LeftToRight"
+            print("max node: ", max_node)
             new_node = reduceForEasyFirst(all_current_nodes[max_node], all_current_nodes[max_node + 1], label=max_label, direction=direction, reduce_fn=self.merge_embeddings)  
             new_node_as_string = f'{new_node.span}::{new_node.direction}'
+            print("NEW NODE AS STR: ", new_node_as_string)
 
+            # if train
             if gold_tree is not None:
+                # if the node is correct
+                correct_score = 0
                 if new_node_as_string in all_gold_spans: 
+                    correct_score = max_score
+                    # construct the updated node list that contains the new node, but not its children
                     new_current = []
-                    new_current.extend(all_current_nodes[:max_node])
+                    new_current.extend(all_current_nodes[:max_node]) 
                     new_current.append(new_node_as_string)
                     new_current.extend(all_current_nodes[max_node+2:])
-                else:
-
-                    if gold_max_action == "reduceL":
-                        direction = "RightToLeft"
-                    else:
-                        direction = "LeftToRight"
+                    gold_max_score = max_score #the current (best) score is also gold
                     
+                else:
+                    print("PRED INCORRECT")
+                    # if the new node is not correct, use gold to take action
+                    correct_score = gold_max_score
+                    if gold_max_action != None:
+                        print("gold max action is not none")
+                        if legal_actions[gold_max_action] == "reduceL":
+                            direction = "RightToLeft"
+                        else:
+                            direction = "LeftToRight"
+                    else:
+                        correct_score = torch.min(action_scores).item()
+                        # need the opposite of the predicted action
+                        print("max action: ", max_action)
+                        actions = ["reduceL", "reduceR"]
+                        actions.remove(max_action)
+                        
+                        print("gold max act opposite of max action: ", actions[0])
+                        if actions[0] == "reduceL":
+                            direction = "RightToLeft"
+                        else:
+                            direction = "LeftToRight"
+                    print(gold_max_node , " gold max node")
                     new_node = reduceForEasyFirst(all_current_nodes[gold_max_node], all_current_nodes[gold_max_node + 1], label=gold_max_label, direction=direction, reduce_fn=self.merge_embeddings) 
                     new_current = []
-                    new_current.extend(all_current_nodes[:max_node])
+                    new_current.extend(all_current_nodes[:gold_max_node])
                     new_current.append(new_node)
-                    new_current.extend(all_current_nodes[max_node+2:])
+                    new_current.extend(all_current_nodes[gold_max_node+2:])
             else:
+                # at inference, make a new node list with the new node, but not its children
                 new_current = []
                 new_current.extend(all_current_nodes[:max_node])
                 new_current.append(new_node_as_string)
                 new_current.extend(all_current_nodes[max_node+2:])
 
-
+            # update the node list
             all_current_nodes = new_current
-            top_two_predicted_scores = torch.FloatTensor([max_score, second_best_predicted_score]).to(self.device)
-            action_loss = loss_fn(top_two_predicted_scores, torch.LongTensor([gold_max_score]).to(self.device))
-            # loss_on_labels = loss_fn_for_labels(label_scores, gold_label)
-            losses.append(action_loss)
+            if gold_tree is not None:
+                incorrect_scores = []
+                print("all scores: ", all_scores)
+                for score in all_scores:
+                    print("score: ", score)
+                    if not score == correct_score:
+                        incorrect_scores.append(score)
+                    else:
+                        print(f"{score} = {correct_score}")
+                print("incor scores: ", incorrect_scores)
+                correct_scores = []
+                for i in range(len(incorrect_scores)):
+                    correct_scores.append(correct_score)
+                print("cor scores: ", correct_scores)
+                incorrect_scores = torch.tensor(incorrect_scores, requires_grad=True)
+                print("incor scores: ", incorrect_scores)
+                print("corr score: ", correct_score)
+                
+
+                correct_scores = torch.tensor(correct_scores, requires_grad=True)
+                print("correct scores ", correct_scores)
+                target = torch.ones(correct_scores.shape)
+                print("target: ", target)
+                action_loss = hinge_loss_fn(incorrect_scores, correct_scores, target)
+                # top_two_predicted_scores = torch.tensor([max_score, second_best_predicted_score]).to(self.device)
+                # print("gold max score line 409: ", gold_max_score)
+                # gold_score_tensor = torch.tensor([gold_max_score]).to(self.device)
+                # print(top_two_predicted_scores, type(top_two_predicted_scores), "<")
+                # print(gold_score_tensor, type(gold_score_tensor), "<<")
+                # action_loss = loss_fn(top_two_predicted_scores, gold_score_tensor)
+                # # loss_on_labels = loss_fn_for_labels(label_scores, gold_label)
+                losses.append(action_loss)
+                print(action_loss, type(action_loss), "<<<")
         print(all_current_nodes[0].to_nltk())
         predicted_tree = all_current_nodes[0]
 
@@ -402,8 +480,10 @@ class DiscoBertModel(nn.Module):
         # are we training?
         if gold_tree is not None:
             loss = sum(losses) / len(losses)
+            loss.requres_grad = True
             outputs = (loss,) + outputs
-
+            print("loss: ", loss, type(loss))
+# todo: put margin in the config
         return outputs
 
 
