@@ -26,37 +26,9 @@ def optimizer_parameters(model):
         {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
 
-# def eval_trees(pred_trees, gold_trees, view_fn):
-#     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-#     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-#     scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
-#     print(scores)
-#     scores = np.array(scores).mean(axis=0).tolist()
-#     print(scores)
-#     return scores
 
 def get_label_nuclearity_distribution(predictions):
-    label_list = [
-            "None", 
-            "attribution",
-        "background",
-        "cause",
-        "comparison",
-        "condition",
-        "contrast",
-        "elaboration",
-        "enablement",
-        "evaluation",
-        "explanation",
-        "joint",
-        "manner_means",
-        "same_unit",
-        "summary",
-        "temporal",
-        "textual_organization",
-        "topic_change",
-    "topic_comment"]
-
+    label_list = config.ID_TO_LABEL
     nuclearity_label_dict = {relation:{"None":0, "LeftToRight":0, "RightToLeft":0} for i,relation in enumerate(label_list)}
     nuclearity_label_none_compatible = {"none_compatible": []}
     for doc_pred in predictions:
@@ -80,6 +52,36 @@ def get_label_nuclearity_distribution(predictions):
     return nuclearity_label_dict
 
 
+def eval_tree_pools(pred_trees, gold_trees, view_fn):
+    
+    all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+    all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+    
+    current_pred_pool = []
+    current_gold_pool = []
+
+    for i, tree_pred in enumerate(all_pred_spans):
+        current_pred_pool.append(tree_pred)
+        current_gold_pool.append(all_gold_spans[i])
+        assert len(current_pred_pool) == len(current_gold_pool)
+        max_len = 0
+        for doc in current_gold_pool:
+            # print("len doc: ", len(doc))
+            if len(doc) > max_len:
+                max_len = len(doc)
+        # print("max len: ", max_len)
+
+
+        tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(current_pred_pool, current_gold_pool)]
+        # print(tpfpfns)
+        tp, fp, fn = np.array(tpfpfns).sum(axis=0)
+        # print(tp, fp, fn)
+        scores = calc_prf_from_tpfpfn(tp, fp, fn)
+        print("len of pool: ", len(current_pred_pool), "; max document length (in spans): ", max_len, "score: ", scores[0])
+        # scores = np.array(scores).mean(axis=0).tolist()
+        # print(scores)
+        # return scores
+
 
 def eval_trees(pred_trees, gold_trees, view_fn):
     if "iter_labels" in str(view_fn):
@@ -89,12 +91,12 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     else:
         all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
         all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-    # print("view fn", view_fn)
 
     # per_doc_scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     # # print("PER DOC SCORES: ", per_doc_scores)
     # for score in per_doc_scores:
     #     print(score)
+
     #For the following two, make sure to set "rerun_dev_eval" to True
     # to compare how 
     if "iter_label_and_direction" in str(view_fn):
@@ -135,13 +137,8 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     scores = calc_prf_from_tpfpfn(tp, fp, fn)
     # scores = np.array(scores).mean(axis=0).tolist()
     # print(scores)
-    return scores
+    return scores   
 
-# def eval_trees(pred_trees, gold_trees, view_fn):
-    # all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
-    # all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
-#     scores = prf1(all_pred_spans, all_gold_spans)
-#     return scores
 
 def main(path_to_model, test_ds):
     
@@ -188,7 +185,7 @@ def main(path_to_model, test_ds):
 
         # eval_trees(pred_trees, gold_trees, iter_label_and_direction) #this is to get label distributions
         # eval_trees(pred_trees, gold_trees, iter_labels) # this is to get confusion-matrix-like outputs
-        
+        # eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity) #see how scores change with the size of the document
 
         return f1_s, f1_n, f1_r, f1
     else:
@@ -201,10 +198,7 @@ if __name__ == '__main__':
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
     random_seeds = config.RANDOM_SEEDS
     if config.PRINT_TREES == False:
-        if config.RERUN_DEV_EVAL == True:
-            log_name = "eval_log_dev.txt" 
-        else:
-            log_name = "eval_log"
+        log_name = config.LOG_NAME
         with open(os.path.join(experiment_dir_path, log_name), "w") as f:
             sys.stdout = f
             

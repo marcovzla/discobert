@@ -26,12 +26,6 @@ def optimizer_parameters(model):
         {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
 
-# def eval_trees(pred_trees, gold_trees, view_fn):
-#     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-#     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-#     scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
-#     scores = np.array(scores).mean(axis=0).tolist()
-#     return scores
 
 def eval_trees(pred_trees, gold_trees, view_fn):
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
@@ -61,28 +55,26 @@ def main(experiment_dir_path):
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+
+    # calculate label class weights based on the train set
     train_trees = []
     for item in train_ds:
         train_trees.append(item.dis)
-
     all_labels = [f'{x}' for t in train_trees for x in iter_labels(t.get_nonterminals())]
-    # distinct_labels = list(set(all_labels))
-    
-    label_list = config.ID_TO_LABEL[1:]
-    # label_list = config.ID_TO_LABEL
+    label_list = config.ID_TO_LABEL[1:] # exclude None
 
+    class_weights = compute_class_weight("balanced", label_list, all_labels)
 
+    # an alternative way to calculate weights:
     # class_weights = []
     # for i, item in enumerate(label_list):
     #     class_weights.append(1/np.log(all_labels.count(item)))
-    
     # class_weights = np.array(class_weights)
 
+    class_weights = np.insert(class_weights, 0, 0, axis=0) # append the 0 weight for the None label
+    # print("class weights1: ",class_weights)
 
-    class_weights = compute_class_weight("balanced", label_list, all_labels)
-    # print("class weights: ",class_weights)
-    class_weights = np.insert(class_weights, 0, 0, axis=0)
-    print("class weights1: ",class_weights)
+    
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -194,7 +186,7 @@ if __name__ == '__main__':
     print("debug: ", config.DEBUG)
     print("encoding: ", config.ENCODING)
     print("tokenizer: ", config.TOKENIZER)
-    # print("model: ", config.MODEL)
+    # print("model: ", config.MODEL) # print only if needed bc it's a large printout
     print("use attention", config.USE_ATTENTION)
     print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
     print("sort input: ", config.SORT_INPUT)
@@ -220,7 +212,7 @@ if __name__ == '__main__':
         #copy the config file into the experiment directory
         shutil.copyfile(config.CONFIG_FILE, os.path.join(experiment_dir_path, "config.py"))
 
-        with open(os.path.join(experiment_dir_path, "log"), "w") as f:
+        with open(os.path.join(experiment_dir_path, config.LOG_NAME), "w") as f:
             sys.stdout = f
             print("Printing out config settings:")
             print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
