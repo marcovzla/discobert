@@ -9,13 +9,14 @@ from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
-import engine
+import engine, segmenter_engine
 import random
 import os
 import sys
 import shutil
 from datetime import date
 import time
+from segmenter_model import SegmentationModel
 
 
 def optimizer_parameters(model):
@@ -55,6 +56,9 @@ def get_label_nuclearity_distribution(predictions):
 def eval_tree_pools(pred_trees, gold_trees, view_fn):
     
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+    print("pred: ", all_pred_spans)
+    for t in pred_trees:
+        print("t: ", t.text)
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
     
     current_pred_pool = []
@@ -148,6 +152,17 @@ def main(path_to_model, test_ds):
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     model = DiscoBertModel.load(path_to_model)
     model.to(device)
+
+    # using our edus:
+    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/'from_debug-2020-08-31'
+    segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
+    segmentaion_model.to(device)
+    # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
+    print("gold edus: ", test_ds[1].edus)
+    test_ds = segmenter_engine.run_fn(test_ds[0:1], segmentaion_model, device)
+    for ds in test_ds:
+        print(ds.edus)
+
     
     if config.RERUN_DEV_EVAL == True:
         if config.SORT_INPUT:
@@ -194,6 +209,16 @@ def main(path_to_model, test_ds):
 if __name__ == '__main__':
 
     test_ds = list(load_annotations(config.VALID_PATH))
+    if config.SORT_INPUT == True:
+        # construct new train_ds
+        test_ids_by_length = {}
+        for item in test_ds:
+            test_ids_by_length.setdefault(len(item.edus), []).append(item)
+
+        test_ds = []
+        for n in sorted(test_ids_by_length):
+            for ann in test_ids_by_length[n]:
+                test_ds.append(ann)
 
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
     random_seeds = config.RANDOM_SEEDS

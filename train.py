@@ -10,13 +10,14 @@ from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
-import engine
+import engine, segmenter_engine
 import random
 import os
 import sys
 import shutil
 from datetime import date
 import time
+from segmenter_model import SegmentationModel
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -53,27 +54,45 @@ def main(experiment_dir_path):
     model.to(device)
 
     # load data and split in train and validation sets
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    if config.USE_SEGMENTER = True:
+        # eval using validation data edus produced using our segmenter
+        train_ds, old_valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+        segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
+        segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
+        segmentaion_model.to(device)
+        # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
+        valid_ds = segmenter_engine.run_fn(old_valid_ds, segmentaion_model, device)
+    elif config.USE_SEGMENTER = False:
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    else:
+        print("Something went horribly wrong with reading in train data")
+        NotImplementedError
 
-
+    
+    if config.USE_CLASS_WEIGHTS:
     # calculate label class weights based on the train set
-    train_trees = []
-    for item in train_ds:
-        train_trees.append(item.dis)
-    all_labels = [f'{x}' for t in train_trees for x in iter_labels(t.get_nonterminals())]
-    label_list = config.ID_TO_LABEL[1:] # exclude None
+        train_trees = []
+        for item in train_ds:
+            train_trees.append(item.dis)
+        all_labels = [f'{x}' for t in train_trees for x in iter_labels(t.get_nonterminals())]
+        label_list = config.ID_TO_LABEL[1:] # exclude None
 
-    class_weights = compute_class_weight("balanced", label_list, all_labels)
+        class_weights = compute_class_weight("balanced", label_list, all_labels)
 
-    # an alternative way to calculate weights:
-    # class_weights = []
-    # for i, item in enumerate(label_list):
-    #     class_weights.append(1/np.log(all_labels.count(item)))
-    # class_weights = np.array(class_weights)
+        # an alternative way to calculate weights:
+        # class_weights = []
+        # for i, item in enumerate(label_list):
+        #     class_weights.append(1/np.log(all_labels.count(item)))
+        # class_weights = np.array(class_weights)
 
-    class_weights = np.insert(class_weights, 0, 0, axis=0) # append the 0 weight for the None label
+        class_weights = np.insert(class_weights, 0, 0, axis=0) # append the 0 weight for the None label
+    else:
+        class_weights = None #if there are issues with None, pass a vector with all 1s?
     # print("class weights1: ",class_weights)
 
+    
+    # for a in train_ds:
+    #     print(a)
     
     if config.SORT_INPUT == True:
         # construct new train_ds

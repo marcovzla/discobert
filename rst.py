@@ -67,7 +67,15 @@ def iter_labels(treenodes):
     for t in treenodes:
         yield f'{t.label}'
 
-
+def make_offsets(text, tokens):
+    """given some raw text and its corresponding tokens,
+    this function returns the token's character offsets"""
+    start = 0
+    for tok in tokens:
+        start = text.index(tok, start)
+        stop = start + len(tok)
+        yield (start, stop)
+        start = stop
 
 class TreeNode:
 
@@ -86,6 +94,7 @@ class TreeNode:
         self.label = label # relation label
         self.direction = direction # leftToRight, rightToLeft, or None
         self.embedding = embedding
+        # self.edu_offsets = edu_offsets
 
     def __eq__(self, other):
         return self.span == other.span and self.label == other.label and self.direction == other.direction and self.children == other.children
@@ -193,8 +202,10 @@ def tokenize(data):
 def parse_node(tokens, position):
     i = position
     t = tokens[i]
+    # print("token in parse node: ", t)
     kind = t.lastgroup
     value = t.group()
+    # print("t group (value): ", value)
     if kind == 'OPEN_PARENS':
         # skip
         return parse_node(tokens, i + 1)
@@ -219,20 +230,35 @@ def parse_node(tokens, position):
     elif value == 'text':
         # the EDU's text
         text = tokens[i+1].group()[2:-2] # drop _! delimiters
+        # print("text: ", text)
         assert tokens[i+2].lastgroup == 'CLOSE_PARENS'
         return (value, text, i+3)
+    # elif value 
     elif value in ['Nucleus', 'Satellite', 'Root']:
         # a tree node
         node = TreeNode(kind=value)
+        text = None
+        # print("NODE: ", node)
         pos = i + 1
+        
         while tokens[pos].lastgroup != 'CLOSE_PARENS':
             key, val, pos = parse_node(tokens, pos)
+            # print("key, val, pos: ", key, " ", val, " ", pos)
             if key in ['Nucleus', 'Satellite']:
                 node.children.append(val)
+            elif key == "text":
+                # print("TRUE")
+                # print("val in key = text: ", val)
+                text = val
+                
             else:
                 setattr(node, key, val)
         # set correct span
         node.calc_span()
+        # print("text: ", text)
+        # node.text = text
+        # print("node text: ", node.text)
+        # print("node children: ", node.children)
         return (value, node, pos+1)
     else:
         raise Exception(f"unrecognized kind '{kind}' value='{value}'")
@@ -240,6 +266,8 @@ def parse_node(tokens, position):
 def propagate_labels(node):
     """propagate rel2par labels from children to parent"""
     # are we done?
+    # print("Node text in prop labels: ", node.text)
+    # print("node label in prop labels: ", node.label)
     if node.is_terminal:
         return
     # unpack children
