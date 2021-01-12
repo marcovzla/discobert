@@ -163,6 +163,7 @@ class DiscoBertModel(nn.Module):
             return torch.argmax(masked_scores)
 
     def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
+        # TODO: need to have a version that will produce parses from completely raw text; what should be the output?
         
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
