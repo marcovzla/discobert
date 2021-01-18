@@ -11,7 +11,7 @@ LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing
 PRINT_TREES = False
 EXPERIMENT_ID = 4
 EXPERIMENT_DESCRIPTION = f"{ENCODING}-test-parser-with-our-segmenter" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
-SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment3-experiment3-xlnet-three-classifier-only-stack-for-label-classifier-default-settings-2020-08-14-2020-08-31" # used to write and read a segmenter model
+SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment2-segmenter-BertWordPieceTokenizer-10-epochs-2020-09-21" # used to write and read a segmenter model
 
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 10
@@ -36,7 +36,7 @@ SORT_VALIDATION = False
 
 DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
 DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
-OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
+OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter'
 SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'

@@ -80,11 +80,12 @@ def main(path_to_model, test_ds):
     
 if __name__ == '__main__':
 
+    print("HERE")
     test_ds = list(load_annotations(config.VALID_PATH))
-    experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
-
+    experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
+    print("here: ", experiment_dir_path)
     with open(os.path.join(experiment_dir_path, "eval_log-segmenter"), "w") as f:
-        sys.stdout = f
+        # sys.stdout = f
         random_seeds = config.RANDOM_SEEDS
 
         p_scores = np.zeros(len(random_seeds))
@@ -92,7 +93,9 @@ if __name__ == '__main__':
         f1_scores = np.zeros(len(random_seeds))
 
         for i in range(len(random_seeds)):
+            
             rs = random_seeds[i]
+            print("rs: ", rs)
             path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(rs), config.SEGMENTER_MODEL_FILENAME)
             print("model path: ", path_to_model)
             rs_results = main(path_to_model, test_ds)
