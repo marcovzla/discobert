@@ -37,35 +37,70 @@ def load_dis(name):
 def load_edus(name):
     with open(name) as f:
         return [line.strip() for line in f]
+        
+
+def get_span_text(t, annot): #one tree node and a set of annotations(?) for the document
+    start = t.span.start 
+    end = t.span.stop 
+    # text = "".join(annot.edus[start:end]).replace(" ", "").lower() #
+    # edus_start_end = annot.edus[start:end]
+    text = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+    return text
 
 # primarily for evaluation -- make a "view" of the tree nodes to compare (S)
-def iter_spans_only(treenodes):
-    for t in treenodes:
-        yield t.span
+def iter_spans_only(treenodes, annot=None):
+    if annot != None:
+        for t in treenodes:
+            # print("t span: ", t.span)
+            # print("TEXT: ",  text)
+            text = get_span_text(t, annot)
+            yield text
+    else:
+        for t in treenodes:
+            yield t.span
+
 
 # for evaluation, must get the span and the nuclearity right (N)
-def iter_nuclearity_spans(treenodes):
-    for t in treenodes:
-        yield f'{t.span}::{t.direction}'
+def iter_nuclearity_spans(treenodes, annot=None):
+    if annot == None:
+        for t in treenodes:
+            yield f'{t.span}::{t.direction}'
+    else:
+        for t in treenodes:
+            text = get_span_text(t, annot)
+            yield f'{text}::{t.direction}'
 
 # for evaluation -- must get span and relation label right (R)
-def iter_labeled_spans(treenodes):
-    for t in treenodes:
-        yield f'{t.span}::{t.label}'
+def iter_labeled_spans(treenodes, annot=None):
+    if annot == None:
+        for t in treenodes:
+            yield f'{t.span}::{t.label}'
+    else:
+        for t in treenodes:
+            text = get_span_text(t, annot)
+            yield f'{text}::{t.label}'
 
 # for evaluation -- must get everything right (F)
-def iter_labeled_spans_with_nuclearity(treenodes):
-    for t in treenodes:
-        yield f'{t.span}::{t.direction}::{t.label}'
+def iter_labeled_spans_with_nuclearity(treenodes, annot=None):
+    if annot == None:
+        for t in treenodes:
+            yield f'{t.span}::{t.direction}::{t.label}'
+    else:
+        for t in treenodes:
+            text = get_span_text(t, annot)
+            yield f'{text}::{t.direction}::{t.label}'
+
 
 # this is just for checking the predicted label distribution 
-def iter_label_and_direction(treenodes):
-    for t in treenodes:
-        yield f'{t.label}::{t.direction}'
+def iter_label_and_direction(treenodes, annot=None):
+    if annot == None:
+        for t in treenodes:
+            yield f'{t.label}::{t.direction}'
 
-def iter_labels(treenodes):
-    for t in treenodes:
-        yield f'{t.label}'
+def iter_labels(treenodes, annot=None):
+    if annot == None:
+        for t in treenodes:
+            yield f'{t.label}'
 
 def make_offsets(text, tokens):
     """given some raw text and its corresponding tokens,

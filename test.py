@@ -154,14 +154,15 @@ def main(path_to_model, test_ds):
     model.to(device)
 
     # using our edus:
-    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/'from_debug-2020-08-31'
+    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
     segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
     segmentaion_model.to(device)
     # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
-    print("gold edus: ", test_ds[1].edus)
-    test_ds = segmenter_engine.run_fn(test_ds[0:1], segmentaion_model, device)
-    for ds in test_ds:
-        print(ds.edus)
+    print("gold edus: ", test_ds[0].edus)
+    
+    new_test_ds = segmenter_engine.run_fn(test_ds[0:1], segmentaion_model, device)
+    for ds in new_test_ds:
+        print("->", ds.edus)
 
     
     if config.RERUN_DEV_EVAL == True:
@@ -177,7 +178,36 @@ def main(path_to_model, test_ds):
 
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
     else:
-        pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
+        pred_trees, gold_trees = engine.eval_fn(new_test_ds, model, device)
+
+    gold_edu_strings = []
+    print("gold--->", gold_trees[0].gold_spans())
+    for gs in gold_trees[0].gold_spans():
+        print("gs: ", gs)
+        start = gs.start
+        print("start: ", start)
+        end = gs.stop
+        print("end: ", end)
+        edus_start_end = test_ds[0].edus[start:end]
+        print("edus: ",  edus_start_end)
+        str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+        print("str to compare: " + str_to_compare)
+        gold_edu_strings.append(str_to_compare)
+    print("pred--->", pred_trees[0].gold_spans())
+    print("gold edu strings: ", gold_edu_strings)
+    for gs in pred_trees[0].gold_spans():
+        print("gs: ", gs)
+        start = gs.start
+        print("start: ", start)
+        end = gs.stop
+        print("end: ", end)
+        edus_start_end = new_test_ds[0].edus[start:end]
+        print("edus: " , edus_start_end)
+        str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+        if str_to_compare in gold_edu_strings:
+            print("TRUE")
+        else:
+            print("FALSE: " + str_to_compare)
 
     if config.PRINT_TREES == False:
         
@@ -225,7 +255,7 @@ if __name__ == '__main__':
     if config.PRINT_TREES == False:
         log_name = config.LOG_NAME
         with open(os.path.join(experiment_dir_path, log_name), "w") as f:
-            sys.stdout = f
+            # sys.stdout = f
             
 
             span_scores = np.zeros(len(random_seeds))

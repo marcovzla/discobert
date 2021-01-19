@@ -28,9 +28,64 @@ def optimizer_parameters(model):
     ]
 
 
-def eval_trees(pred_trees, gold_trees, view_fn):
-    all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-    all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
+    if config.USE_SEGMENTER:
+        all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), pred_edus[idx])] for idx, t in enumerate(pred_trees)]
+        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), gold_edus[idx])] for idx, t in enumerate(gold_trees)]
+    else:
+        all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in pred_trees]
+        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in gold_trees]
+    
+
+    tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+    # print(tpfpfns)
+    tp, fp, fn = np.array(tpfpfns).sum(axis=0)
+    # print(tp, fp, fn)
+    scores = calc_prf_from_tpfpfn(tp, fp, fn)
+    # scores = np.array(scores).mean(axis=0).tolist()
+    # print(scores)
+    return scores
+
+def eval_trees_with_predicted_edus(pred_trees, gold_trees, segmenter_edus, gold_edus):
+    # all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+    # all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+    all_pred_spans = []
+    all_gold_spans = []
+    
+    for i, gold_tree in enumerate(gold_trees):
+        gold_edu_strings = []
+        pred_edu_strings = []
+        print("gold--->", gold_tree.gold_spans())
+        for gs in gold_tree.gold_spans():
+            print("gs: ", gs)
+            start = gs.start
+            print("start: ", start)
+            end = gs.stop
+            print("end: ", end)
+            edus_start_end = gold_edus[i].edus[start:end]
+            print("edus: ",  edus_start_end)
+            str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+            print("str to compare: " + str_to_compare)
+            gold_edu_strings.append(str_to_compare)
+        print("pred--->", pred_trees[i].gold_spans())
+        print("gold edu strings: ", gold_edu_strings)
+        for gs in pred_trees[i].gold_spans():
+            print("gs: ", gs)
+            start = gs.start
+            print("start: ", start)
+            end = gs.stop
+            print("end: ", end)
+            edus_start_end = segmenter_edus[i].edus[start:end]
+            print("edus: " , edus_start_end)
+            str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+            pred_edu_strings.append(str_to_compare)
+            # if str_to_compare in gold_edu_strings:
+            #     print("TRUE")
+            # else:
+            #     print("FALSE: " + str_to_compare)
+        all_pred_spans.append(pred_edu_strings)
+        all_gold_spans.append(gold_edu_strings)
+
     tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     # print(tpfpfns)
     tp, fp, fn = np.array(tpfpfns).sum(axis=0)
@@ -136,28 +191,42 @@ def main(experiment_dir_path):
         print("-----------")
         engine.train_fn(train_ds, model, optimizer, device, scheduler, class_weights)
         pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device, class_weights)
-        p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
+        if config.USE_SEGMENTER:
+            p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only, valid_ds, old_valid_ds)
+        else:
+            p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')
         if f1_s > max_f1_S:
             max_f1_S = f1_s
             max_f1_S_epoch = epoch + 1
         
-        p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+        # p_segm, r_segm, f1_segm = eval_trees_with_predicted_edus(pred_trees, gold_trees, valid_ds, old_valid_ds)
+
+        # print(p_segm, r_segm, f1_segm)
+        if config.USE_SEGMENTER:
+            p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans, valid_ds, old_valid_ds)
+        else:
+            p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
         # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'N (span + dir)  F1:{f1_n:.2%}')
         if f1_n > max_f1_N:
             max_f1_N = f1_n
             max_f1_N_epoch = epoch + 1     
 
-        p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+        if config.USE_SEGMENTER:
+            p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans, valid_ds, old_valid_ds)
+        else:
+            p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
         # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'R (span + label)        F1:{f1_r:.2%}')
         if f1_r > max_f1_R:
             max_f1_R = f1_r
             max_f1_R_epoch = epoch + 1
-
-        p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
+        if config.USE_SEGMENTER:
+            p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity, valid_ds, old_valid_ds)
+        else:
+            p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
         if f1 > max_f1_F:

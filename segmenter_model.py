@@ -201,23 +201,24 @@ class SegmentationModel(nn.Module):
                         predictions.append(predicted_tag)
                     # constructing new edus - fixme: not really needed during eval---just used for debugging
                     # if found an edu boundary, merge the list of tokens up to this boundary to make an edu; re-init the potential edu list and add the current token there
-                    # if predicted_tag.startswith("B") or j == num_of_tokens_in_sent - 1:
-                    #     # print("pot edu: ", potential_edu)
-                    #     potential_edu_str = " ".join(potential_edu).replace(" ##", "") # fixme: what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
-                    #     # print("pot edu str: ", potential_edu_str)
-                    #     if len(potential_edu_str) > 0:
-                    #         new_edus.append(potential_edu_str)
-                    #     # re-init potential edu
-                    #     potential_edu = [] 
-                    #     token = sent_only_classifiable_tokens[j]
+                    if predicted_tag.startswith("B") or j == num_of_tokens_in_sent:
+                        # print("pot edu: ", potential_edu)
+                        potential_edu_str = " ".join(potential_edu).replace(" ##", "") # fixme: what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
+                        # print("pot edu str: ", potential_edu_str)
+                        if len(potential_edu_str) > 0:
+                            new_edus.append(potential_edu_str)
+                            # print("pot edu str: ", potential_edu_str)
+                        # re-init potential edu
+                        potential_edu = [] 
+                        token = sent_only_classifiable_tokens[j]
                         
-                    #     # print("token: ", token)
-                    #     potential_edu.append(token)
-                    # elif predicted_tag == "I":
-                    #     token = sent_only_classifiable_tokens[j]
+                        # print("token: ", token)
+                        potential_edu.append(token)
+                    elif predicted_tag == "I":
+                        token = sent_only_classifiable_tokens[j]
                         
-                    #     # print("token: ", token)
-                    #     potential_edu.append(token)
+                        # print("token: ", token)
+                        potential_edu.append(token)
                 
 
                 else: #if mode == run (only return new annot, no eval)
@@ -233,12 +234,13 @@ class SegmentationModel(nn.Module):
                         predictions.append(predicted_tag)
                     # constructing new edus
                     # if found an edu boundary, merge the list of tokens up to this boundary to make an edu; re-init the potential edu list and add the current token there
-                    if predicted_tag.startswith("B") or j == num_of_tokens_in_sent - 1:
+                    if predicted_tag.startswith("B") or j == num_of_tokens_in_sent:
                         # print("pot edu: ", potential_edu)
                         potential_edu_str = " ".join(potential_edu).replace(" ##", "") # fixme: what's gonna happen to UNKs? we can't really get those back like this, can we? need to add some other dict to track them?
                         # print("pot edu str: ", potential_edu_str)
                         if len(potential_edu_str) > 0:
                             new_edus.append(potential_edu_str)
+                            # print("pot edu str: ", potential_edu_str)
                         # re-init potential edu
                         potential_edu = [] 
                         token = sent_only_classifiable_tokens[j]
