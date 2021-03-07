@@ -15,6 +15,10 @@ inf = float('inf')
 def loss_fn(outputs, targets):
     return nn.CrossEntropyLoss()(outputs, targets)
 
+def loss_fn_on_labels(outputs, targets, label_weights_tensor):
+    return nn.CrossEntropyLoss(weight=label_weights_tensor)(outputs, targets)
+
+
 class DiscoBertModelGlove2Class(nn.Module):
     
     def __init__(self, word2index):
@@ -83,15 +87,47 @@ class DiscoBertModelGlove2Class(nn.Module):
         # print("emb1: ", embed_1.shape, "\n", embed_1)
         return self.treelstm(embed_1.unsqueeze(dim=0), embed_2.unsqueeze(dim=0), relation_embedding).squeeze(dim=0)
 
-    def make_features(self, parser):
+    # def make_features(self, parser):
+    #     """Gets a parser and returns an embedding that represents its current state.
+    #     The state is represented by the concatenation of the embeddings corresponding
+    #     to the two nodes on the top of the stack and the next node in the buffer.
+    #     """
+    #     s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
+    #     s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
+    #     b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+    #     return torch.cat([s1, s0, b])
+
+    def make_features(self, parser, incl_buffer):
         """Gets a parser and returns an embedding that represents its current state.
         The state is represented by the concatenation of the embeddings corresponding
         to the two nodes on the top of the stack and the next node in the buffer.
         """
+        buffer_size = len(parser.buffer) / (len(parser.buffer) + len(parser.stack))
+        # print(buffer_size)
+        # buffer_feature = torch.from_numpy(np.array(buffer_size)).to(self.device)
+        buffer_feature = torch.as_tensor(buffer_size).to(self.device)
+        # if len(parser.stack) > 0:
+        #     print("parser: ", parser.stack[0].embedding, parser.stack[0].embedding.shape)
+        # else:
+        #     print("parser: ", parser.buffer[0].embedding, parser.buffer[0].embedding.shape)
+
+        # print("buffer feature type: ", buffer_feature.type)
+        # print("buffer feature: ", buffer_feature.shape)
+        
         s1 = self.missing_node if len(parser.stack) < 2 else parser.stack[-2].embedding
         s0 = self.missing_node if len(parser.stack) < 1 else parser.stack[-1].embedding
-        b = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
-        return torch.cat([s1, s0, b])
+        if incl_buffer:
+            # print("LEN BUFFER: ", len(parser.buffer))
+            b0 = self.missing_node if len(parser.buffer) < 1 else parser.buffer[0].embedding
+            # b1 = self.missing_node if len(parser.buffer) < 2 else parser.buffer[1].embedding
+            # b2 = self.missing_node if len(parser.buffer) < 3 else parser.buffer[2].embedding
+
+            
+        else:
+            b0 = self.missing_node
+            # b1 = self.missing_node
+            # b2 = self.missing_node
+        return torch.cat([s1, s0, b0])
 
     def best_legal_action(self, actions, scores):
         """Gets a list of legal actions w.r.t the current state of the parser
@@ -147,7 +183,7 @@ class DiscoBertModelGlove2Class(nn.Module):
             string = re.sub(r'\b(' + conn + r'|' + conn.capitalize()  + r')\b', "[UNK]", string)
         return string
 
-    def forward(self, edus, gold_tree=None):
+    def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
 
         if config.NO_CONNECTIVES:
             connectives = config.CONNECTIVES
@@ -203,12 +239,28 @@ class DiscoBertModelGlove2Class(nn.Module):
         losses = []
 
         while not parser.is_done():
-            state_features = self.make_features(parser)
+            state_features = self.make_features(parser, True)
             # legal actions for current parser
             legal_actions = parser.all_legal_actions()
             # predict next action, label, and direction
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
-            label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+            
+            if gold_tree is not None:
+                if class_weights != None:
+                    label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
+                else:
+                    label_weights_tensor = None
+             # make a new set of features without the buffer for label classifier for any of the reduce actions
+            if self.id_to_action[self.best_legal_action(legal_actions, action_scores)].startswith("reduce"):
+                state_features_for_labels = self.make_features(parser, False) 
+                label_scores = self.label_classifier(state_features_for_labels).unsqueeze(dim=0)
+                # label_scores = torch.mul(self.label_classifier(state_features_for_labels).unsqueeze(dim=0), label_weights_tensor)
+            # for shift, use the stack + buffer features for label classifier
+            else:
+                label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
+                # label_scores = torch.mul(self.label_classifier(state_features).unsqueeze(dim=0), label_weights_tensor)
+            
+            # label_scores = self.label_classifier(state_features).unsqueeze(dim=0)
             # direction_scores = self.direction_classifier(state_features).unsqueeze(dim=0)
             # are we training?
             if gold_tree is not None:
@@ -220,6 +272,11 @@ class DiscoBertModelGlove2Class(nn.Module):
                 # calculate loss
                 loss_on_actions = loss_fn(action_scores, gold_action)
                 loss_on_labels = loss_fn(label_scores, gold_label)
+                action_for_labels = self.best_legal_action(legal_actions, action_scores)
+                if self.id_to_action[action_for_labels].startswith("reduce"): 
+                    loss_on_labels = loss_fn_on_labels(label_scores, gold_label, label_weights_tensor) 
+                else:
+                    loss_on_labels = 0
                 # loss_on_direction = loss_fn(direction_scores, gold_direction)
                 loss = loss_on_actions + loss_on_labels #+ loss_on_direction 
                 # store loss for later
@@ -230,7 +287,13 @@ class DiscoBertModelGlove2Class(nn.Module):
                 # next_direction = gold_direction
             else:
                 next_action = self.best_legal_action(legal_actions, action_scores)
-                next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                if self.id_to_action[next_action].startswith("reduce"):
+                    next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
+                # there is no label to predict for shift
+                else:
+                    next_label = torch.tensor(0, dtype=torch.long).to(self.device)          
+                
+                #next_label = label_scores.argmax().unsqueeze(0) #unsqueeze because after softmax the output tensor is tensor(int) instead of tensor([int]) (different from next_label in training)
                 # next_direction = direction_scores.argmax().unsqueeze(0)
             
             if self.include_relation_embedding:
@@ -253,6 +316,10 @@ class DiscoBertModelGlove2Class(nn.Module):
 
         # returns the TreeNode for the tree root
         predicted_tree = parser.get_result()
+        if config.PRINT_TREES == True:
+            # print(annotation)
+            print("Document::" + str(annotation.docid) + "::" + str(predicted_tree.to_nltk()) + "\n")
+        
         outputs = (predicted_tree,)
 
         # are we training?

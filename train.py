@@ -124,9 +124,10 @@ def main(experiment_dir_path):
         model_path = os.path.join(model_dir_path, config.MODEL_FILENAME)
         print("path to model: ", model_path)
 
-    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    model = DiscoBertModel()
-    model.to(device)
+    # todo: delete after successfully running glove
+    # device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    # model = DiscoBertModel()
+    # model.to(device)
 
     # load data and split in train and validation sets
     if config.USE_SEGMENTER == True:

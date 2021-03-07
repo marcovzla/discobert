@@ -6,17 +6,17 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 
-ENCODING = 'glove-2-class' #options in this branch: "glove", "glove-2-class", 'glove-2-class-stack-only', "bert", and "roberta"
+ENCODING = 'glove-2-class' #options in this branch: "glove", "glove-2-class", 'glove-2-class-stack-only', and the encodings at the end of the file
 USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 EXPERIMENT_ID = 0
 EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-only-stack-in-label-classifier" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
-LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
+LOG_NAME = "log1" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
 PRINT_TREES = False
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
@@ -164,7 +164,7 @@ elif ENCODING == "ctrl": # does not work: returns None for some (unk?) tokens
     BERT_PATH = DISCOBERT_PATH/('ctrl')
     TOKENIZER = CTRLTokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'bos_token': '<s>', 'eos_token': '</s>', 'unk_token': '<unk>', 'sep_token': '</s>', 'pad_token': '<pad>', 'cls_token': '<s>', 'mask_token': '<mask>'})
-elif ENCODING == "glove" or ENCODING == "glove-2-class" or ENCODING = "glove-2-class-stack-only":
+elif ENCODING == "glove" or ENCODING == "glove-2-class" or ENCODING == "glove-2-class-stack-only":
     BERT_PATH = None
     EMBEDDING_SIZE = 50
     GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
