@@ -316,6 +316,10 @@ if __name__ == '__main__':
     print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
     print("sort input: ", config.SORT_INPUT)
     print("test size: ", config.TEST_SIZE)
+    print("use segmenter: ", config.USE_SEGMENTER)
+    print("segmenter encoding: ", config.SEGMENTER_ENCODING)
+    print("use class weights: ", config.USE_CLASS_WEIGHTS)
+    print("sort input: ", config.SORT_INPUT)
 
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
