@@ -7,7 +7,7 @@ from treelstm import TreeLstm
 import config
 import torch.nn.functional as F
 import numpy as np
-from sentence_transformers import SentenceTransformer
+#from sentence_transformers import SentenceTransformer
 
 inf = float('inf')
 
@@ -164,7 +164,7 @@ class DiscoBertModel(nn.Module):
 
     def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
         # TODO: need to have a version that will produce parses from completely raw text; what should be the output?
-        
+        #print("CUDA?: ", torch.cuda.is_available())        
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus

@@ -3,14 +3,14 @@ import tokenizers
 from transformers import *
 
 ENCODING = 'xlnet' 
-USE_SEGMENTER = True
+USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
 PRINT_TREES = False
-EXPERIMENT_ID = 7
-EXPERIMENT_DESCRIPTION = f"experiment5-xlnet-test-with-our-segmenter-2021-01-18" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+EXPERIMENT_ID = 1
+EXPERIMENT_DESCRIPTION = f"hpc-test" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
@@ -32,11 +32,11 @@ INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier vers
 USE_ATTENTION = False
 DROP_CLS = True #whether or not drop the beginning of sequence token (bos_token)
 SORT_INPUT = True #simplified curriculum learning
-SORT_VALIDATION = True
+SORT_VALIDATION = False
 
-DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
-DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
-OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
+DISCOBERT_PATH = Path('/home/u3/alexeeva/discourse/data/discobert/').expanduser() 
+DISCOBERT_CODE_PATH = Path('/home/u3/alexeeva/discourse/discobert').expanduser()
+OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
@@ -84,9 +84,10 @@ ID_TO_LABEL = [
 
 LABEL_TO_ID = {relation:i for i,relation in enumerate(ID_TO_LABEL)}
 
-SEGMENTER_BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
-SEGMENTER_TOKENIZER = tokenizers.BertWordPieceTokenizer(str(SEGMENTER_BERT_PATH/'vocab.txt'), lowercase=False)
-SEGMENTER_TOKENIZER.enable_padding() #max_length=MAX_LEN)
+if USE_SEGMENTER==True:
+    SEGMENTER_BERT_PATH = DISCOBERT_PATH/('bert-base-cased')
+    SEGMENTER_TOKENIZER = tokenizers.BertWordPieceTokenizer(str(SEGMENTER_BERT_PATH/'vocab.txt'), lowercase=False)
+    SEGMENTER_TOKENIZER.enable_padding() #max_length=MAX_LEN)
 
 
 if ENCODING == "bert":
