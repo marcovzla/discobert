@@ -1,12 +1,12 @@
 #!/bin/bash
-#BATCH --job-name=Sample_Slurm_Job
+#SBATCH --job-name=hpc-test3
 #SBATCH --ntasks=1             
 #SBATCH --mem=24gb                    
 #SBATCH --time=06:00:00   
 #SBATCH --partition=standard
 #SBATCH --account=bsharp  
 #SBATCH --gres=gpu:1 
-
+#SBATCH -o %x.out
 # SLURM Inherits your environment. cd $SLURM_SUBMIT_DIR not needed
 #pwd; hostname; date
 
@@ -18,4 +18,5 @@ source ~/.bashrc
 
 conda activate discobert 
 
-python /home/u3/alexeeva/discourse/discobert/train.py
+python train.py
+

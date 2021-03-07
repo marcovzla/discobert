@@ -6,14 +6,14 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 
-ENCODING = 'xlnet' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
+ENCODING = 'bert' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
 USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-EXPERIMENT_ID = 0
-EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-only-stack-in-label-classifier" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 3
+EXPERIMENT_DESCRIPTION = "hpc-test3" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
 LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
@@ -43,12 +43,12 @@ SORT_VALIDATION = False
 CONNECTIVES =  ["accordingly","additionally","after","afterward","also","alternatively","although","and","as","as a result","as an alternative","as if","as long as","as soon as","as though","as well","because","before","before and after","besides","but","by comparison","by contrast","by then","consequently","conversely","earlier","either", "or","else","except","finally","for","for example","for instance","further","furthermore","hence","however","if","if and when","in addition","in contrast","in fact","in other words","in particular","in short","in sum","in the end","in turn","indeed","insofar as","instead","later","lest","likewise","meantime","meanwhile","moreover","much as","neither", "nevertheless","next","nonetheless","nor","now that","on the contrary","on the one hand", "on the other hand","on the other hand","once","or","otherwise","overall","plus","previously","rather","regardless","separately","similarly","simultaneously","since","so","so that","specifically","still","then","thereafter","thereby","therefore","though","thus","till","ultimately","unless","until","when","when and if","whereas","while","yet"]
 
 #hpc paths
-# DISCOBERT_PATH = Path('/home/u3/alexeeva/discourse/data/discobert/').expanduser() 
-# DISCOBERT_CODE_PATH = Path('/home/u3/alexeeva/discourse/discobert').expanduser()
+DISCOBERT_PATH = Path('/groups/bsharp/alexeeva/discourse/data/discobert/').expanduser() 
+DISCOBERT_CODE_PATH = Path('/groups/bsharp/alexeeva/discourse/discobert').expanduser()
 
 #saturno paths
-DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
-DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
+#DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
+#DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
 OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
