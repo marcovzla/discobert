@@ -6,7 +6,7 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 
-ENCODING = 'glove-2-class' #options in this branch: "glove", "glove-2-class", 'glove-2-class-stack-only', and the encodings at the end of the file
+ENCODING = 'xlnet' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
 USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
@@ -16,7 +16,7 @@ EXPERIMENT_ID = 0
 EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-only-stack-in-label-classifier" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
-LOG_NAME = "log1" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
+LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
 PRINT_TREES = False
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
@@ -24,7 +24,7 @@ SEGMENT_EPOCHS = 20
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
-LR = .01 #default for bert: 3e-5; default for glove: .01
+LR = 3e-5 #default for bert: 3e-5; default for glove: .01
 
 RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
