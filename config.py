@@ -9,14 +9,15 @@ DEBUG = False # no saving of files; output in the terminal; first random seed fr
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
 PRINT_TREES = False
+
 EXPERIMENT_ID = 1
 EXPERIMENT_DESCRIPTION = f"hpc-test" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 10
-SEGMENT_EPOCHS = 10
-MAX_LEN = 50
+SEGMENT_EPOCHS = 20
+MAX_LEN = 50 # what was this used for?
 DROPOUT = 0.2
 USE_CUDA = True
 LR = 3e-5 #default 3e-5
@@ -25,13 +26,13 @@ RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 5 #10
 DIRECTION_HIDDEN_SIZE = 10
-USE_CLASS_WEIGHTS = True # class weights for relation label classifier
+USE_CLASS_WEIGHTS = False # class weights for relation label classifier
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
 USE_ATTENTION = False
-DROP_CLS = True #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = True #simplified curriculum learning
+DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
+SORT_INPUT = False #simplified curriculum learning
 SORT_VALIDATION = False
 
 DISCOBERT_PATH = Path('/home/u3/alexeeva/discourse/data/discobert/').expanduser() 
