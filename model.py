@@ -4,6 +4,7 @@ from transformers import *
 from rst import TreeNode
 from transition_system import TransitionSystem
 from treelstm import TreeLstm
+# from bilstm import BiLSTM
 import config
 import torch.nn.functional as F
 import numpy as np
@@ -90,7 +91,7 @@ class DiscoBertModel(nn.Module):
             self.relation_embeddings = nn.Embedding(len(self.id_to_label), self.relation_label_hidden_size)
         if self.include_direction_embedding:
             self.direction_embedding = nn.Embedding(len(self.id_to_direction), self.direction_hidden_size)
-
+        
     @property
     def device(self):
         return self.missing_node.device
@@ -190,11 +191,33 @@ class DiscoBertModel(nn.Module):
             # encode edus
             sequence_output = self.encoder(ids, attention_mask=attention_mask, output_hidden_states=True)[0]
 
+        # if self.encoding == "bert":
+        #     # tokenize edus
+        #     encodings = self.tokenizer.encode_batch(edus)
+        #     ids = torch.tensor([e.ids for e in encodings], dtype=torch.long).to(self.device)
+        #     attention_mask = torch.tensor([e.attention_mask for e in encodings], dtype=torch.long).to(self.device)
+        #     token_type_ids = torch.tensor([e.type_ids for e in encodings], dtype=torch.long).to(self.device)
 
+        #     # encode edus
+        #     sequence_output, pooled_output = self.encoder( #sequence_output: [edu, tok, emb]
+        #         ids,
+        #         attention_mask=attention_mask,
+        #         token_type_ids=token_type_ids,
+        #     )
+
+        # elif self.encoding == "roberta":
+        #     # tokenize edus 
+        #     batched_encodings = self.tokenizer(edus, padding=True, return_attention_mask=True, return_tensors='pt').to(self.device) #add special tokens is true by default
+        #     ids = batched_encodings['input_ids']
+        #     attention_mask = batched_encodings['attention_mask']
+        #     # encode edus
+        #     sequence_output, pooled_output = self.encoder(ids, attention_mask)
+
+        
+        # whether or not drop the classification token in bert-like models
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 
             attention_mask = attention_mask[:, 1:]
-        
         
         if config.USE_ATTENTION == True:
             after1stAttn = self.attn1(sequence_output)

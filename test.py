@@ -8,6 +8,8 @@ from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
+from model_glove import DiscoBertModelGlove
+from model_glove_2_class import DiscoBertModelGlove2Class
 import config
 import engine, segmenter_engine
 import random
@@ -17,7 +19,7 @@ import shutil
 from datetime import date
 import time
 from segmenter_model import SegmentationModel
-
+from utils import make_word2index
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -144,13 +146,33 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores   
 
 
-def main(path_to_model, test_ds):
+def main(path_to_model, test_ds, random_seed):
+    #set random seed here because the vocab will be built based on the train set
+    random.seed(random_seed)
+    torch.manual_seed(random_seed)
+    torch.cuda.manual_seed(random_seed)
+    np.random.seed(random_seed)
     
     if config.RERUN_DEV_EVAL == True:
         # print("START LOAD TRAIN/DEV SET")
         train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    model = DiscoBertModel.load(path_to_model)
+    if config.ENCODING == "glove":
+        
+        # load data and split in train and validation sets
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
+    elif config.ENCODING == "glove-2-class":
+        
+        # load data and split in train and validation sets
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
+    else:
+        model = DiscoBertModel.load(path_to_model)
     model.to(device)
 
     # using our edus:

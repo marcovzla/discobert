@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
 import torch
+import torchtext
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
+from model_glove import DiscoBertModelGlove
+from model_glove_2_class import DiscoBertModelGlove2Class
+from model_glove_2_class_only_stack import DiscoBertModelGlove2ClassStackOnly
 from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
@@ -18,6 +22,7 @@ import shutil
 from datetime import date
 import time
 from segmenter_model import SegmentationModel
+from utils import make_word2index
 
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
@@ -96,6 +101,21 @@ def eval_trees_with_predicted_edus(pred_trees, gold_trees, segmenter_edus, gold_
     return scores
 
 def main(experiment_dir_path):
+
+    print("Printing out config settings:")
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+
+    # load data and split in train and validation sets
+    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+
+
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
         # print("model dir path: ", model_dir_path)
@@ -159,6 +179,22 @@ def main(experiment_dir_path):
         for n in sorted(train_ids_by_length):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
+
+    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    if config.ENCODING == 'glove':
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove(word2index)
+    elif config.ENCODING == 'glove-2-class':
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove2Class(word2index)
+    elif config.ENCODING == 'glove-2-class-stack-only':
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove2ClassStackOnly(word2index)
+    else:
+        model = DiscoBertModel()
+        
+    
+    model.to(device)
 
     num_training_steps = int(len(train_ds) * config.EPOCHS)
     optimizer = AdamW(optimizer_parameters(model), lr=config.LR, eps=1e-8, weight_decay=0.0)

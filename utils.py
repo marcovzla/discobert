@@ -1,3 +1,7 @@
+import config
+import torch
+import numpy as np
+
 class CumulativeMovingAverage:
     # https://en.wikipedia.org/wiki/Moving_average#Cumulative_moving_average
 
@@ -141,3 +145,63 @@ def extractrelation(s):
     else:
         rela = items[0]
     return fg_to_coarse[rela]
+
+def load_glove(path):
+    print("loading glove")
+    glove = {}
+    with open(path, 'rb') as f:
+        for l in f:
+            # split lines
+            line = l.decode().split()
+            # first part is word
+            word = line[0]
+            # the rest is the embeddings
+            if len(line[1:]) > 2:
+                vec = np.array(line[1:]).astype(float)
+                # feed dict
+                glove[word] = vec
+    return glove
+
+
+def make_word2index(edus):
+    """make word vocabulary from a list of edus"""
+    tokenizer = config.TOKENIZER
+    word2index = {}
+    word2index['<pad>'] = 0
+    word2index['<unk>'] = 1
+    current_word_count = 2 #after adding pad and unk, this is where actual word indices will start
+    for edu in edus:
+        words = tokenizer(edu.raw)
+        for word in words:
+            if not word in word2index:
+                word2index[word] = current_word_count
+                current_word_count += 1
+
+    return word2index
+
+def make_index2word(word2index):
+    index2word = {}
+    for word in word2index:
+        index2word[word2index[word]] = word
+    return index2word
+
+def make_embedding_matrix(index2word, glove):
+    
+    emb_matrix = np.zeros((len(index2word.values()), config.EMBEDDING_SIZE))
+    
+    for index in index2word.keys():
+        if index2word[index] in glove:
+            emb_matrix[index] = glove[index2word[index]]
+
+        # the rest will be unknown words?
+        # else:
+        #     # even if the word is not in glove, we still hope to learn an emb for it (bsh, mve?)
+        #     emb_matrix[index] = np.random.normal(scale=0.6, size=config.EMBEDDING_SIZE)
+
+    # update the values for pad and unk 
+    emb_matrix[0] = np.zeros((1, config.EMBEDDING_SIZE)) # pad
+    emb_matrix[1] = np.mean(emb_matrix, axis=0) # <unk>  
+
+    return torch.from_numpy(emb_matrix)
+
+

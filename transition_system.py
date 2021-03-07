@@ -10,6 +10,12 @@ if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==True:
 else:
     Step = namedtuple('Step', 'action label')
 
+# todo: delete after successfully running glove
+# if config.ENCODING == "glove-2-class":
+#     Step = namedtuple('Step', 'action label')
+# else:
+#     Step = namedtuple('Step', 'action label direction')
+
 class TransitionSystem:
 
     def __init__(self, edus=None):
@@ -52,7 +58,6 @@ class TransitionSystem:
         node.calc_span()
         self.stack.append(node)
 
-
     def reduceL(self, label=None, direction=None, reduce_fn=None, rel_embedding=None):
         self.reduce(label, 'RightToLeft', reduce_fn, rel_embedding)
 
@@ -66,6 +71,14 @@ class TransitionSystem:
         else:
             return ['shift', 'reduceL', 'reduceR', 'reduce']
 
+    # keep temporarily for debugging purposes
+    # @staticmethod
+    # def all_actions():
+    #     if config.ENCODING == "glove-2-class":
+    #         return ['shift', 'reduceL', 'reduceR', 'reduce']
+    #     else:
+    #         return ['shift', 'reduce']
+
     def all_legal_actions(self):
         actions = []
         if self.can_shift():
@@ -75,7 +88,10 @@ class TransitionSystem:
             if config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS==False:
                 actions.append('reduceL')
                 actions.append('reduceR')
-            
+            # keep temporarily for debugging purposes
+            # if config.ENCODING == "glove-2-class":
+            #     actions.append('reduceL')
+            #     actions.append('reduceR')
         return actions
 
     def can_shift(self):

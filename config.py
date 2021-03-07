@@ -1,26 +1,30 @@
 from pathlib import Path
 import tokenizers
+from tokenizers import Tokenizer 
 from transformers import *
+import torchtext
+from torchtext.data import get_tokenizer
 
-ENCODING = 'xlnet' 
+
+ENCODING = 'glove-2-class' #options in this branch: "glove", "glove-2-class", 'glove-2-class-stack-only', "bert", and "roberta"
 USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
+NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
-PRINT_TREES = False
-
-EXPERIMENT_ID = 1
-EXPERIMENT_DESCRIPTION = f"hpc-test" # during training: enter a brief description that will make the experiment easy to identify #during testing: this is the name of the parent directory for different random seed models saved from an experiment
+EXPERIMENT_ID = 0
+EXPERIMENT_DESCRIPTION = "GloveEmbedding-two-classifier-only-stack-in-label-classifier" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
+LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
+PRINT_TREES = False
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
-EPOCHS = 10
+EPOCHS = 30
 SEGMENT_EPOCHS = 20
-MAX_LEN = 50 # what was this used for?
+MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
-LR = 3e-5 #default 3e-5
+LR = .01 #default for bert: 3e-5; default for glove: .01
 
 RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
@@ -30,10 +34,13 @@ USE_CLASS_WEIGHTS = False # class weights for relation label classifier
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
-USE_ATTENTION = False
+USE_ATTENTION = False # not currently in model_glove
 DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
 SORT_INPUT = False #simplified curriculum learning
 SORT_VALIDATION = False
+
+
+CONNECTIVES =  ["accordingly","additionally","after","afterward","also","alternatively","although","and","as","as a result","as an alternative","as if","as long as","as soon as","as though","as well","because","before","before and after","besides","but","by comparison","by contrast","by then","consequently","conversely","earlier","either", "or","else","except","finally","for","for example","for instance","further","furthermore","hence","however","if","if and when","in addition","in contrast","in fact","in other words","in particular","in short","in sum","in the end","in turn","indeed","insofar as","instead","later","lest","likewise","meantime","meanwhile","moreover","much as","neither", "nevertheless","next","nonetheless","nor","now that","on the contrary","on the one hand", "on the other hand","on the other hand","once","or","otherwise","overall","plus","previously","rather","regardless","separately","similarly","simultaneously","since","so","so that","specifically","still","then","thereafter","thereby","therefore","though","thus","till","ultimately","unless","until","when","when and if","whereas","while","yet"]
 
 #hpc paths
 # DISCOBERT_PATH = Path('/home/u3/alexeeva/discourse/data/discobert/').expanduser() 
@@ -46,17 +53,25 @@ OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
 VALID_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TEST'
+
 MODEL_FILENAME = 'discobert.model'
+
 SEGMENTER_MODEL_FILENAME = 'segmenter.model'
 CONFIG_FILE = DISCOBERT_CODE_PATH/'config.py' # this file will be copies to each experiment directory for record keeping
-
 SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS = False #ATTN: if False, INCLUDE_DIRECTION_EMBEDDING has to be False
-
 if SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS == True:
     ID_TO_ACTION = ['shift', 'reduce']
 else:
     ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
  
+
+# this was used in the glove branch; keeping for debugging
+# if ENCODING == "glove-2-class":
+#     ID_TO_ACTION = ['shift', 'reduceL', 'reduceR', 'reduce']
+# else:
+#     ID_TO_ACTION = ['shift', 'reduce']
+
+
 ACTION_TO_ID = {action:i for i,action in enumerate(ID_TO_ACTION)}
 
 ID_TO_SEGMENT_CLASSES = ["B", "I"]
@@ -149,4 +164,9 @@ elif ENCODING == "ctrl": # does not work: returns None for some (unk?) tokens
     BERT_PATH = DISCOBERT_PATH/('ctrl')
     TOKENIZER = CTRLTokenizer.from_pretrained(str(BERT_PATH))
     TOKENIZER.add_special_tokens({'bos_token': '<s>', 'eos_token': '</s>', 'unk_token': '<unk>', 'sep_token': '</s>', 'pad_token': '<pad>', 'cls_token': '<s>', 'mask_token': '<mask>'})
+elif ENCODING == "glove" or ENCODING == "glove-2-class" or ENCODING = "glove-2-class-stack-only":
+    BERT_PATH = None
+    EMBEDDING_SIZE = 50
+    GLOVE_PATH = "/home/alexeeva/data/glove/vectors.txt"
+    TOKENIZER = get_tokenizer("basic_english")
 
