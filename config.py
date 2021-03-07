@@ -6,7 +6,7 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 
-ENCODING = 'xlnet' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
+ENCODING = 'bert' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
 USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
