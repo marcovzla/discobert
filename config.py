@@ -35,8 +35,13 @@ DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token
 SORT_INPUT = False #simplified curriculum learning
 SORT_VALIDATION = False
 
-DISCOBERT_PATH = Path('/home/u3/alexeeva/discourse/data/discobert/').expanduser() 
-DISCOBERT_CODE_PATH = Path('/home/u3/alexeeva/discourse/discobert').expanduser()
+#hpc paths
+# DISCOBERT_PATH = Path('/home/u3/alexeeva/discourse/data/discobert/').expanduser() 
+# DISCOBERT_CODE_PATH = Path('/home/u3/alexeeva/discourse/discobert').expanduser()
+
+#saturno paths
+DISCOBERT_PATH = Path('~/data/discobert').expanduser() 
+DISCOBERT_CODE_PATH = Path('~/discobert').expanduser()
 OUTPUT_DIR = DISCOBERT_CODE_PATH/'outputs'
 SEGMENTER_OUTPUT_DIR = DISCOBERT_CODE_PATH/'segmenter_outputs'
 TRAIN_PATH = DISCOBERT_PATH/'RSTtrees-WSJ-main-1.0'/'TRAINING'
