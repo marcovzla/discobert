@@ -215,10 +215,11 @@ class DiscoBertModel(nn.Module):
 
         
         # whether or not drop the classification token in bert-like models
+        #print("type of sseq output 1: ", type(sequence_output))
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 
             attention_mask = attention_mask[:, 1:]
-        
+        #print("type of sseq output: ", type(sequence_output))        
         if config.USE_ATTENTION == True:
             after1stAttn = self.attn1(sequence_output)
             nonLinearity = self.betweenAttention(after1stAttn)

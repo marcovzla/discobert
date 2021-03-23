@@ -1,12 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=hpc-test3
+#SBATCH --job-name=bert-3-class
 #SBATCH --ntasks=1             
 #SBATCH --mem=24gb                    
 #SBATCH --time=06:00:00   
 #SBATCH --partition=standard
 #SBATCH --account=bsharp  
 #SBATCH --gres=gpu:1 
-#SBATCH -o %x.out
+
+#SBATCH --output logs/%x_%J.log
+#SBATCH --error logs/%x_%J.err
 # SLURM Inherits your environment. cd $SLURM_SUBMIT_DIR not needed
 #pwd; hostname; date
 
@@ -16,7 +18,8 @@ module load cuda11/11.0
 module load anaconda
 source ~/.bashrc
 
-conda activate discobert 
+#conda activate discobert 
+conda activate dl
 
 python train.py
 
