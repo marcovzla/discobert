@@ -6,14 +6,14 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 
-ENCODING = 'bert' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
+ENCODING = 'glove-2-class' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
 USE_SEGMENTER = False
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-EXPERIMENT_ID = 18
-EXPERIMENT_DESCRIPTION = "bert-3-class" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 20
+EXPERIMENT_DESCRIPTION = "glove-2-class-correct-lr" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment6-test-segmenter-2021-01-18" # used to write and read a segmenter model
 
 LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
@@ -24,7 +24,7 @@ SEGMENT_EPOCHS = 20
 MAX_LEN = 50
 DROPOUT = 0.2
 USE_CUDA = True
-LR = 3e-5 #default for bert: 3e-5; default for glove: .01
+LR = .01 #default for bert: 3e-5; default for glove: .01
 
 RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
