@@ -291,7 +291,7 @@ def parse_node(tokens, position):
         # set correct span
         node.calc_span()
         # print("text: ", text)
-        # node.text = text
+        node.text = text
         # print("node text: ", node.text)
         # print("node children: ", node.children)
         return (value, node, pos+1)

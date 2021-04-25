@@ -7,10 +7,10 @@ from torchtext.data import get_tokenizer
 
 
 ENCODING = 'xlnet' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
-USE_SEGMENTER = True # has to be true for training segmenter
+USE_SEGMENTER = False # has to be true for training segmenter
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
-DEBUG = False # no saving of files; output in the terminal; first random seed from the list
+DEBUG = True # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 EXPERIMENT_ID = 23
 EXPERIMENT_DESCRIPTION = "xlnet-with-our-segmenter-exp3" # enter a brief description that will make the experiment easy to identify

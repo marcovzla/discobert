@@ -142,6 +142,9 @@ def main(experiment_dir_path):
         valid_ds = segmenter_engine.run_fn(old_valid_ds, segmentaion_model, device)
     elif config.USE_SEGMENTER == False:
         train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+        
+        #for a in train_ds[:100]:
+        #    print(a.docid, ":\n",a.dis.to_nltk(), "\n\n")
     else:
         print("Something went horribly wrong with reading in train data")
         NotImplementedError
