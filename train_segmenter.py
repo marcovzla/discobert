@@ -128,7 +128,7 @@ def main(experiment_dir_path):
         print(f'epoch: {epoch+1}/{config.SEGMENT_EPOCHS}')
         print("-----------")
         segmenter_engine.train_fn(train_ds, model, optimizer, device, scheduler)
-        pred_trees, gold_trees = segmenter_engine.eval_fn(valid_ds[:10], model, device)
+        pred_trees, gold_trees = segmenter_engine.eval_fn(valid_ds, model, device)
         p, r, f1 = eval_boundaries(pred_trees, gold_trees)
         print(f'boundaries   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         # print(f'S (span only)   F1:{f1_s:.2%}')

@@ -8,7 +8,7 @@ from rst import iter_labeled_spans_with_nuclearity
 
 def train_fn(annotations, model, optimizer, device, scheduler=None, class_weights=None):
     model.train()
-    batch_size = 2
+    #batch_size = 2
     loss_avg = CumulativeMovingAverage()
     annotations = tqdm(annotations, total=len(annotations))
     annotations.set_description('train')

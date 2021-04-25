@@ -43,7 +43,7 @@ def get_span_text(t, annot): #one tree node and a set of annotations(?) for the 
     start = t.span.start 
     end = t.span.stop 
     # text = "".join(annot.edus[start:end]).replace(" ", "").lower() #
-    # edus_start_end = annot.edus[start:end]
+    edus_start_end = annot.edus[start:end]
     text = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
     return text
 
@@ -194,11 +194,11 @@ class TreeNode:
                 golds.extend(c.gold_spans())
         return golds
 
-    # def to_nltk(self):
-    #     if self.is_terminal:
-    #         return Tree('EDU', [self.text])
-    #     else:
-    #         return Tree(self.label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
+    #def to_nltk(self):
+    #    if self.is_terminal:
+    #        return Tree('EDU', [self.text])
+    #    else:
+    #        return Tree(self.label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
 
     def to_nltk(self):
         if self.is_terminal:

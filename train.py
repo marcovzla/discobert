@@ -23,7 +23,9 @@ from datetime import date
 import time
 from segmenter_model import SegmentationModel
 from utils import make_word2index
+import imp
 
+imp.find_module('torch')
 def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
     named_params = list(model.named_parameters())
@@ -125,7 +127,7 @@ def main(experiment_dir_path):
         print("path to model: ", model_path)
 
     # todo: delete after successfully running glove
-    # device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     # model = DiscoBertModel()
     # model.to(device)
 
@@ -134,7 +136,7 @@ def main(experiment_dir_path):
         # eval using validation data edus produced using our segmenter
         train_ds, old_valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
         segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
-        segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
+        segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str(config.SEGMENTER_RS_TO_USE), config.SEGMENTER_MODEL_FILENAME))
         segmentaion_model.to(device)
         # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
         valid_ds = segmenter_engine.run_fn(old_valid_ds, segmentaion_model, device)
@@ -181,7 +183,7 @@ def main(experiment_dir_path):
             for ann in train_ids_by_length[n]:
                 train_ds.append(ann)
 
-    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     if config.ENCODING == 'glove':
         word2index = make_word2index(train_ds)   
         model = DiscoBertModelGlove(word2index)
