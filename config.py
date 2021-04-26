@@ -12,8 +12,8 @@ SEGMENTER_ENCODING = 'bert'
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-EXPERIMENT_ID = 29
-EXPERIMENT_DESCRIPTION = "roberta-just-class-weights-dropcls-sort-input" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 31
+EXPERIMENT_DESCRIPTION = "roberta-everything-true" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment3-segmenter-with-all-dev-examples-2021-04-02" # used to write and read a segmenter model
 SEGMENTER_RS_TO_USE=137 #whichever rs was best during training (based on dev)
 LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
@@ -32,12 +32,12 @@ RELATION_LABEL_HIDDEN_SIZE = 5 #10
 DIRECTION_HIDDEN_SIZE = 10
 USE_CLASS_WEIGHTS = True # class weights for relation label classifier
 
-INCLUDE_RELATION_EMBEDDING = False
+INCLUDE_RELATION_EMBEDDING = True
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
-USE_ATTENTION = False # not currently in model_glove
+USE_ATTENTION = True # not currently in model_glove
 DROP_CLS = True #whether or not drop the beginning of sequence token (bos_token)
 SORT_INPUT = True  #simplified curriculum learning
-SORT_VALIDATION = False
+SORT_VALIDATION = True
 
 
 CONNECTIVES =  ["accordingly","additionally","after","afterward","also","alternatively","although","and","as","as a result","as an alternative","as if","as long as","as soon as","as though","as well","because","before","before and after","besides","but","by comparison","by contrast","by then","consequently","conversely","earlier","either", "or","else","except","finally","for","for example","for instance","further","furthermore","hence","however","if","if and when","in addition","in contrast","in fact","in other words","in particular","in short","in sum","in the end","in turn","indeed","insofar as","instead","later","lest","likewise","meantime","meanwhile","moreover","much as","neither", "nevertheless","next","nonetheless","nor","now that","on the contrary","on the one hand", "on the other hand","on the other hand","once","or","otherwise","overall","plus","previously","rather","regardless","separately","similarly","simultaneously","since","so","so that","specifically","still","then","thereafter","thereby","therefore","though","thus","till","ultimately","unless","until","when","when and if","whereas","while","yet"]
