@@ -279,7 +279,7 @@ class DiscoBertModel(nn.Module):
             # predict next action, label, and, if predicting actions and directions separately, direction based on the stack and the buffer
             action_scores = self.action_classifier(state_features).unsqueeze(dim=0)
             if gold_tree is not None:
-                if class_weights != None:
+                if class_weights is not None:
                     label_weights_tensor = torch.Tensor.float(torch.from_numpy(class_weights).to(self.device))
                 else:
                     label_weights_tensor = None

@@ -6,14 +6,14 @@ import torchtext
 from torchtext.data import get_tokenizer
 
 
-ENCODING = 'xlnet' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
+ENCODING = 'roberta' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
 USE_SEGMENTER = False # has to be true for training segmenter
 SEGMENTER_ENCODING = 'bert' 
 NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
-DEBUG = True # no saving of files; output in the terminal; first random seed from the list
+DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-EXPERIMENT_ID = 23
-EXPERIMENT_DESCRIPTION = "xlnet-with-our-segmenter-exp3" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 29
+EXPERIMENT_DESCRIPTION = "roberta-just-class-weights-dropcls-sort-input" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment3-segmenter-with-all-dev-examples-2021-04-02" # used to write and read a segmenter model
 SEGMENTER_RS_TO_USE=137 #whichever rs was best during training (based on dev)
 LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
@@ -30,13 +30,13 @@ RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 5 #10
 DIRECTION_HIDDEN_SIZE = 10
-USE_CLASS_WEIGHTS = False # class weights for relation label classifier
+USE_CLASS_WEIGHTS = True # class weights for relation label classifier
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
 USE_ATTENTION = False # not currently in model_glove
-DROP_CLS = False #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = False  #simplified curriculum learning
+DROP_CLS = True #whether or not drop the beginning of sequence token (bos_token)
+SORT_INPUT = True  #simplified curriculum learning
 SORT_VALIDATION = False
 
 
@@ -145,7 +145,7 @@ elif ENCODING == "xlnet":
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
     # has CLS (bos_token) token
     BERT_PATH = DISCOBERT_PATH/('xlnet-base-cased')
-    TOKENIZER = XLNetTokenizer.from_pretrained(str(BERT_PATH))
+    TOKENIZER = XLNetTokenizer.from_pretrained(str(BERT_PATH), mem_len=1024)
 elif ENCODING == "distilbert":
     # "trained by distilling Bert base." "Knowledge distillation [...] is a compression technique in which a compact model - the student - is trained to reproduce the behaviour of a larger model - the teacher -or an ensemble of models" (https://arxiv.org/abs/1910.01108).
     # returns last_hidden_state (torch.FloatTensor of shape (batch_size, sequence_length, hidden_size))
