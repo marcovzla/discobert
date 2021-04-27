@@ -146,90 +146,91 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores   
 
 
-def main(path_to_model, test_ds, random_seed):
+def main(path_to_model, test_ds):
     #set random seed here because the vocab will be built based on the train set
-    random.seed(random_seed)
-    torch.manual_seed(random_seed)
-    torch.cuda.manual_seed(random_seed)
-    np.random.seed(random_seed)
+    # random.seed(random_seed)
+    # torch.manual_seed(random_seed)
+    # torch.cuda.manual_seed(random_seed)
+    # np.random.seed(random_seed)
     
-    if config.RERUN_DEV_EVAL == True:
-        # print("START LOAD TRAIN/DEV SET")
-        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    if config.ENCODING == "glove":
+    # if config.ENCODING == "glove":
         
-        # load data and split in train and validation sets
-        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    #     # load data and split in train and validation sets
+    #     train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-        word2index = make_word2index(train_ds)   
-        model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
-    elif config.ENCODING == "glove-2-class":
+    #     word2index = make_word2index(train_ds)   
+    #     model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
+    # elif config.ENCODING == "glove-2-class":
         
-        # load data and split in train and validation sets
-        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    #     # load data and split in train and validation sets
+    #     train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-        word2index = make_word2index(train_ds)   
-        model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
-    else:
-        model = DiscoBertModel.load(path_to_model)
+    #     word2index = make_word2index(train_ds)   
+    #     model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
+    # else:
+    #     model = DiscoBertModel.load(path_to_model)
+    model = DiscoBertModel.load(path_to_model)
     model.to(device)
 
     # using our edus:
-    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
-    segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
-    segmentaion_model.to(device)
-    # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
-    print("gold edus: ", test_ds[0].edus)
+    # if config.USE_SEGMENTER:
+    #     segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
+    #     segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
+    #     segmentaion_model.to(device)
+    #     # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
+    #     print("gold edus: ", test_ds[0].edus)
     
-    new_test_ds = segmenter_engine.run_fn(test_ds[0:1], segmentaion_model, device)
-    for ds in new_test_ds:
-        print("->", ds.edus)
+    #     new_test_ds = segmenter_engine.run_fn(test_ds[0:1], segmentaion_model, device)
+    #     for ds in new_test_ds:
+    #         print("->", ds.edus)
 
     
-    if config.RERUN_DEV_EVAL == True:
-        if config.SORT_INPUT:
-            valid_ids_by_length = {}
-            for item in valid_ds:
-                valid_ids_by_length.setdefault(len(item.edus), []).append(item)
+    # if config.RERUN_DEV_EVAL == True:
+    #     if config.SORT_INPUT:
+    #         valid_ids_by_length = {}
+    #         for item in valid_ds:
+    #             valid_ids_by_length.setdefault(len(item.edus), []).append(item)
 
-            valid_ds = []
-            for n in sorted(valid_ids_by_length):
-                for ann in valid_ids_by_length[n]:
-                    valid_ds.append(ann)
+    #         valid_ds = []
+    #         for n in sorted(valid_ids_by_length):
+    #             for ann in valid_ids_by_length[n]:
+    #                 valid_ds.append(ann)
 
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
-    else:
-        pred_trees, gold_trees = engine.eval_fn(new_test_ds, model, device)
+    #     pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+    # else:
+    #     pred_trees, gold_trees = engine.eval_fn(new_test_ds, model, device)
 
-    gold_edu_strings = []
-    print("gold--->", gold_trees[0].gold_spans())
-    for gs in gold_trees[0].gold_spans():
-        print("gs: ", gs)
-        start = gs.start
-        print("start: ", start)
-        end = gs.stop
-        print("end: ", end)
-        edus_start_end = test_ds[0].edus[start:end]
-        print("edus: ",  edus_start_end)
-        str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
-        print("str to compare: " + str_to_compare)
-        gold_edu_strings.append(str_to_compare)
-    print("pred--->", pred_trees[0].gold_spans())
-    print("gold edu strings: ", gold_edu_strings)
-    for gs in pred_trees[0].gold_spans():
-        print("gs: ", gs)
-        start = gs.start
-        print("start: ", start)
-        end = gs.stop
-        print("end: ", end)
-        edus_start_end = new_test_ds[0].edus[start:end]
-        print("edus: " , edus_start_end)
-        str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
-        if str_to_compare in gold_edu_strings:
-            print("TRUE")
-        else:
-            print("FALSE: " + str_to_compare)
+    pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
+
+    # gold_edu_strings = []
+    # print("gold--->", gold_trees[0].gold_spans())
+    # for gs in gold_trees[0].gold_spans():
+    #     print("gs: ", gs)
+    #     start = gs.start
+    #     print("start: ", start)
+    #     end = gs.stop
+    #     print("end: ", end)
+    #     edus_start_end = test_ds[0].edus[start:end]
+    #     print("edus: ",  edus_start_end)
+    #     str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+    #     print("str to compare: " + str_to_compare)
+    #     gold_edu_strings.append(str_to_compare)
+    # print("pred--->", pred_trees[0].gold_spans())
+    # print("gold edu strings: ", gold_edu_strings)
+    # for gs in pred_trees[0].gold_spans():
+    #     print("gs: ", gs)
+    #     start = gs.start
+    #     print("start: ", start)
+    #     end = gs.stop
+    #     print("end: ", end)
+    #     edus_start_end = new_test_ds[0].edus[start:end]
+    #     print("edus: " , edus_start_end)
+    #     str_to_compare = edus_start_end[0].replace(" ","")[:5] + edus_start_end[-1].replace(" ","")[-5:]
+    #     if str_to_compare in gold_edu_strings:
+    #         print("TRUE")
+    #     else:
+    #         print("FALSE: " + str_to_compare)
 
     if config.PRINT_TREES == False:
         
@@ -260,24 +261,14 @@ def main(path_to_model, test_ds, random_seed):
     
 if __name__ == '__main__':
 
-    test_ds = list(load_annotations(config.VALID_PATH))
-    if config.SORT_INPUT == True:
-        # construct new train_ds
-        test_ids_by_length = {}
-        for item in test_ds:
-            test_ids_by_length.setdefault(len(item.edus), []).append(item)
 
-        test_ds = []
-        for n in sorted(test_ids_by_length):
-            for ann in test_ids_by_length[n]:
-                test_ds.append(ann)
 
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
     random_seeds = config.RANDOM_SEEDS
     if config.PRINT_TREES == False:
         log_name = config.LOG_NAME
         with open(os.path.join(experiment_dir_path, log_name), "w") as f:
-            # sys.stdout = f
+            sys.stdout = f
             
 
             span_scores = np.zeros(len(random_seeds))
@@ -287,11 +278,33 @@ if __name__ == '__main__':
 
             for i in range(len(random_seeds)):
                 r_seed = random_seeds[i]
+                print(r_seed)
                 random.seed(r_seed)
                 torch.manual_seed(r_seed)
                 torch.cuda.manual_seed(r_seed)
                 np.random.seed(r_seed)
                 path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(r_seed), config.MODEL_FILENAME)
+                
+
+                if config.RERUN_DEV_EVAL == True:
+                    # print("START LOAD TRAIN/DEV SET")
+                    train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+                    
+                else:
+                    test_ds = list(load_annotations(config.VALID_PATH))
+
+                # test_ds = list(load_annotations(config.VALID_PATH))
+                if config.SORT_INPUT == True:
+                    # construct new train_ds
+                    test_ids_by_length = {}
+                    for item in test_ds:
+                        test_ids_by_length.setdefault(len(item.edus), []).append(item)
+
+                    test_ds = []
+                    for n in sorted(test_ids_by_length):
+                        for ann in test_ids_by_length[n]:
+                            test_ds.append(ann)
+
                 print("model path: ", path_to_model)
                 rs_results = main(path_to_model, test_ds)
                 span_scores[i] = rs_results[0]

@@ -115,8 +115,10 @@ def main(experiment_dir_path):
     print("test size: ", config.TEST_SIZE)
 
     # load data and split in train and validation sets
-    train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+    # train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+    # for a in valid_ds:
+    #     print("->", a.docid)
 
     if config.DEBUG == False:
         model_dir_path = os.path.join(experiment_dir_path, "rs" + str(r_seed))
@@ -143,13 +145,14 @@ def main(experiment_dir_path):
     elif config.USE_SEGMENTER == False:
         train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
         
-        #for a in train_ds[:100]:
+        # for a in train_ds[:100]:
         #    print(a.docid, ":\n",a.dis.to_nltk(), "\n\n")
     else:
         print("Something went horribly wrong with reading in train data")
         NotImplementedError
 
-    
+    for a in valid_ds:
+        print("--->", a.docid)
     if config.USE_CLASS_WEIGHTS:
     # calculate label class weights based on the train set
         train_trees = []
@@ -347,7 +350,7 @@ if __name__ == '__main__':
         shutil.copyfile(config.CONFIG_FILE, os.path.join(experiment_dir_path, "config.py"))
 
         with open(os.path.join(experiment_dir_path, config.LOG_NAME), "w") as f:
-            sys.stdout = f
+            # sys.stdout = f
             print("Printing out config settings:")
             print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
             print("debug: ", config.DEBUG)
