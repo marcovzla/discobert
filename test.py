@@ -154,30 +154,31 @@ def main(path_to_model, test_ds):
     # np.random.seed(random_seed)
     
     device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
-    # if config.ENCODING == "glove":
+    if config.ENCODING == "glove":
         
-    #     # load data and split in train and validation sets
-    #     train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+        # load data and split in train and validation sets; fixme: how do you do if you don't have a train set? make it based on test?
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    #     word2index = make_word2index(train_ds)   
-    #     model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
-    # elif config.ENCODING == "glove-2-class":
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
+    elif config.ENCODING == "glove-2-class":
         
-    #     # load data and split in train and validation sets
-    #     train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+        # load data and split in train and validation sets
+        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
-    #     word2index = make_word2index(train_ds)   
-    #     model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
-    # else:
-    #     model = DiscoBertModel.load(path_to_model)
-    model = DiscoBertModel.load(path_to_model)
+        word2index = make_word2index(train_ds)   
+        model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
+    else:
+        model = DiscoBertModel.load(path_to_model)
+    
     model.to(device)
 
     # using our edus:
-    # if config.USE_SEGMENTER:
-    #     segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
-    #     segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
-    #     segmentaion_model.to(device)
+    if config.USE_SEGMENTER:
+        segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
+        segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
+        segmentaion_model.to(device)
+        test_ds = segmenter_engine.run_fn(test_ds, segmentaion_model, device)
     #     # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
     #     print("gold edus: ", test_ds[0].edus)
     
