@@ -89,14 +89,23 @@ def eval_tree_pools(pred_trees, gold_trees, view_fn):
         # return scores
 
 
-def eval_trees(pred_trees, gold_trees, view_fn):
-    if "iter_labels" in str(view_fn):
-        # this is to get confusion-matrix-like information
-        all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
-        all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
+def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
+    # pred_edus - edus from our segmenter
+    if config.USE_SEGMENTER:
+        all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), pred_edus[idx])] for idx, t in enumerate(pred_trees)]
+        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), gold_edus[idx])] for idx, t in enumerate(gold_trees)]
     else:
-        all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+        all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in pred_trees]
+        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in gold_trees]
+    
+    
+    # if "iter_labels" in str(view_fn):
+    #     # this is to get confusion-matrix-like information
+    #     all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
+    #     all_gold_spans = [f'{x}' for t in gold_trees for x in view_fn(t.get_nonterminals())]
+    # else:
+    #     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+    #     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
 
     # per_doc_scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
     # # print("PER DOC SCORES: ", per_doc_scores)
@@ -105,35 +114,35 @@ def eval_trees(pred_trees, gold_trees, view_fn):
 
     #For the following two, make sure to set "rerun_dev_eval" to True
     # to compare how 
-    if "iter_label_and_direction" in str(view_fn):
-        print("predicted:")
-        pred_dict = get_label_nuclearity_distribution(all_pred_spans)
-        print("gold:")
-        gold_dict = get_label_nuclearity_distribution(all_gold_spans)
-        for key in pred_dict:
-            print("label: ", key, "\npred: ", pred_dict[key], "\ngold: ", gold_dict[key], "\n")
+    # if "iter_label_and_direction" in str(view_fn):
+    #     print("predicted:")
+    #     pred_dict = get_label_nuclearity_distribution(all_pred_spans)
+    #     print("gold:")
+    #     gold_dict = get_label_nuclearity_distribution(all_gold_spans)
+    #     for key in pred_dict:
+    #         print("label: ", key, "\npred: ", pred_dict[key], "\ngold: ", gold_dict[key], "\n")
 
     
 
-    confusion = {}
-    # print(str(view_fn))
-    if "iter_labels" in str(view_fn):
-        for i, gold_label in enumerate(all_gold_spans):
-            predicted = all_pred_spans[i]
-            # print(gold_label, " ", predicted)
-            if gold_label in confusion:
-                if predicted in confusion[gold_label]:
-                    confusion[gold_label][predicted] += 1
-                else:
-                    confusion[gold_label][predicted] = 1
-            else:
-                confusion[gold_label] = {gold_label: 1}
+    # confusion = {}
+    # # print(str(view_fn))
+    # if "iter_labels" in str(view_fn):
+    #     for i, gold_label in enumerate(all_gold_spans):
+    #         predicted = all_pred_spans[i]
+    #         # print(gold_label, " ", predicted)
+    #         if gold_label in confusion:
+    #             if predicted in confusion[gold_label]:
+    #                 confusion[gold_label][predicted] += 1
+    #             else:
+    #                 confusion[gold_label][predicted] = 1
+    #         else:
+    #             confusion[gold_label] = {gold_label: 1}
 
-    for gold_label in confusion.keys():
-        print("==============\n", gold_label, "\n--------------")
-        predictions_dict = {k: v for k, v in sorted(confusion[gold_label].items(), key=lambda item: item[1], reverse=True)}
-        for predicted in predictions_dict:
-            print(predicted, "\t", confusion[gold_label][predicted])
+    # for gold_label in confusion.keys():
+    #     print("==============\n", gold_label, "\n--------------")
+    #     predictions_dict = {k: v for k, v in sorted(confusion[gold_label].items(), key=lambda item: item[1], reverse=True)}
+    #     for predicted in predictions_dict:
+    #         print(predicted, "\t", confusion[gold_label][predicted])
 
 
     tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
@@ -146,14 +155,14 @@ def eval_trees(pred_trees, gold_trees, view_fn):
     return scores   
 
 
-def main(path_to_model, test_ds):
+def main(path_to_model, test_ds, original_test_ds=None):
+    # original_test_ds - used when test_ds come from our segmenter
     #set random seed here because the vocab will be built based on the train set
     # random.seed(random_seed)
     # torch.manual_seed(random_seed)
     # torch.cuda.manual_seed(random_seed)
     # np.random.seed(random_seed)
     
-    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
     if config.ENCODING == "glove":
         
         # load data and split in train and validation sets; fixme: how do you do if you don't have a train set? make it based on test?
@@ -173,18 +182,7 @@ def main(path_to_model, test_ds):
     
     model.to(device)
 
-    # using our edus:
-    if config.USE_SEGMENTER:
-        segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
-        segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
-        segmentaion_model.to(device)
-        test_ds = segmenter_engine.run_fn(test_ds, segmentaion_model, device)
-    #     # train_ds = segmenter_engine.run_fn(old_train_ds, segmentaion_model, device)
-    #     print("gold edus: ", test_ds[0].edus)
-    
-    #     new_test_ds = segmenter_engine.run_fn(test_ds[0:1], segmentaion_model, device)
-    #     for ds in new_test_ds:
-    #         print("->", ds.edus)
+    pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
 
     
     # if config.RERUN_DEV_EVAL == True:
@@ -202,7 +200,7 @@ def main(path_to_model, test_ds):
     # else:
     #     pred_trees, gold_trees = engine.eval_fn(new_test_ds, model, device)
 
-    pred_trees, gold_trees = engine.eval_fn(test_ds, model, device)
+    
 
     # gold_edu_strings = []
     # print("gold--->", gold_trees[0].gold_spans())
@@ -234,21 +232,42 @@ def main(path_to_model, test_ds):
     #         print("FALSE: " + str_to_compare)
 
     if config.PRINT_TREES == False:
+
+        if config.USE_SEGMENTER:
+            p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only, test_ds, original_test_ds)
+        else:
+            p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         
-        p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
+        
+        #p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')
-            
-        p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+
+        if config.USE_SEGMENTER:
+            p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans, test_ds, original_test_ds)
+        else:
+            p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+           
+        #p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
         # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'N (span + dir)  F1:{f1_n:.2%}')
         
 
-        p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+        if config.USE_SEGMENTER:
+            p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans, test_ds, original_test_ds)
+        else:
+            p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+        
+        #p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
         # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'R (span + label)        F1:{f1_r:.2%}')
         
-        p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
+        if config.USE_SEGMENTER:
+            p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity, test_ds, original_test_ds)
+        else:
+            p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
+        
+        #p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')
 
@@ -263,7 +282,8 @@ def main(path_to_model, test_ds):
 if __name__ == '__main__':
 
 
-
+    device = torch.device('cuda' if config.USE_CUDA and torch.cuda.is_available() else 'cpu')
+    
     experiment_dir_path = config.OUTPUT_DIR/config.EXPERIMENT_DESCRIPTION
     random_seeds = config.RANDOM_SEEDS
     if config.PRINT_TREES == False:
@@ -294,7 +314,6 @@ if __name__ == '__main__':
                 else:
                     test_ds = list(load_annotations(config.VALID_PATH))
 
-                # test_ds = list(load_annotations(config.VALID_PATH))
                 if config.SORT_INPUT == True:
                     # construct new train_ds
                     test_ids_by_length = {}
@@ -306,8 +325,18 @@ if __name__ == '__main__':
                         for ann in test_ids_by_length[n]:
                             test_ds.append(ann)
 
+                # for the sake of dev eval; have to resegment every time
+                if config.USE_SEGMENTER:
+                    segm_experiment_dir_path = config.SEGMENTER_OUTPUT_DIR/config.SEGMENTER_EXPERIMENT_DESCRIPTION
+                    segmentaion_model = SegmentationModel.load(os.path.join(str(segm_experiment_dir_path/'rs') + str("22"), config.SEGMENTER_MODEL_FILENAME))
+                    segmentaion_model.to(device)
+                    segment_test_ds = segmenter_engine.run_fn(test_ds, segmentaion_model, device)
+
                 print("model path: ", path_to_model)
-                rs_results = main(path_to_model, test_ds)
+                if config.USE_SEGMENTER:
+                    rs_results = main(path_to_model, segment_test_ds, test_ds)
+                else:
+                    rs_results = main(path_to_model, test_ds)
                 span_scores[i] = rs_results[0]
                 nuclearity_scores[i] = rs_results[1]
                 relations_scores[i] = rs_results[2]

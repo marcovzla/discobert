@@ -151,8 +151,8 @@ def main(experiment_dir_path):
         print("Something went horribly wrong with reading in train data")
         NotImplementedError
 
-    for a in valid_ds:
-        print("--->", a.docid)
+    # for a in valid_ds:
+    #     print("--->", a.docid)
     if config.USE_CLASS_WEIGHTS:
     # calculate label class weights based on the train set
         train_trees = []

@@ -24,8 +24,8 @@ def train_fn(annotations, model, optimizer, device, scheduler=None, class_weight
 
 def eval_fn(annotations, model, device, class_weights=None):
     # print("TREES:\n")
-    for a in annotations:
-        print("-->", a.docid)
+    # for a in annotations:
+        # print("-->", a.docid)
     model.eval()
     pred_trees = []
     gold_trees = []
