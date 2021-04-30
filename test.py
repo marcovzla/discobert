@@ -58,9 +58,9 @@ def get_label_nuclearity_distribution(predictions):
 def eval_tree_pools(pred_trees, gold_trees, view_fn):
     
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-    print("pred: ", all_pred_spans)
-    for t in pred_trees:
-        print("t: ", t.text)
+    # print("pred: ", all_pred_spans)
+    # for t in pred_trees:
+    #     print("t: ", t.text)
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
     
     current_pred_pool = []
@@ -273,7 +273,7 @@ def main(path_to_model, test_ds, original_test_ds=None):
 
         # eval_trees(pred_trees, gold_trees, iter_label_and_direction) #this is to get label distributions
         # eval_trees(pred_trees, gold_trees, iter_labels) # this is to get confusion-matrix-like outputs
-        # eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity) #see how scores change with the size of the document
+        eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity) #see how scores change with the size of the document
 
         return f1_s, f1_n, f1_r, f1
     else:

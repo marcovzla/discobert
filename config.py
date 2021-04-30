@@ -13,10 +13,10 @@ NO_CONNECTIVES = False # to mask discourse markers (full list below), set to Tru
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
 EXPERIMENT_ID = 3000
-EXPERIMENT_DESCRIPTION = "experiment23-xlnet-with-our-segmenter-exp3-2021-04-07" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_DESCRIPTION = "experiment26-xlnet-rerunning-best-so-far-2021-04-25" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment3-segmenter-with-all-dev-examples-2021-04-02" # used to write and read a segmenter model
 SEGMENTER_RS_TO_USE=137 #whichever rs was best during training (based on dev)
-LOG_NAME = "eval_log_with_gold" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
+LOG_NAME = "eval_log_sent_level" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
 PRINT_TREES = False
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
@@ -36,7 +36,7 @@ INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
 USE_ATTENTION = False # not currently in model_glove
 DROP_CLS = True #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = True  #simplified curriculum learning
+SORT_INPUT = False  #simplified curriculum learning
 SORT_VALIDATION = False
 
 
