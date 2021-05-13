@@ -8,6 +8,7 @@ from treelstm import TreeLstm
 import config
 import torch.nn.functional as F
 import numpy as np
+import re
 #from sentence_transformers import SentenceTransformer
 
 inf = float('inf')
@@ -163,9 +164,21 @@ class DiscoBertModel(nn.Module):
             masked_scores = scores + mask
             return torch.argmax(masked_scores)
 
+    def replace_connectives(self, string, connectives):
+        for conn in connectives:
+            string = re.sub(r'\b(' + conn + r'|' + conn.capitalize()  + r')\b', "[UNK]", string)
+        return string
+
     def forward(self, edus, gold_tree=None, annotation=None, class_weights=None):
         # TODO: need to have a version that will produce parses from completely raw text; what should be the output?
-        #print("CUDA?: ", torch.cuda.is_available())        
+        #print("CUDA?: ", torch.cuda.is_available())   
+
+        if config.NO_CONNECTIVES:
+            connectives = config.CONNECTIVES
+            new_edus = [self.replace_connectives(edu, connectives) for edu in edus]
+            edus = new_edus
+         
+             
         # BERT model returns both sequence and pooled output
         if self.encoding == "bert" or self.encoding == "bert-large":
             # tokenize edus

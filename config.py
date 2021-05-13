@@ -9,14 +9,14 @@ from torchtext.data import get_tokenizer
 ENCODING = 'xlnet' #options in this branch (~~'ed ones are not yet ready): ~~"glove"~~, "glove-2-class", ~~'glove-2-class-stack-only'~~, and (some of) the encodings at the end of the file
 USE_SEGMENTER = False # has to be true for training segmenter
 SEGMENTER_ENCODING = 'bert' 
-NO_CONNECTIVES = False # to mask discourse markers (full list below), set to True; only implemented for 2 class version
+NO_CONNECTIVES = True # to mask discourse markers (full list below), set to True; only implemented for 2 class version
 DEBUG = False # no saving of files; output in the terminal; first random seed from the list
 RERUN_DEV_EVAL = False # True to rerun eval on the same dev sets that were used during training
-EXPERIMENT_ID = 33
-EXPERIMENT_DESCRIPTION = "rerun-xlnet-weights-dropcls-sort-input" # enter a brief description that will make the experiment easy to identify
+EXPERIMENT_ID = 36
+EXPERIMENT_DESCRIPTION = "experiment33-rerun-xlnet-weights-dropcls-sort-input-2021-04-29" # enter a brief description that will make the experiment easy to identify
 SEGMENTER_EXPERIMENT_DESCRIPTION = "experiment3-segmenter-with-all-dev-examples-2021-04-02" # used to write and read a segmenter model
 SEGMENTER_RS_TO_USE=137 #whichever rs was best during training (based on dev)
-LOG_NAME = "log" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
+LOG_NAME = "test_eval_no_connectives" # have been using "log" for training and "eval_log" for testing, and "eval_log_dev" for rerunning eval on dev set
 PRINT_TREES = False
 TEST_SIZE = 0.15 #If float, should be between 0.0 and 1.0 and represent the proportion of the dataset to include in the test split. If int, represents the absolute number of test samples. If None, the value is set to the complement of the train size. If train_size is also None, it will be set to 0.25. (https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html)
 EPOCHS = 30
@@ -30,13 +30,13 @@ RANDOM_SEEDS = [22, 42, 137, 198, 202]
 HIDDEN_SIZE = 200
 RELATION_LABEL_HIDDEN_SIZE = 5 #10
 DIRECTION_HIDDEN_SIZE = 10
-USE_CLASS_WEIGHTS = True # class weights for relation label classifier
+USE_CLASS_WEIGHTS = False # class weights for relation label classifier
 
 INCLUDE_RELATION_EMBEDDING = False
 INCLUDE_DIRECTION_EMBEDDING = False #has to be false for the two classifier version
 USE_ATTENTION = False # not currently in model_glove
 DROP_CLS = True #whether or not drop the beginning of sequence token (bos_token)
-SORT_INPUT = True  #simplified curriculum learning
+SORT_INPUT = False  #simplified curriculum learning
 SORT_VALIDATION = False
 
 
