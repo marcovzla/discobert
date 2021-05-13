@@ -6,7 +6,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction, iter_labels
+from rst import load_annotations, load_gold_lin2019_annotations_for_testing, load_one_sent_lin2019_data_for_processing, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_label_and_direction, iter_labels
 from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 from model_glove import DiscoBertModelGlove
 from model_glove_2_class import DiscoBertModelGlove2Class
@@ -90,15 +90,27 @@ def eval_tree_pools(pred_trees, gold_trees, view_fn):
 
 
 def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
+    
+    # if config.ONE_SENT_EVAL:
+        
     # pred_edus - edus from our segmenter
     if config.USE_SEGMENTER:
         all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), pred_edus[idx])] for idx, t in enumerate(pred_trees)]
         all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), gold_edus[idx])] for idx, t in enumerate(gold_trees)]
     else:
         all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in pred_trees]
-        all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in gold_trees]
-    
-    
+        if config.ONE_SENT_EVAL:
+            all_gold_spans = load_gold_lin2019_annotations_for_testing(config.ONE_SENT_DATA_DIR)
+        else:
+            all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in gold_trees]
+
+    # for i in range(len(list(all_gold_spans))):
+    #     for j in range(len(list(all_gold_spans))):
+    #         print(">>", list(all_gold_spans)[i][j], "||", list(all_pred_spans)[i][j])
+    # print(">>", list(all_pred_spans)[:10])
+    # print(">>>>", list(all_gold_spans)[:10])
+    # for sp in all_gold_spans:
+    #     print(">>>", sp)
     # if "iter_labels" in str(view_fn):
     #     # this is to get confusion-matrix-like information
     #     all_pred_spans = [f'{x}' for t in pred_trees for x in view_fn(t.get_nonterminals())]
@@ -233,34 +245,34 @@ def main(path_to_model, test_ds, original_test_ds=None):
 
     if config.PRINT_TREES == False:
 
-        if config.USE_SEGMENTER:
-            p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only, test_ds, original_test_ds)
-        else:
-            p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
+        # if config.USE_SEGMENTER:
+        #     p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only, test_ds, original_test_ds)
+        # else:
+        #     p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         
         
-        #p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
+        # #p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'S (span only)   F1:{f1_s:.2%}')
+        # print(f'S (span only)   F1:{f1_s:.2%}')
 
-        if config.USE_SEGMENTER:
-            p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans, test_ds, original_test_ds)
-        else:
-            p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+        # if config.USE_SEGMENTER:
+        #     p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans, test_ds, original_test_ds)
+        # else:
+        #     p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
            
-        #p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
-        # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'N (span + dir)  F1:{f1_n:.2%}')
+        # #p, r, f1_n = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+        # # print(f'N (span + dir)  P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        # print(f'N (span + dir)  F1:{f1_n:.2%}')
         
 
-        if config.USE_SEGMENTER:
-            p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans, test_ds, original_test_ds)
-        else:
-            p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+        # if config.USE_SEGMENTER:
+        #     p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans, test_ds, original_test_ds)
+        # else:
+        #     p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
         
-        #p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
-        # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
-        print(f'R (span + label)        F1:{f1_r:.2%}')
+        # #p, r, f1_r = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+        # # print(f'R (span + label)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
+        # print(f'R (span + label)        F1:{f1_r:.2%}')
         
         if config.USE_SEGMENTER:
             p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity, test_ds, original_test_ds)
@@ -273,9 +285,10 @@ def main(path_to_model, test_ds, original_test_ds=None):
 
         # eval_trees(pred_trees, gold_trees, iter_label_and_direction) #this is to get label distributions
         # eval_trees(pred_trees, gold_trees, iter_labels) # this is to get confusion-matrix-like outputs
-        eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity) #see how scores change with the size of the document
+        # eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity) #see how scores change with the size of the document
 
-        return f1_s, f1_n, f1_r, f1
+        # return f1_s, f1_n, f1_r, f1
+        return None, None, None, f1
     else:
         return None
     
@@ -307,13 +320,19 @@ if __name__ == '__main__':
                 path_to_model = os.path.join(str(experiment_dir_path/'rs') + str(r_seed), config.MODEL_FILENAME)
                 
 
-                if config.RERUN_DEV_EVAL == True:
-                    # print("START LOAD TRAIN/DEV SET")
-                    train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
-                    
+                if config.ONE_SENT_EVAL:
+                    test_ds = list(load_one_sent_lin2019_data_for_processing(config.ONE_SENT_DATA_DIR))
+                    print(test_ds[0], "<<")
+                    print(len(test_ds[0].edus), "<<<")
                 else:
-                    test_ds = list(load_annotations(config.VALID_PATH))
+                    if config.RERUN_DEV_EVAL == True:
+                        # print("START LOAD TRAIN/DEV SET")
+                        train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+                        
+                    else:
+                        test_ds = list(load_annotations(config.VALID_PATH))
 
+                # print(test_ds[0].edus)
                 if config.SORT_INPUT == True:
                     # construct new train_ds
                     test_ids_by_length = {}
@@ -337,9 +356,9 @@ if __name__ == '__main__':
                     rs_results = main(path_to_model, segment_test_ds, test_ds)
                 else:
                     rs_results = main(path_to_model, test_ds)
-                span_scores[i] = rs_results[0]
-                nuclearity_scores[i] = rs_results[1]
-                relations_scores[i] = rs_results[2]
+                # span_scores[i] = rs_results[0]
+                # nuclearity_scores[i] = rs_results[1]
+                # relations_scores[i] = rs_results[2]
                 full_scores[i] = rs_results[3]
 
             span_score = np.around(np.mean(span_scores), decimals=3)
@@ -353,9 +372,9 @@ if __name__ == '__main__':
             print("\n========================================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds:")
             print("--------------------------------------------------------")
-            print("F1 (span):\t", span_score, "±", span_score_sd)
-            print("F1 (span + dir):\t", nuc_score , "±", nuc_score_sd)
-            print("F1 (span + rel):\t", rel_score, "±", rel_score_sd)
+            # print("F1 (span):\t", span_score, "±", span_score_sd)
+            # print("F1 (span + dir):\t", nuc_score , "±", nuc_score_sd)
+            # print("F1 (span + rel):\t", rel_score, "±", rel_score_sd)
             print("F1 (full):\t", full_score , "±", full_score_sd)
             textpm_string = "\\\\textpm".replace("\\\\", "\\")
             print("latex printout: ", f" & {span_score} {textpm_string} {span_score_sd} &  {nuc_score} {textpm_string} {nuc_score_sd} &  {rel_score} {textpm_string} {rel_score_sd} & {full_score} {textpm_string} {full_score_sd} \\\\")

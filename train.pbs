@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=roberta-everything-true
+#SBATCH --job-name=xlnet-rerun-exp33
 #SBATCH --ntasks=1             
 #SBATCH --mem=24gb                    
 #SBATCH --time=06:00:00   

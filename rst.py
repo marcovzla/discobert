@@ -1,5 +1,7 @@
 from glob import glob
+import pickle
 import os
+from collections import namedtuple
 import re
 from copy import copy, deepcopy
 from collections import namedtuple
@@ -17,6 +19,7 @@ def load_annotations(directory):
         # print("file:", raw_path)
         yield load_annotation(raw_path)
 
+
 def load_annotation(raw_path):
     base_name = os.path.basename(raw_path)
     dis_path = raw_path + '.dis'
@@ -25,6 +28,78 @@ def load_annotation(raw_path):
     dis = load_dis(dis_path)
     edus = load_edus(edus_path)
     return Annotation(base_name, raw, dis, edus)
+
+def load_one_sent_lin2019_data_for_processing(directory):
+    with open(os.path.join(directory, 'Testing_EDUBreaks.pickle'), 'rb') as f:
+        # The protocol version used is detected automatically, so we do not
+        # have to specify it.
+        edu_breaks = pickle.load(f)
+    with open(os.path.join(directory, 'Testing_InputSentences.pickle'), 'rb') as f:
+        # The protocol version used is detected automatically, so we do not
+        # have to specify it.
+        sentences = pickle.load(f)
+    
+    for i, sent in enumerate(sentences):
+        raw = " ".join(sent)
+        edus = []
+        edu_start = 0
+        curr_edu = []
+        for j in range(len(sent)):
+            if j == len(sent):
+                edus.append(" ".join(sent[edu_start:]))
+            elif j in edu_breaks[i]:
+                edus.append(" ".join(sent[edu_start:j+1]))
+                edu_start = j + 1
+                curr_edu = []
+        yield Annotation(i, raw, None, edus)
+
+
+
+
+def load_gold_lin2019_annotations_for_testing(directory):
+    with open(os.path.join(directory, "Testing_GoldenLabelforMetric.pickle"), 'rb') as f:
+        # The protocol version used is detected automatically, so we do not
+        # have to specify it.
+        golden_sentences = pickle.load(f)
+        for g in golden_sentences:
+            one_sent_annotations = []
+            # for every sentence, there are several discourse relations
+            # these are all the relations per sentence
+            annotations = g[0].replace("(","").replace(")","").split(" ")
+            for a in annotations:
+                result = process_one_sent_gold_annotation_for_testings(a)
+                if result != "None":
+                    one_sent_annotations.append(result)
+            yield one_sent_annotations 
+
+def process_one_sent_gold_annotation_for_testings(annotation):
+    if annotation != "NONE":
+        sat_start = annotation.find("Satellite")
+        nuc_start = annotation.find("Nucleus")
+        # todo: double check how this works
+        if sat_start < nuc_start:
+            direction = "RightToLeft"
+        elif nuc_start < sat_start:
+            direction = "LeftToRight"
+        else:
+            print("sar or nucleus missing: " + annotation)
+
+
+        split_on_colons = annotation.split(":")
+        span_range = range(int(split_on_colons[0])-1, int(split_on_colons[-1]))
+#             print(span_range)
+
+        startOfLabel = annotation.find("Satellite=")
+        labelAndMore = annotation[startOfLabel:]
+        label = labelAndMore[len("Satellite="):labelAndMore.find(":")]
+
+        return(str(span_range) + "::" + direction + "::" + label.lower())
+        # return(str(span_range) + "::" + label.lower())
+    else:
+        return("None")
+
+
+
 
 def load_raw(name):
     with open(name) as f:
@@ -84,6 +159,7 @@ def iter_labeled_spans(treenodes, annot=None):
 def iter_labeled_spans_with_nuclearity(treenodes, annot=None):
     if annot == None:
         for t in treenodes:
+            # print(f'{t.span}::{t.direction}::{t.label}')
             yield f'{t.span}::{t.direction}::{t.label}'
     else:
         for t in treenodes:
