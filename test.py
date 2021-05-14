@@ -278,7 +278,9 @@ def main(path_to_model, test_ds, original_test_ds=None):
             p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity, test_ds, original_test_ds)
         else:
             p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
-        
+            # p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+            # p, r, f1 = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+            # p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
         #p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')

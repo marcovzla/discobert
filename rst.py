@@ -95,6 +95,8 @@ def process_one_sent_gold_annotation_for_testings(annotation):
 
         return(str(span_range) + "::" + direction + "::" + label.lower())
         # return(str(span_range) + "::" + label.lower())
+        # return(str(span_range) + "::" + direction)
+        # return(str(span_range))
     else:
         return("None")
 
