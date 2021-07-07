@@ -3,11 +3,12 @@
 import torch
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, classification_report
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.model_selection import train_test_split
 from transformers import AdamW, get_linear_schedule_with_warmup
 from model import DiscoBertModel
-from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity
-from utils import prf1
+from rst import load_annotations, iter_spans_only, iter_nuclearity_spans, iter_labeled_spans, iter_labeled_spans_with_nuclearity, iter_labels
+from utils import prf1, tpfpfn, calc_prf_from_tpfpfn
 import config
 import engine
 import random
@@ -21,15 +22,27 @@ def optimizer_parameters(model):
     no_decay = ['bias', 'LayerNorm']
     named_params = list(model.named_parameters())
     return [
-        {'params': [p for n,p in named_params if not any(nd in n for nd in no_decay)], 'weight_decay': 0.001},
+        {'params': [p for n,p in named_params if not any(nd in n for nd in no_decay)], 'weight_decay': 0.0001}, #0.001 and 0.0001 are pretty close (0.0001 is slightly better on the first few epochs); anything less than .0001 doesn't change performance
         {'params': [p for n,p in named_params if any(nd in n for nd in no_decay)], 'weight_decay': 0.0},
     ]
+
+# def eval_trees(pred_trees, gold_trees, view_fn):
+#     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+#     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+#     scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+#     scores = np.array(scores).mean(axis=0).tolist()
+#     return scores
 
 def eval_trees(pred_trees, gold_trees, view_fn):
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
-    scores = [prf1(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
-    scores = np.array(scores).mean(axis=0).tolist()
+    tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
+    # print(tpfpfns)
+    tp, fp, fn = np.array(tpfpfns).sum(axis=0)
+    # print(tp, fp, fn)
+    scores = calc_prf_from_tpfpfn(tp, fp, fn)
+    # scores = np.array(scores).mean(axis=0).tolist()
+    # print(scores)
     return scores
 
 def main(experiment_dir_path):
@@ -48,7 +61,28 @@ def main(experiment_dir_path):
     # load data and split in train and validation sets
     train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
+    train_trees = []
+    for item in train_ds:
+        train_trees.append(item.dis)
+
+    all_labels = [f'{x}' for t in train_trees for x in iter_labels(t.get_nonterminals())]
+    # distinct_labels = list(set(all_labels))
     
+    label_list = config.ID_TO_LABEL[1:]
+    # label_list = config.ID_TO_LABEL
+
+
+    # class_weights = []
+    # for i, item in enumerate(label_list):
+    #     class_weights.append(1/np.log(all_labels.count(item)))
+    
+    # class_weights = np.array(class_weights)
+
+
+    class_weights = compute_class_weight("balanced", label_list, all_labels)
+    # print("class weights: ",class_weights)
+    class_weights = np.insert(class_weights, 0, 0, axis=0)
+    print("class weights1: ",class_weights)
     if config.SORT_INPUT == True:
         # construct new train_ds
         train_ids_by_length = {}
@@ -89,8 +123,8 @@ def main(experiment_dir_path):
         print("-----------")
         print(f'epoch: {epoch+1}/{config.EPOCHS}')
         print("-----------")
-        engine.train_fn(train_ds, model, optimizer, device, scheduler)
-        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device)
+        engine.train_fn(train_ds, model, optimizer, device, scheduler, class_weights)
+        pred_trees, gold_trees = engine.eval_fn(valid_ds, model, device, class_weights)
         p, r, f1_s = eval_trees(pred_trees, gold_trees, iter_spans_only)
         # print(f'S (span only)   P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'S (span only)   F1:{f1_s:.2%}')
@@ -155,6 +189,17 @@ def main(experiment_dir_path):
 
 if __name__ == '__main__':
 
+    print("Printing out config settings:")
+    print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+    print("debug: ", config.DEBUG)
+    print("encoding: ", config.ENCODING)
+    print("tokenizer: ", config.TOKENIZER)
+    # print("model: ", config.MODEL)
+    print("use attention", config.USE_ATTENTION)
+    print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+    print("sort input: ", config.SORT_INPUT)
+    print("test size: ", config.TEST_SIZE)
+
     start_time = time.time()
     random_seeds = config.RANDOM_SEEDS
     if config.DEBUG == True:
@@ -177,7 +222,16 @@ if __name__ == '__main__':
 
         with open(os.path.join(experiment_dir_path, "log"), "w") as f:
             sys.stdout = f
-        
+            print("Printing out config settings:")
+            print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
+            print("debug: ", config.DEBUG)
+            print("encoding: ", config.ENCODING)
+            print("tokenizer: ", config.TOKENIZER)
+            # print("model: ", config.MODEL)
+            print("use attention", config.USE_ATTENTION)
+            print("use relation and dir emb-s: ", config.INCLUDE_RELATION_EMBEDDING, " ", config.INCLUDE_DIRECTION_EMBEDDING)
+            print("sort input: ", config.SORT_INPUT)
+            print("test size: ", config.TEST_SIZE)
             span_scores = np.zeros(len(random_seeds))
             nuclearity_scores = np.zeros(len(random_seeds)) # span + direction
             relations_scores = np.zeros(len(random_seeds)) # span + relation label
@@ -212,13 +266,35 @@ if __name__ == '__main__':
                     best_seed = r_seed
 
 
-            print("\n========================================================")
+
+            span_score = np.around(np.mean(span_scores), decimals=3)
+            span_score_sd = np.around(np.std(span_scores), decimals=3)
+            nuc_score = np.around(np.mean(nuclearity_scores), decimals=3)
+            nuc_score_sd = np.around(np.std(nuclearity_scores), decimals=3)
+            rel_score = np.around(np.mean(relations_scores), decimals=3)
+            rel_score_sd = np.around(np.std(relations_scores), decimals=3)
+            full_score = np.around(np.mean(full_scores), decimals=3)
+            full_score_sd = np.around(np.std(full_scores), decimals=3)
+
+            
+            print("\n========this print out is to check if i made any mistakes adding the code here from train==============================")
+            print(f"Mean scores from {len(random_seeds)} runs with different random seeds:")
+            print("--------------------------------------------------------")
+            print("F1 (span):\t", span_score, "±", span_score_sd)
+            print("F1 (span + dir):\t", nuc_score , "±", nuc_score_sd)
+            print("F1 (span + rel):\t", rel_score, "±", rel_score_sd)
+            print("F1 (full):\t", full_score , "±", full_score_sd)
+            textpm_string = "\\\\textpm".replace("\\\\", "\\")
+            print("latex pringout: ", f" & {span_score} {textpm_string} {span_score_sd} &  {nuc_score} {textpm_string} {nuc_score_sd} &  {rel_score} {textpm_string} {rel_score_sd} & {full_score} {textpm_string} {full_score_sd} \\\\")
+
+
+            print("\n=================Old version:==================================")
             print(f"Mean scores from {len(random_seeds)} runs with different random seeds (the scores are from the saved model, i.e., best model based on full f1 score):")
             print("--------------------------------------------------------")
-            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=4), "±", np.around(np.std(span_scores), decimals=5))
-            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=4), "±", np.around(np.std(nuclearity_scores), decimals=5))
-            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=4), "±", np.around(np.std(relations_scores), decimals=5))
-            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=4), "±", np.around(np.std(full_scores), decimals=5))
+            print("F1 (span):\t", np.around(np.mean(span_scores), decimals=3), "±", np.around(np.std(span_scores), decimals=3))
+            print("F1 (span + dir):\t", np.around(np.mean(nuclearity_scores), decimals=3), "±", np.around(np.std(nuclearity_scores), decimals=3))
+            print("F1 (span + rel):\t", np.around(np.mean(relations_scores), decimals=3), "±", np.around(np.std(relations_scores), decimals=3))
+            print("F1 (full):\t", np.around(np.mean(full_scores), decimals=3), "±", np.around(np.std(full_scores), decimals=3))
             print("Best random seed:\t", best_seed)
             print("Time it took to run the script --- %s seconds ---" % (time.time() - start_time))
 

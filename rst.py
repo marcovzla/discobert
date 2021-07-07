@@ -58,7 +58,22 @@ def iter_labeled_spans_with_nuclearity(treenodes):
     for t in treenodes:
         yield f'{t.span}::{t.direction}::{t.label}'
 
+# this is just for checking the predicted label distribution 
+def iter_label_and_direction(treenodes):
+    for t in treenodes:
+        yield f'{t.label}::{t.direction}'
+
+def iter_labels(treenodes):
+    for t in treenodes:
+        yield f'{t.label}'
+
+
+
 class TreeNode:
+
+    #todo: method dump trees
+    #stopping condiction and recursive; if no children, then it's a leaf, then print leaf 
+    #when it's not a leaf (non_term), print the info for this node and then call this method again for each of its children
 
     def __init__(self, kind=None, children=None, text=None, leaf=None, span=None, rel2par=None, label=None, direction=None, embedding=None):
         self.kind = kind # ['Nucleus', 'Satellite', 'Root']
@@ -135,11 +150,25 @@ class TreeNode:
                 golds.extend(c.gold_spans())
         return golds
 
+    # def to_nltk(self):
+    #     if self.is_terminal:
+    #         return Tree('EDU', [self.text])
+    #     else:
+    #         return Tree(self.label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
+
     def to_nltk(self):
         if self.is_terminal:
-            return Tree('EDU', [self.text])
+            # return Tree('TEXT', [" ".join(self.text.replace("(", "[").replace(")", "]").split(" ")[:5])])
+            # return Tree('TEXT', [])
+            return Tree('TEXT', [self.text.replace("(", "[").replace(")", "]")])
         else:
-            return Tree(self.label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
+            if self.direction == 'LeftToRight':
+                label = f'{self.label}:NS'
+            elif self.direction == 'RightToLeft':
+                label = f'{self.label}:SN'
+            else:
+                label = self.label
+        return Tree(label, [self.lhs.to_nltk(), self.rhs.to_nltk()])
 
     @classmethod
     def from_string(cls, string):
@@ -235,6 +264,7 @@ def propagate_labels(node):
         propagate_labels(c)
 
 def binarize_tree(node):
+    # print(len(node.children))
     if node.is_terminal:
         return node
     if len(node.children) > 2:
