@@ -229,6 +229,9 @@ class DiscoBertModel(nn.Module):
         
         # whether or not drop the classification token in bert-like models
         #print("type of sseq output 1: ", type(sequence_output))
+        # print("==>", type(sequence_output))
+        # print(sequence_output)
+        # print("->", sequence_output.shape())
         if config.DROP_CLS == True:
             sequence_output = sequence_output[:, 1:, :] 
             attention_mask = attention_mask[:, 1:]

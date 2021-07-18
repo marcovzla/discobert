@@ -42,6 +42,20 @@ def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
     else:
         all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in pred_trees]
         all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in gold_trees]
+
+    relation2instances = {}
+    if view_fn == iter_labeled_spans:
+        for per_doc in all_gold_spans:
+            for item in per_doc:
+                # print(item)
+                label = item.split("::")[-1]
+                if label in relation2instances:
+                    relation2instances[label] += 1
+                else:
+                    relation2instances[label] = 1
+    for w in sorted(relation2instances, key=relation2instances.get, reverse=True):
+        print(w, relation2instances[w])
+
     
 
     tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(all_pred_spans, all_gold_spans)]
@@ -350,7 +364,7 @@ if __name__ == '__main__':
         shutil.copyfile(config.CONFIG_FILE, os.path.join(experiment_dir_path, "config.py"))
 
         with open(os.path.join(experiment_dir_path, config.LOG_NAME), "w") as f:
-            # sys.stdout = f
+            sys.stdout = f
             print("Printing out config settings:")
             print("Separate rel and dir classifiers (true=3-classifier parser): ", config.SEPARATE_ACTION_AND_DIRECTION_CLASSIFIERS)
             print("debug: ", config.DEBUG)
