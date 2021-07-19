@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=xlnet-rerun-exp33
+#SBATCH --job-name=check_labels_lin
 #SBATCH --ntasks=1             
 #SBATCH --mem=24gb                    
 #SBATCH --time=06:00:00   

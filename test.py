@@ -90,7 +90,7 @@ def eval_tree_pools(pred_trees, gold_trees, view_fn):
 
 
 def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
-    
+    # print("EVAL")
     # if config.ONE_SENT_EVAL:
         
     # pred_edus - edus from our segmenter
@@ -104,6 +104,23 @@ def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
         else:
             all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals(), None)] for  t in gold_trees]
 
+    # print("HERE 1")
+
+    for i in all_pred_spans:
+        print("+>", i)
+    relation2instances = {}
+    # if view_fn == iter_labeled_spans:
+    for per_doc in all_pred_spans:
+        for item in per_doc:
+            # print(item)
+            label = item.split("::")[-1]
+            if label in relation2instances:
+                relation2instances[label] += 1
+            else:
+                relation2instances[label] = 1
+
+    for w in sorted(relation2instances, key=relation2instances.get, reverse=True):
+        print(w, relation2instances[w])
     # for i in range(len(list(all_gold_spans))):
     #     for j in range(len(list(all_gold_spans))):
     #         print(">>", list(all_gold_spans)[i][j], "||", list(all_pred_spans)[i][j])
@@ -275,12 +292,18 @@ def main(path_to_model, test_ds, original_test_ds=None):
         # print(f'R (span + label)        F1:{f1_r:.2%}')
         
         if config.USE_SEGMENTER:
+            print("Use segm")
             p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity, test_ds, original_test_ds)
         else:
-            p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
-            # p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
-            # p, r, f1 = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
-            # p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
+
+            if config.SENT_EVAL_TYPE=="full":
+                p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
+            elif config.SENT_EVAL_TYPE == "label":
+                p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans)
+            elif config.SENT_EVAL_TYPE == "nuc":
+                p, r, f1 = eval_trees(pred_trees, gold_trees, iter_nuclearity_spans)
+            elif config.SENT_EVAL_TYPE == "span":
+                p, r, f1 = eval_trees(pred_trees, gold_trees, iter_spans_only)
         #p, r, f1 = eval_trees(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity)
         # print(f'F (full)        P:{p:.2%}\tR:{r:.2%}\tF1:{f1:.2%}')
         print(f'F (full)        F1:{f1:.2%}')

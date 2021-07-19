@@ -7,6 +7,7 @@ from copy import copy, deepcopy
 from collections import namedtuple
 from nltk import Tree
 from utils import extractrelation
+import config
 
 Annotation = namedtuple('Annotation', 'docid raw dis edus')
 LEFT_TO_RIGHT = 'LeftToRight'
@@ -92,11 +93,18 @@ def process_one_sent_gold_annotation_for_testings(annotation):
         startOfLabel = annotation.find("Satellite=")
         labelAndMore = annotation[startOfLabel:]
         label = labelAndMore[len("Satellite="):labelAndMore.find(":")]
+        # print("+++>", label)
 
-        return(str(span_range) + "::" + direction + "::" + label.lower())
-        # return(str(span_range) + "::" + label.lower())
-        # return(str(span_range) + "::" + direction)
-        # return(str(span_range))
+        print("UPDATE THIS")
+
+        if config.SENT_EVAL_TYPE=="full":
+            return(str(span_range) + "::" + direction + "::" + label.lower().replace("-", "_"))
+        elif config.SENT_EVAL_TYPE=="label":
+            return(str(span_range) + "::" + label.lower().replace("-", "_"))
+        elif config.SENT_EVAL_TYPE=="nuc":
+            return(str(span_range) + "::" + direction)
+        elif config.SENT_EVAL_TYPE=="span":
+            return(str(span_range))
     else:
         return("None")
 
