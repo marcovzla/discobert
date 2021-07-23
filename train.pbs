@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=someName
+#SBATCH --job-name=rerun-gpt2-defaults
 #SBATCH --ntasks=1             
 #SBATCH --mem=24gb                    
 #SBATCH --time=06:00:00   

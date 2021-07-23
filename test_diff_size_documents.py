@@ -106,7 +106,7 @@ def eval_tree_pools(pred_trees, gold_trees, view_fn):
         tp, fp, fn = np.array(tpfpfns).sum(axis=0)
         # print(tp, fp, fn)
         scores = calc_prf_from_tpfpfn(tp, fp, fn)
-        print("len of pool: ", len(current_pred_pool), "; max document length (in spans): ", max_len, "score: ", scores[0])
+        print("len of pool:\t", len(current_pred_pool), "\t; max document length (in spans):\t", max_len, "\tscore:\t", scores[0])
         # scores = np.array(scores).mean(axis=0).tolist()
         # print(scores)
         # return scores

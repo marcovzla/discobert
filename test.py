@@ -55,17 +55,19 @@ def get_label_nuclearity_distribution(predictions):
     return nuclearity_label_dict
 
 
-def eval_tree_pools(pred_trees, gold_trees, view_fn):
+# this version makes pools based on max doc size
+def eval_tree_pools(pred_trees, gold_trees, view_fn, test_ds):
     
     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
-    print("pred: ", all_pred_spans)
-    for t in pred_trees:
-        print("t: ", t.text)
+    # print("pred: ", all_pred_spans)
+    # for t in pred_trees:
+    #     print("t: ", t.text)
     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
     
     current_pred_pool = []
     current_gold_pool = []
 
+    overall_max_len = 0
     for i, tree_pred in enumerate(all_pred_spans):
         current_pred_pool.append(tree_pred)
         current_gold_pool.append(all_gold_spans[i])
@@ -76,17 +78,54 @@ def eval_tree_pools(pred_trees, gold_trees, view_fn):
             if len(doc) > max_len:
                 max_len = len(doc)
         # print("max len: ", max_len)
+        
 
 
-        tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(current_pred_pool, current_gold_pool)]
-        # print(tpfpfns)
-        tp, fp, fn = np.array(tpfpfns).sum(axis=0)
-        # print(tp, fp, fn)
-        scores = calc_prf_from_tpfpfn(tp, fp, fn)
-        print("len of pool: ", len(current_pred_pool), "; max document length (in spans): ", max_len, "score: ", scores[0])
+        if (max_len) > overall_max_len:
+            tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(current_pred_pool, current_gold_pool)]
+            # print(tpfpfns)
+            tp, fp, fn = np.array(tpfpfns).sum(axis=0)
+            # print(tp, fp, fn)
+            scores = calc_prf_from_tpfpfn(tp, fp, fn)
+            print("len of pool:\t", len(current_pred_pool), "\t; max document length (in spans):\t", len(test_ds[i].edus), "\tscore:\t", scores[0])
+            overall_max_len = max_len
         # scores = np.array(scores).mean(axis=0).tolist()
         # print(scores)
         # return scores
+
+# this version calculates based on pool size
+# def eval_tree_pools(pred_trees, gold_trees, view_fn):
+    
+#     all_pred_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in pred_trees]
+#     # print("pred: ", all_pred_spans)
+#     # for t in pred_trees:
+#     #     print("t: ", t.text)
+#     all_gold_spans = [[f'{x}' for x in view_fn(t.get_nonterminals())] for t in gold_trees]
+    
+#     current_pred_pool = []
+#     current_gold_pool = []
+
+#     for i, tree_pred in enumerate(all_pred_spans):
+#         current_pred_pool.append(tree_pred)
+#         current_gold_pool.append(all_gold_spans[i])
+#         assert len(current_pred_pool) == len(current_gold_pool)
+#         max_len = 0
+#         for doc in current_gold_pool:
+#             # print("len doc: ", len(doc))
+#             if len(doc) > max_len:
+#                 max_len = len(doc)
+#         # print("max len: ", max_len)
+
+
+#         tpfpfns = [tpfpfn(pred, gold) for pred, gold in zip(current_pred_pool, current_gold_pool)]
+#         # print(tpfpfns)
+#         tp, fp, fn = np.array(tpfpfns).sum(axis=0)
+#         # print(tp, fp, fn)
+#         scores = calc_prf_from_tpfpfn(tp, fp, fn)
+#         print("len of pool:\t", len(current_pred_pool), "\t; max document length (in spans):\t", max_len, "\tscore:\t", scores[0])
+#         # scores = np.array(scores).mean(axis=0).tolist()
+#         # print(scores)
+#         # return scores
 
 
 def eval_trees(pred_trees, gold_trees, view_fn, pred_edus=None, gold_edus=None):
@@ -166,14 +205,14 @@ def main(path_to_model, test_ds, original_test_ds=None):
     if config.ENCODING == "glove":
         
         # load data and split in train and validation sets; fixme: how do you do if you don't have a train set? make it based on test?
-        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+        train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
         word2index = make_word2index(train_ds)   
         model = DiscoBertModelGlove(word2index).load(path_to_model, word2index)
     elif config.ENCODING == "glove-2-class":
         
         # load data and split in train and validation sets
-        train_ds, valid_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
+        train_ds, test_ds = train_test_split(list(load_annotations(config.TRAIN_PATH)), test_size=config.TEST_SIZE)
 
         word2index = make_word2index(train_ds)   
         model = DiscoBertModelGlove2Class(word2index).load(path_to_model, word2index)   
@@ -273,7 +312,7 @@ def main(path_to_model, test_ds, original_test_ds=None):
 
         # eval_trees(pred_trees, gold_trees, iter_label_and_direction) #this is to get label distributions
         # eval_trees(pred_trees, gold_trees, iter_labels) # this is to get confusion-matrix-like outputs
-        # eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity) #see how scores change with the size of the document
+        # eval_tree_pools(pred_trees, gold_trees, iter_labeled_spans_with_nuclearity, test_ds) #see how scores change with the size of the document
 
         return f1_s, f1_n, f1_r, f1
     else:
@@ -320,10 +359,12 @@ if __name__ == '__main__':
                     for item in test_ds:
                         test_ids_by_length.setdefault(len(item.edus), []).append(item)
 
+                    # print("->",test_ids_by_length)
                     test_ds = []
                     for n in sorted(test_ids_by_length):
                         for ann in test_ids_by_length[n]:
                             test_ds.append(ann)
+                            print(">>", len(ann.edus))
 
                 # for the sake of dev eval; have to resegment every time
                 if config.USE_SEGMENTER:
